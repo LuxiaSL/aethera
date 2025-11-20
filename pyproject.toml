@@ -1,0 +1,50 @@
+[project]
+name = "luxiblog"
+version = "0.1.0"
+description = "A lightweight, AI-friendly blog platform with semantic HTML, markdown support, and simple commenting"
+authors = [
+    { name = "LuxiaSL", email = "mail.luxia@gmail.com" }
+]
+dependencies = [
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "jinja2>=3.1.6",
+    "alembic>=1.15.2",
+    "sqlmodel>=0.0.24",
+    "markdown-it-py>=3.0.0",
+    "python-multipart>=0.0.20",
+    "python-slugify>=8.0.4",
+    "sse-starlette>=2.3.4",
+    "itsdangerous>=2.1.2",
+    "python-dotenv"
+]
+readme = "README.md"
+requires-python = ">= 3.10"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",  # For testing API endpoints
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["luxiblog"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+markers = [
+    "models: tests for database models",
+    "utils: tests for utility functions",
+    "api: tests for API endpoints",
+    "integration: integration tests across components"
+]

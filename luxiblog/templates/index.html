@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="mb-12">
+    <h2 class="text-2xl font-bold mb-6 border-b-2 border-accent-soft pb-3 inline-block">Recent Posts</h2>
+    
+    <!-- Posts container with HTMX infinite scroll -->
+    <div id="posts-container" 
+         hx-get="/posts?page=1" 
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <!-- Initial loading indicator -->
+        <div class="text-center py-8 opacity-70">
+            <div class="inline-block animate-pulse">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <p class="text-text-muted">Loading posts...</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Configure infinite scroll when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the posts container
+        const postsContainer = document.getElementById('posts-container');
+        
+        // Set up intersection observer for infinite scroll
+        let currentPage = 1;
+        let observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // When the sentinel comes into view, load the next page
+                    currentPage++;
+                    
+                    // Remove the current sentinel
+                    entry.target.remove();
+                    observer.unobserve(entry.target);
+                    
+                    // Load the next page with HTMX
+                    const nextPageUrl = `/posts?page=${currentPage}`;
+                    htmx.ajax('GET', nextPageUrl, { target: '#posts-container', swap: 'beforeend' });
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        // Listen for new content being added to attach observers
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'posts-container') {
+                // Find the new sentinel element if exists
+                // Use querySelectorAll to find all potential sentinels and observe the last one
+                const sentinels = document.querySelectorAll('.scroll-sentinel');
+                if (sentinels && sentinels.length > 0) {
+                    // Get the last sentinel (most recently added)
+                    const sentinel = sentinels[sentinels.length - 1];
+                    observer.observe(sentinel);
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

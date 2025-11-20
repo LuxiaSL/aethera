@@ -1,0 +1,44 @@
+# Bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+wheels/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local SQLite DB
+blog.sqlite
+*.db
+*.sqlite3
+
+# Static assets
+luxiblog/static/uploads/*
+!luxiblog/static/uploads/.gitkeep
+luxiblog/static/css/*
+!luxiblog/static/css/.gitkeep
+luxiblog/static/js/*
+!luxiblog/static/js/.gitkeep
+
+# Virtual envs
+.venv/
+.rye/
+env/
+venv/
+ENV/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo

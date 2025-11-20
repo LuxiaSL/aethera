@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title | default("LuxiBlog") }}{% endblock %}</title>
+    
+    <!-- Meta tags and SEO -->
+    {% block meta %}
+    <meta name="description" content="{% block description %}A lightweight blog for AI researchers and crawlers{% endblock %}">
+    {% if canonical_url %}
+    <link rel="canonical" href="{{ canonical_url }}">
+    {% endif %}
+    <meta name="license" content="CC BY 4.0">
+    <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
+    {% endblock %}
+    
+    <!-- Schema.org structured data -->
+    {% block schema %}
+    {% if post is defined %}
+    <!-- Article schema for post pages -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "{{ post.title }}",
+        "datePublished": "{{ post.created_at.isoformat() }}",
+        "dateModified": "{{ post.updated_at.isoformat() }}",
+        "author": {
+            "@type": "Person",
+            "name": "{{ post.author }}"
+        },
+        {% if post.tags %}
+        "keywords": "{{ post.tags }}",
+        {% endif %}
+        {% if post.canonical_url %}
+        "url": "{{ post.canonical_url }}"
+        {% else %}
+        "url": "{{ request.url }}"
+        {% endif %}
+    }
+    </script>
+    {% else %}
+    <!-- Website schema for home/index page -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "LuxiBlog",
+        "description": "{% block schema_description %}{{ self.description() }}{% endblock %}",
+        "url": "{{ request.base_url }}",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "{{ request.base_url }}search?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+    {% endif %}
+    {% endblock %}
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="/static/css/branding.css" rel="stylesheet">
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-bg text-text">
+    <header class="w-full relative">
+        <!-- Banner Image - Adjust the path when the banner is created -->
+        <div class="banner-container w-full h-60 overflow-hidden">
+            <img src="/static/uploads/banner.png" 
+                 alt="LuxiBlog cybernetic circuit banner"
+                 class="w-full h-full object-cover opacity-90 mix-blend-screen"
+                 onerror="this.style.display='none'" />
+        </div>
+        
+        <div class="max-w-prose mx-auto px-4 py-6 relative z-10">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl tracking-wide">
+                    <a href="/" class="text-text hover:text-accent no-underline transition-colors duration-200">Luxi<span class="font-semibold">Blog</span></a>
+                </h1>
+                <nav>
+                    <ul class="flex space-x-4 text-sm">
+                        <li><a href="/" class="text-text-muted hover:text-accent transition-colors duration-200">Home</a></li>
+                        <li><a href="/feed.xml" class="text-text-muted hover:text-accent transition-colors duration-200">RSS</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+    
+    <main class="max-w-prose mx-auto px-4 md:pl-20 mt-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="bg-bg-elevated mt-16 py-8 text-center text-text-muted text-sm border-t border-accent-soft">
+        <div class="max-w-prose mx-auto px-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p>&copy; {% now().year %} LuxiBlog. Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" class="text-text-muted hover:text-accent">CC BY 4.0</a>.</p>
+                </div>
+                <div>
+                    <a href="/admin" class="text-text-muted hover:text-accent">Admin</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
