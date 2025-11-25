@@ -6,19 +6,15 @@ import os
 from pathlib import Path
 from datetime import datetime
 from slugify import slugify
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from luxiblog.models.base import get_session
 from luxiblog.models.models import Post, Comment
 from luxiblog.utils.markdown import render_markdown
 from luxiblog.utils.posts import save_post
+from luxiblog.utils.templates import templates
 
 router = APIRouter(tags=["posts"])
-
-# Initialize templates
-templates_path = Path(__file__).parent.parent / "templates"
-templates = Jinja2Templates(directory=str(templates_path))
 
 
 class PostResponse(BaseModel):

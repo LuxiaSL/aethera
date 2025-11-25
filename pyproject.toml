@@ -16,7 +16,8 @@ dependencies = [
     "python-slugify>=8.0.4",
     "sse-starlette>=2.3.4",
     "itsdangerous>=2.1.2",
-    "python-dotenv"
+    "python-dotenv",
+    "passlib[bcrypt]>=1.7.4"
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -24,14 +25,6 @@ requires-python = ">= 3.10"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.rye]
-managed = true
-dev-dependencies = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "httpx>=0.25.0",  # For testing API endpoints
-]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -47,4 +40,11 @@ markers = [
     "utils: tests for utility functions",
     "api: tests for API endpoints",
     "integration: integration tests across components"
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
 ]

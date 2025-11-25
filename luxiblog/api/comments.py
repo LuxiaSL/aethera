@@ -3,7 +3,6 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import List, Optional, Dict
 from datetime import datetime
-from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from sse_starlette.sse import EventSourceResponse
 import asyncio
@@ -14,12 +13,9 @@ from luxiblog.models.base import get_session
 from luxiblog.models.models import Post, Comment
 from luxiblog.utils.markdown import render_comment_markdown
 from luxiblog.utils.rate_limit import rate_limit_comments
+from luxiblog.utils.templates import templates
 
 router = APIRouter(tags=["comments"])
-
-# Initialize templates
-templates_path = Path(__file__).parent.parent / "templates"
-templates = Jinja2Templates(directory=str(templates_path))
 
 # Store for active comment streams per post using weakrefs to prevent memory leaks
 # We need a dict because we can't use weakref.WeakSet for asyncio.Queue objects directly
@@ -172,12 +168,10 @@ async def stream_comments(request: Request, post_id: int):
                 # Wait for new comments
                 comment = await queue.get()
 
-                # Pass proper request context to the template
-                with templates.env.new_context(context):
-                    # Render comment HTML with request context
-                    comment_html = templates.get_template("fragments/comment.html").render(
-                        request=request, comment=comment
-                    )
+                # Render comment HTML with request context
+                comment_html = templates.get_template("fragments/comment.html").render(
+                    request=request, comment=comment
+                )
 
                 # Send the comment HTML as an SSE event
                 yield {

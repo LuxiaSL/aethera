@@ -10,6 +10,19 @@
 {% if post.tags %}
 <meta name="keywords" content="{{ post.tags }}">
 {% endif %}
+
+<!-- Open Graph -->
+<meta property="og:title" content="{{ post.title }}">
+<meta property="og:description" content="{{ post.excerpt }}">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="LuxiBlog">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{ post.title }}">
+<meta name="twitter:description" content="{{ post.excerpt }}">
+
 <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
 {% endblock %}
 
@@ -21,81 +34,83 @@
             <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%B %d, %Y') }}</time>
             {% if post.author %} · {{ post.author }}{% endif %}
         </div>
-        
+
         {% if post.tags %}
         <div class="mt-4">
             {% for tag in post.get_tags_list() %}
-            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80 hover:opacity-100 transition-opacity">{{ tag }}</span>
+            <span
+                class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80 hover:opacity-100 transition-opacity">{{
+                tag }}</span>
             {% endfor %}
         </div>
         {% endif %}
     </header>
-    
+
     <div class="post-content prose lg:prose-lg max-w-none text-text">
         {{ post.content_html | safe }}
     </div>
-    
+
     <footer class="mt-10 pt-5 border-t border-accent-soft text-text-muted">
-        <p>Posted under 
-        {% if post.categories %}
+        <p>Posted under
+            {% if post.categories %}
             {% for category in post.get_categories_list() %}
-            <a href="/category/{{ category }}" class="text-accent hover:underline">{{ category }}</a>{% if not loop.last %}, {% endif %}
+            <a href="/category/{{ category }}" class="text-accent hover:underline">{{ category }}</a>{% if not loop.last
+            %}, {% endif %}
             {% endfor %}
-        {% else %}
+            {% else %}
             <span>Uncategorized</span>
-        {% endif %}
+            {% endif %}
         </p>
-        
+
         <p class="mt-3 text-sm">
-            Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" class="text-accent hover:underline">{{ post.license }}</a>
+            Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" class="text-accent hover:underline">{{
+                post.license }}</a>
         </p>
     </footer>
 </article>
 
 <section class="circuit-box comments-section mt-12 bg-bg-soft">
     <h2 class="text-2xl font-bold mb-6">Comments</h2>
-    
+
     <!-- Comment form -->
     <div class="comment-form mb-8">
-        <form hx-post="/posts/{{ post.slug }}/comments" 
-              hx-target="#comments-container" 
-              hx-swap="afterbegin"
-              class="bg-bg-elevated p-5 rounded shadow-inner border-l-2 border-accent-soft">
+        <form hx-post="/posts/{{ post.slug }}/comments" hx-target="#comments-container" hx-swap="afterbegin"
+            class="bg-bg-elevated p-5 rounded shadow-inner border-l-2 border-accent-soft">
             <div class="mb-4">
                 <label for="author" class="block text-text text-sm font-bold mb-2">Name (optional)</label>
-                <input type="text" name="author" id="author" 
-                       class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text"
-                       placeholder="Anonymous">
+                <input type="text" name="author" id="author"
+                    class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text"
+                    placeholder="Anonymous">
             </div>
-            
+
             <div class="mb-4">
-                <label for="password" class="block text-text text-sm font-bold mb-2">Password (for tripcode, optional)</label>
-                <input type="password" name="password" id="password" 
-                       class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text"
-                       placeholder="Optional">
+                <label for="password" class="block text-text text-sm font-bold mb-2">Password (for tripcode,
+                    optional)</label>
+                <input type="password" name="password" id="password"
+                    class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text"
+                    placeholder="Optional">
                 <p class="text-xs text-text-muted mt-1">Used to generate your tripcode for identification</p>
             </div>
-            
+
             <div class="mb-5">
                 <label for="content" class="block text-text text-sm font-bold mb-2">Comment</label>
                 <textarea name="content" id="content" rows="4" required
-                          class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text font-mono text-sm"
-                          placeholder="Write your comment here..."></textarea>
+                    class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text font-mono text-sm"
+                    placeholder="Write your comment here..."></textarea>
                 <p class="text-xs text-text-muted mt-1">Markdown supported. Use >>123 to reference other comments.</p>
             </div>
-            
+
             <div>
-                <button type="submit" 
-                        class="bg-accent text-text font-bold py-2 px-5 rounded hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-accent-soft transition-colors">
+                <button type="submit"
+                    class="bg-accent text-text font-bold py-2 px-5 rounded hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-accent-soft transition-colors">
                     Post Comment
                 </button>
             </div>
         </form>
     </div>
-    
+
     <!-- Comments container with SSE for live updates -->
-    <div id="comments-container" 
-         hx-sse="connect:/stream/comments/{{ post.id }}">
+    <div id="comments-container" hx-sse="connect:/stream/comments/{{ post.id }}">
         <!-- Initially load comments -->
         {% include "fragments/comments.html" %}
     </div>
@@ -105,7 +120,7 @@
 {% block scripts %}
 <script>
     // Script for handling comment references
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.matches('.comment-reference')) {
             e.preventDefault();
             const targetId = e.target.getAttribute('href');
@@ -120,19 +135,27 @@
             }
         }
     });
-    
+
     // Listen for new comments
-    document.body.addEventListener('htmx:sseMessage', function(evt) {
+    document.body.addEventListener('htmx:sseMessage', function (evt) {
         if (evt.detail.name === 'new_comment') {
             // Flash notification or visual indicator that a new comment arrived
             const notification = document.createElement('div');
             notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg';
             notification.textContent = 'New comment received!';
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
                 notification.remove();
             }, 3000);
+        }
+    });
+
+    // Gracefully close SSE connection on page unload to prevent browser errors
+    window.addEventListener('beforeunload', function () {
+        const commentsContainer = document.getElementById('comments-container');
+        if (commentsContainer && commentsContainer['htmx-internal-data'] && commentsContainer['htmx-internal-data'].sseEventSource) {
+            commentsContainer['htmx-internal-data'].sseEventSource.close();
         }
     });
 </script>

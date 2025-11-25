@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship, Session, select
 import hashlib
 import base64
@@ -19,8 +19,8 @@ class Post(SQLModel, table=True):
     content_html: str = Field(sa_column=Column(Text))  # Use Text for unlimited length
     excerpt: Optional[str] = Field(sa_column=Column(Text), default=None)  # Use Text for unlimited length
     published: bool = False
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     tags: Optional[str] = None  # Comma-separated tags
     categories: Optional[str] = None  # Comma-separated categories
     canonical_url: Optional[str] = None
@@ -43,19 +43,23 @@ class Post(SQLModel, table=True):
     @classmethod
     def generate_slug(cls, title: str, session: Optional[Session] = None) -> str:
         """Generate a unique slug from a title."""
-        slug = slugify(title)
+        base_slug = slugify(title)
+        slug = base_slug
         
         # If no session provided, just return the basic slug
         if not session:
             return slug
             
         # Check if slug already exists and make it unique if needed
-        existing = session.exec(select(Post).where(Post.slug == slug)).first()
-        if existing:
-            # If slug exists, append a timestamp to make it unique
-            slug = f"{slug}-{int(datetime.now().timestamp())}"
+        counter = 1
+        while True:
+            existing = session.exec(select(Post).where(Post.slug == slug)).first()
+            if not existing:
+                return slug
             
-        return slug
+            # If slug exists, increment counter
+            counter += 1
+            slug = f"{base_slug}-{counter}"
     
     @classmethod
     def create_excerpt(cls, content: str, max_length: int = 160) -> Optional[str]:
@@ -75,7 +79,7 @@ class Comment(SQLModel, table=True):
     author: str = "Anonymous"
     tripcode: Optional[str] = None
     ip_address: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     post_id: int = Field(foreign_key="post.id", index=True)  # Add index for faster queries
     post: Post = Relationship(back_populates="comments")

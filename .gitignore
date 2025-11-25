@@ -20,9 +20,9 @@ blog.sqlite
 # Static assets
 luxiblog/static/uploads/*
 !luxiblog/static/uploads/.gitkeep
-luxiblog/static/css/*
+# luxiblog/static/css/*
 !luxiblog/static/css/.gitkeep
-luxiblog/static/js/*
+# luxiblog/static/js/*
 !luxiblog/static/js/.gitkeep
 
 # Virtual envs
