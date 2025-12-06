@@ -167,7 +167,7 @@ pre{padding:1rem;border-radius:.5rem;overflow-x:auto}
 1. **Start the dev server**
 
    ```bash
-   rye run uvicorn luxiblog.main:app --reload --host 0.0.0.0 --port 8000
+   uv run uvicorn luxiblog.main:app --reload --host 0.0.0.0 --port 8000
    ```
 2. **Tailwind JIT watch**
 

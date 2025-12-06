@@ -17,7 +17,7 @@ A lightweight, AI-friendly blog platform with semantic HTML, markdown support, a
 ### Prerequisites
 
 - Python 3.10+
-- [Rye](https://rye-up.com/) for dependency management
+- [uv](https://docs.astral.sh/uv/) for dependency management
 
 ### Installation
 
@@ -26,10 +26,7 @@ A lightweight, AI-friendly blog platform with semantic HTML, markdown support, a
 
 ```bash
 # Install dependencies
-rye sync
-
-# Activate the virtual environment
-source .venv/bin/activate
+uv sync
 ```
 
 ### Configuration
@@ -56,14 +53,14 @@ The application uses SQLite with SQLModel and Alembic for migrations:
 
 ```bash
 # Apply migrations to create the database
-rye run alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ### Running the Development Server
 
 ```bash
 # Start the development server
-rye run python -m luxiblog.main
+uv run python -m luxiblog.main
 ```
 
 The blog will be available at [http://localhost:8000](http://localhost:8000).
