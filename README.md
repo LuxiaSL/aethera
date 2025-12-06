@@ -1,4 +1,4 @@
-# LuxiBlog
+# æthera
 
 A lightweight, AI-friendly blog platform with semantic HTML, markdown support, and simple commenting.
 
@@ -31,10 +31,10 @@ uv sync
 
 ### Configuration
 
-Create a `.env` file with your configuration (see `.env.example` for reference):
+Create a `.env` file with your configuration:
 
 ```bash
-# Copy example configuration
+# Copy example configuration (if exists)
 cp .env.example .env
 
 # Edit with your settings
@@ -43,7 +43,8 @@ nano .env
 
 Key environment variables:
 - `DATABASE_URL`: SQLite or other database URL
-- `LUXIBLOG_TRIPCODE_SALT`: Salt for comment tripcodes
+- `AETHERA_TRIPCODE_SALT`: Salt for comment tripcodes
+- `AETHERA_SECRET_KEY`: Secret key for sessions
 
 ### Database Setup
 
@@ -58,7 +59,7 @@ uv run alembic upgrade head
 
 ```bash
 # Start the development server
-uv run python -m luxiblog.main
+uv run python -m aethera.main
 ```
 
 The blog will be available at [http://localhost:8000](http://localhost:8000).
@@ -67,18 +68,18 @@ The blog will be available at [http://localhost:8000](http://localhost:8000).
 
 ```bash
 # Build the Docker image
-docker build -t luxiblog:latest .
+docker build -t aethera:latest .
 
 # Run the container
 docker run -p 8000:8000 \
-  -e LUXIBLOG_TRIPCODE_SALT=your_secure_salt \
+  -e AETHERA_TRIPCODE_SALT=your_secure_salt \
   -v ./data:/app/data \
-  luxiblog:latest
+  aethera:latest
 ```
 
 ## Project Structure
 
-- `luxiblog/` - Main package
+- `aethera/` - Main package
   - `api/` - API routers for posts, comments, admin, and SEO
   - `models/` - SQLModel database models
   - `templates/` - Jinja2 templates
@@ -90,16 +91,17 @@ docker run -p 8000:8000 \
 
 ### Rate Limiting
 
-LuxiBlog includes a simple in-memory rate limiter to prevent comment spam. Important limitations:
+æthera includes a simple in-memory rate limiter to prevent comment spam. Important limitations:
 
 - The rate limiter is in-memory and will reset when the server restarts
 - In a multi-worker/process deployment, each worker maintains its own rate limit state
 - For production with multiple workers or load balancing, consider implementing a Redis-backed rate limiter
 
-### Admin Security
+### Security
 
 Ensure you set the following environment variables for production:
-- `LUXIBLOG_TRIPCODE_SALT`: Custom salt for comment tripcodes
+- `AETHERA_TRIPCODE_SALT`: Custom salt for comment tripcodes
+- `AETHERA_SECRET_KEY`: Secure secret key for session management
 
 ## License
 

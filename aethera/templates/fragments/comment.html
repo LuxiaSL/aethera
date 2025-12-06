@@ -1,0 +1,30 @@
+<div class="comment mb-6 bg-bg-soft p-4 rounded shadow-inner border-l-2 border-accent-soft" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}">
+    <div class="comment-header text-sm text-text-muted mb-2">
+        <span class="font-semibold text-text">{{ comment.author }}</span>
+        {% if comment.tripcode %}
+        <span class="tripcode text-accent">!{{ comment.tripcode }}</span>
+        {% endif %}
+        <span class="comment-time">
+            <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+        </span>
+        <span class="comment-id ml-2">
+            <a href="#comment-{{ comment.id }}" class="text-text-muted hover:text-accent opacity-60 hover:opacity-100 transition-opacity" title="Reply to this comment">No.{{ comment.id }}</a>
+        </span>
+        {% if comment_backlinks is defined and comment_backlinks %}
+        <span class="comment-backlinks ml-2">
+            Replies: 
+            {% for reply in comment_backlinks %}
+            {% if reply.post_slug %}
+            <a href="/posts/{{ reply.post_slug }}#comment-{{ reply.id }}" class="comment-reference" data-comment-id="{{ reply.id }}">&gt;&gt;{{ reply.id }}</a>{% if not loop.last %} {% endif %}
+            {% else %}
+            <a href="#comment-{{ reply.id }}" class="comment-reference" data-comment-id="{{ reply.id }}">&gt;&gt;{{ reply.id }}</a>{% if not loop.last %} {% endif %}
+            {% endif %}
+            {% endfor %}
+        </span>
+        {% endif %}
+    </div>
+    
+    <div class="comment-content">
+        {{ comment.content_html | safe }}
+    </div>
+</div>

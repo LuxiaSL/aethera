@@ -3,12 +3,12 @@ from fastapi.testclient import TestClient
 def test_read_main(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
-    assert "LuxiBlog" in response.text
+    assert "æthera" in response.text
 
 def test_llms_txt(client: TestClient):
     response = client.get("/llms.txt")
     assert response.status_code == 200
-    assert "LuxiBlog" in response.text
+    assert "æthera" in response.text
 
 def test_feed_xml(client: TestClient):
     response = client.get("/feed.xml")
@@ -16,7 +16,7 @@ def test_feed_xml(client: TestClient):
     assert "rss" in response.text
 
 def test_read_post(client: TestClient, session):
-    from luxiblog.models.models import Post
+    from aethera.models.models import Post
     post = Post(
         title="Test Post",
         slug="test-post",

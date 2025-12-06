@@ -1,0 +1,28 @@
+{% for post in posts %}
+<article class="post-preview">
+    <a href="/posts/{{ post.slug }}" class="post-card-link">
+        <h2 class="post-title">{{ post.title }}</h2>
+        <div class="post-meta">
+            <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%B %d, %Y') }}</time>
+            {% if post.author %} · {{ post.author }}{% endif %}
+            {% set count = comment_counts.get(post.id, 0) if comment_counts is defined else 0 %}
+            · <span class="comment-count">{{ count }} comment{{ 's' if count != 1 else '' }}</span>
+        </div>
+        {% if post.tags %}
+        <div class="post-tags">
+            {% for tag in post.get_tags_list() %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if post.excerpt %}
+        <p class="post-excerpt">{{ post.excerpt }}</p>
+        {% endif %}
+    </a>
+</article>
+{% endfor %}
+
+{% if has_next_page %}
+<!-- Sentinel element for infinite scroll -->
+<div class="scroll-sentinel" style="height: 1px; width: 100%;"></div>
+{% endif %}

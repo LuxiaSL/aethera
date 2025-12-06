@@ -3,8 +3,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
-from luxiblog.main import app
-from luxiblog.models.base import get_session
+from aethera.main import app
+from aethera.models.base import get_session
 
 @pytest.fixture(name="session")
 def session_fixture():

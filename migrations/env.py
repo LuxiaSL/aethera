@@ -12,7 +12,7 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import all models
-from luxiblog.models.models import Post, Comment
+from aethera.models.models import Post, Comment
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

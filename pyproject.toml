@@ -1,5 +1,5 @@
 [project]
-name = "luxiblog"
+name = "aethera"
 version = "0.1.0"
 description = "A lightweight, AI-friendly blog platform with semantic HTML, markdown support, and simple commenting"
 authors = [
@@ -30,7 +30,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["luxiblog"]
+packages = ["aethera"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

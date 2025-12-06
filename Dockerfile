@@ -12,7 +12,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-editable
 
 # Copy application code
-COPY luxiblog/ ./luxiblog/
+COPY aethera/ ./aethera/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./
 
@@ -25,5 +25,4 @@ ENV DATABASE_URL=sqlite:///./data/blog.sqlite
 EXPOSE 8000
 
 # Run migrations and start the server
-CMD ["sh", "-c", "uv run alembic upgrade head && uv run python -m luxiblog.main"]
-
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run python -m aethera.main"]
