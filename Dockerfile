@@ -5,11 +5,11 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy dependency files and README (required by pyproject.toml)
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-editable
 
 # Copy application code
 COPY luxiblog/ ./luxiblog/
@@ -25,5 +25,5 @@ ENV DATABASE_URL=sqlite:///./data/blog.sqlite
 EXPOSE 8000
 
 # Run migrations and start the server
-CMD uv run alembic upgrade head && uv run python -m luxiblog.main
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run python -m luxiblog.main"]
 
