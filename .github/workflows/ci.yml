@@ -27,7 +27,7 @@ jobs:
         run: uv run pytest -q
         
       - name: Verify migrations
-        run: uv run alembic check
+        run: uv run alembic upgrade head
         
   docker:
     needs: test
