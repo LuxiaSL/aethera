@@ -85,7 +85,34 @@ def render_markdown(content: str) -> str:
 
 
 def render_comment_markdown(content: str) -> str:
-    """Convert markdown to HTML for comments with simpler rules."""
+    """Convert markdown to HTML for comments with simpler rules.
+    
+    Pre-processes >>123 references to prevent markdown from treating
+    leading > as blockquotes.
+    """
+    # Pre-process: Replace >>123 with a placeholder to prevent blockquote parsing
+    # Use a format that markdown won't interpret as special syntax
+    placeholder_map = {}
+    placeholder_counter = [0]  # Use list for closure mutation
+    
+    def replace_with_placeholder(match):
+        ref_id = match.group(1)
+        # Use a format that looks like plain text to markdown
+        placeholder = f"LUXIREF{placeholder_counter[0]}END{ref_id}REF"
+        placeholder_map[placeholder] = ref_id
+        placeholder_counter[0] += 1
+        return placeholder
+    
+    # Match >> followed by digits at word boundary (not inside other text)
+    # Handle both start of line and mid-line references
+    content = re.sub(r'>>(\d+)', replace_with_placeholder, content)
+    
+    # Now run markdown - the placeholders won't trigger blockquote
     md = markdown_it.MarkdownIt('commonmark', {'html': False})
     html = md.render(content)
+    
+    # Restore placeholders with raw reference markers (will be processed later)
+    for placeholder, ref_id in placeholder_map.items():
+        html = html.replace(placeholder, f'>>{ref_id}')
+    
     return html

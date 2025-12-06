@@ -1,4 +1,5 @@
 {% for comment in comments %}
+{% set comment_backlinks = backlinks.get(comment.id, []) if backlinks is defined else [] %}
 {% include 'fragments/comment.html' %}
 {% endfor %}
 

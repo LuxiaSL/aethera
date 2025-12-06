@@ -379,13 +379,19 @@ article header span[class*="bg-accent"] {
 
 .comment:target {
     border-left-color: var(--accent);
+    border-left-width: 4px;
     background-color: var(--bg-elevated);
-    animation: highlight-pulse 2s ease-out;
+    animation: highlight-pulse 4s ease-out;
 }
 
 @keyframes highlight-pulse {
-    0% { box-shadow: 0 0 0 3px var(--accent-soft); }
-    100% { box-shadow: 0 0 0 0px transparent; }
+    0%, 50% { 
+        box-shadow: 0 0 0 3px var(--accent);
+        border-left-color: var(--accent);
+    }
+    100% { 
+        box-shadow: 0 0 0 0px transparent;
+    }
 }
 
 /* Comment content */
@@ -418,6 +424,336 @@ article header span[class*="bg-accent"] {
 .tripcode {
     font-family: monospace;
     font-size: 0.85em;
+}
+
+/* ============================================
+   Comment Preview Popup (Hover)
+   ============================================ */
+.comment-preview {
+    position: absolute;
+    z-index: 1000;
+    max-width: 500px;
+    min-width: 300px;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    pointer-events: auto;
+}
+
+.comment-preview .comment {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.comment-preview-inner {
+    padding: 0.75rem 1rem;
+}
+
+.comment-preview-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.comment-preview-header .font-semibold {
+    color: var(--text);
+}
+
+.comment-preview-header .comment-id {
+    opacity: 0.7;
+}
+
+.comment-preview-content {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.comment-preview-content p {
+    margin-bottom: 0.5rem;
+}
+
+.comment-preview-content p:last-child {
+    margin-bottom: 0;
+}
+
+.preview-post-link {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.preview-post-link a {
+    color: var(--accent);
+}
+
+/* ============================================
+   Quote Selection Button
+   ============================================ */
+.quote-selection-btn {
+    position: absolute;
+    z-index: 1001;
+    background-color: var(--accent);
+    color: var(--text);
+    border: none;
+    border-radius: 4px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.quote-selection-btn:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.quote-selection-btn:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   Reply Modal
+   ============================================ */
+.reply-modal {
+    position: fixed;
+    z-index: 1002;
+    width: 400px;
+    min-width: 280px;
+    max-width: calc(100vw - 20px);
+    min-height: 280px;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    resize: both;
+    overflow: hidden;
+}
+
+.reply-modal.dragging {
+    opacity: 0.9;
+    cursor: grabbing;
+}
+
+.reply-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background-color: var(--bg-soft);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 6px 6px 0 0;
+    cursor: grab;
+    user-select: none;
+}
+
+.reply-modal-header:active {
+    cursor: grabbing;
+}
+
+.reply-modal-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.reply-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    transition: color 0.15s ease;
+}
+
+.reply-modal-close:hover {
+    color: var(--accent);
+}
+
+.reply-modal-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 42px); /* Account for header height */
+    overflow: hidden;
+}
+
+.reply-modal-body form {
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.reply-modal-body .form-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-shrink: 0;
+}
+
+.reply-modal-body .form-row .form-field {
+    flex: 1 1 120px;
+    min-width: 100px;
+    max-width: 100%;
+}
+
+.reply-modal-body .form-field {
+    margin-bottom: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Keep name/tripcode inputs compact */
+.reply-modal-body .form-row input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Comment field container - grows to fill space */
+.reply-modal-body .form-field:has(textarea) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Hide the Comment label in modal - cleaner look */
+.reply-modal-body .form-field:has(textarea) label {
+    display: none;
+}
+
+.reply-modal-body textarea {
+    min-height: 80px;
+    flex: 1;
+    resize: none; /* Modal resize handles this */
+}
+
+/* Modal form inputs - ensure proper text color */
+.reply-modal-body input,
+.reply-modal-body textarea {
+    background-color: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.reply-modal-body input::placeholder,
+.reply-modal-body textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.reply-modal-body input:focus,
+.reply-modal-body textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+    outline: none;
+}
+
+/* Post Comment button in modal */
+.reply-modal-body button[type="submit"] {
+    background-color: var(--accent);
+    color: var(--text);
+    font-weight: 700;
+    padding: 0.6rem 1.25rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.8rem;
+    margin-top: 0.75rem;
+    flex-shrink: 0;
+    align-self: flex-start; /* Left align */
+}
+
+.reply-modal-body button[type="submit"]:hover {
+    background-color: var(--accent-hover);
+}
+
+.reply-modal-body button[type="submit"]:active {
+    transform: translateY(1px);
+}
+
+/* Open Reply Button */
+.open-reply-btn {
+    background-color: var(--accent);
+    color: var(--text);
+    font-weight: 700;
+    padding: 0.6rem 1.5rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.open-reply-btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.open-reply-btn:active {
+    transform: translateY(1px);
+}
+
+/* Greentext (quoted text) - 4chan style */
+.comment-content blockquote,
+.comment-preview-content blockquote {
+    color: #789922;
+    font-style: normal;
+    background: none;
+    border: none;
+    border-left: 2px solid #789922;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    margin: 0.5rem 0;
+}
+
+.comment-content blockquote p,
+.comment-preview-content blockquote p {
+    margin: 0;
+}
+
+/* Nested greentext (quotes within quotes) */
+.comment-content blockquote blockquote,
+.comment-preview-content blockquote blockquote {
+    margin-left: 0.5rem;
+    border-left-color: #5a7a1a;
+}
+
+/* Backlinks */
+.comment-backlinks {
+    display: inline;
+    font-size: 0.85em;
+}
+
+.comment-backlinks .comment-reference {
+    font-size: 0.95em;
 }
 
 /* ============================================

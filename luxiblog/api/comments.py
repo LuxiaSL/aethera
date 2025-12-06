@@ -26,6 +26,62 @@ comment_subscribers: Dict[int, Dict[int, asyncio.Queue]] = {}
 last_cleanup_time = time.time()
 
 
+def compute_backlinks(comments: List[Comment]) -> Dict[int, List[int]]:
+    """Compute backlinks: for each comment, find which other comments reference it (same-post only)."""
+    backlinks = {}
+    for comment in comments:
+        for ref_id in comment.get_references_list():
+            if ref_id not in backlinks:
+                backlinks[ref_id] = []
+            backlinks[ref_id].append(comment.id)
+    return backlinks
+
+
+def compute_backlinks_with_cross_post(
+    comments: List[Comment], 
+    session: Session
+) -> Dict[int, List[Dict]]:
+    """Compute backlinks including cross-post references.
+    
+    Returns a dict of comment_id -> list of {id, post_slug} for comments that reference it.
+    """
+    # Get IDs of all comments on this post
+    comment_ids = [c.id for c in comments]
+    if not comment_ids:
+        return {}
+    
+    # First, get same-post backlinks (simple)
+    backlinks = {}
+    for comment in comments:
+        for ref_id in comment.get_references_list():
+            if ref_id not in backlinks:
+                backlinks[ref_id] = []
+            # Same-post reference - no post_slug needed
+            backlinks[ref_id].append({"id": comment.id, "post_slug": None})
+    
+    # Now find cross-post references: comments on OTHER posts that reference THIS post's comments
+    # Query all comments that have references containing any of our comment IDs
+    all_comments_with_refs = session.exec(
+        select(Comment).where(Comment.references.isnot(None))
+    ).all()
+    
+    for ext_comment in all_comments_with_refs:
+        # Skip comments on the same post (already handled above)
+        if ext_comment in comments:
+            continue
+            
+        refs = ext_comment.get_references_list()
+        for ref_id in refs:
+            if ref_id in comment_ids:
+                if ref_id not in backlinks:
+                    backlinks[ref_id] = []
+                # Cross-post reference - include post_slug
+                post_slug = ext_comment.post.slug if ext_comment.post else None
+                backlinks[ref_id].append({"id": ext_comment.id, "post_slug": post_slug})
+    
+    return backlinks
+
+
 @router.get("/posts/{slug}/comments", response_class=HTMLResponse)
 def get_comments(
     request: Request,
@@ -42,10 +98,13 @@ def get_comments(
     query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at.desc())
     comments = session.exec(query).all()
     
+    # Compute backlinks for all comments (including cross-post)
+    backlinks = compute_backlinks_with_cross_post(comments, session)
+    
     # Return comments as HTML
     return templates.TemplateResponse(
         "fragments/comments.html", 
-        {"request": request, "comments": comments, "post": post}
+        {"request": request, "comments": comments, "post": post, "backlinks": backlinks}
     )
 
 
@@ -78,6 +137,49 @@ def get_comments_json(
     ]
 
 
+@router.get("/api/comments/{comment_id}")
+def get_comment_by_id(
+    request: Request,
+    comment_id: int,
+    session: Session = Depends(get_session),
+):
+    """Get a single comment by ID (for hover previews)."""
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    # Return comment data with post info for cross-post context
+    return {
+        "id": comment.id,
+        "content": comment.content,
+        "content_html": comment.content_html,
+        "author": comment.author,
+        "tripcode": comment.tripcode,
+        "created_at": comment.created_at.isoformat(),
+        "post_id": comment.post_id,
+        "post_slug": comment.post.slug if comment.post else None,
+        "post_title": comment.post.title if comment.post else None,
+    }
+
+
+@router.get("/api/comments/{comment_id}/preview", response_class=HTMLResponse)
+def get_comment_preview(
+    request: Request,
+    comment_id: int,
+    session: Session = Depends(get_session),
+):
+    """Get a single comment as HTML fragment (for hover previews)."""
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    # Return rendered comment HTML
+    return templates.TemplateResponse(
+        "fragments/comment_preview.html",
+        {"request": request, "comment": comment}
+    )
+
+
 @router.post("/posts/{slug}/comments", response_class=HTMLResponse)
 async def create_comment(
     request: Request,
@@ -99,9 +201,13 @@ async def create_comment(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     
-    # Process markdown first, then cross-references (regex handles HTML-escaped >>)
+    # Process markdown first, then cross-references with session for cross-post resolution
     content_html = render_comment_markdown(content)
-    content_html = Comment.process_cross_references(content_html)
+    content_html = Comment.process_cross_references(content_html, session)
+    
+    # Extract references for backlink tracking
+    references = Comment.extract_references(content)
+    references_str = ",".join(str(r) for r in references) if references else None
     
     # Generate tripcode if password provided
     tripcode = Comment.generate_tripcode(password) if password else None
@@ -117,7 +223,8 @@ async def create_comment(
         tripcode=tripcode,
         ip_address=client_ip,
         created_at=datetime.now(),
-        post_id=post.id
+        post_id=post.id,
+        references=references_str
     )
     
     # Save to DB

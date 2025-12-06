@@ -1,0 +1,19 @@
+<div class="comment-preview-inner">
+    <div class="comment-preview-header">
+        <span class="font-semibold">{{ comment.author }}</span>
+        {% if comment.tripcode %}
+        <span class="tripcode text-accent">!{{ comment.tripcode }}</span>
+        {% endif %}
+        <span class="comment-id">No.{{ comment.id }}</span>
+        <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+        {% if comment.post %}
+        <span class="preview-post-link">
+            in <a href="/posts/{{ comment.post.slug }}">{{ comment.post.title }}</a>
+        </span>
+        {% endif %}
+    </div>
+    <div class="comment-preview-content">
+        {{ comment.content_html | safe }}
+    </div>
+</div>
+

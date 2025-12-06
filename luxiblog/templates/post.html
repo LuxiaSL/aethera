@@ -97,44 +97,43 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- 4chan-style comment system -->
+<script src="/static/js/comments.js"></script>
 <script>
-    // Script for handling comment references
+    // Handle comment reference clicks - smooth scroll for same-page, navigate for cross-post
     document.addEventListener('click', function (e) {
-        if (e.target.matches('.comment-reference')) {
+        const ref = e.target.closest('.comment-reference');
+        if (!ref) return;
+        
+        const href = ref.getAttribute('href');
+        
+        // If it's a same-page anchor, smooth scroll
+        if (href.startsWith('#')) {
             e.preventDefault();
-            const targetId = e.target.getAttribute('href');
-            const targetElement = document.querySelector(targetId);
+            const targetElement = document.querySelector(href);
             if (targetElement) {
                 targetElement.scrollIntoView({ behavior: 'smooth' });
-                // Briefly highlight the comment
-                targetElement.classList.add('bg-yellow-100');
-                setTimeout(() => {
-                    targetElement.classList.remove('bg-yellow-100');
-                }, 2000);
             }
         }
+        // Otherwise let the browser navigate to the cross-post URL
     });
 
-    // Listen for new comments
+    // Listen for new comments via SSE
     document.body.addEventListener('htmx:sseMessage', function (evt) {
         if (evt.detail.name === 'new_comment') {
-            // Flash notification or visual indicator that a new comment arrived
             const notification = document.createElement('div');
-            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg';
+            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
             notification.textContent = 'New comment received!';
             document.body.appendChild(notification);
-
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
+            setTimeout(() => notification.remove(), 3000);
         }
     });
 
-    // Gracefully close SSE connection on page unload to prevent browser errors
+    // Gracefully close SSE connection on page unload
     window.addEventListener('beforeunload', function () {
-        const commentsContainer = document.getElementById('comments-container');
-        if (commentsContainer && commentsContainer['htmx-internal-data'] && commentsContainer['htmx-internal-data'].sseEventSource) {
-            commentsContainer['htmx-internal-data'].sseEventSource.close();
+        const container = document.getElementById('comments-container');
+        if (container?.['htmx-internal-data']?.sseEventSource) {
+            container['htmx-internal-data'].sseEventSource.close();
         }
     });
 </script>

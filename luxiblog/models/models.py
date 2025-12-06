@@ -67,9 +67,20 @@ class Post(SQLModel, table=True):
         if not content:
             return None
         
-        # Get first paragraph and truncate if needed
-        excerpt = content.split("\n\n", 1)[0][:max_length]
-        return excerpt
+        # Get first paragraph
+        first_para = content.strip().split("\n\n", 1)[0]
+        
+        # Strip markdown heading prefixes (# ## ### etc.)
+        lines = first_para.split("\n")
+        clean_lines = []
+        for line in lines:
+            # Remove heading markers
+            stripped = re.sub(r'^#{1,6}\s+', '', line)
+            if stripped:
+                clean_lines.append(stripped)
+        
+        excerpt = " ".join(clean_lines)[:max_length]
+        return excerpt.strip() if excerpt else None
 
 
 class Comment(SQLModel, table=True):
@@ -80,9 +91,23 @@ class Comment(SQLModel, table=True):
     tripcode: Optional[str] = None
     ip_address: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Comma-separated list of comment IDs this comment references (for backlinks)
+    references: Optional[str] = None
 
     post_id: int = Field(foreign_key="post.id", index=True)  # Add index for faster queries
     post: Post = Relationship(back_populates="comments")
+    
+    def get_references_list(self) -> List[int]:
+        """Return list of comment IDs this comment references."""
+        if not self.references:
+            return []
+        return [int(ref.strip()) for ref in self.references.split(",") if ref.strip()]
+    
+    @staticmethod
+    def extract_references(content: str) -> List[int]:
+        """Extract all comment IDs referenced in content."""
+        ref_pattern = r'(?:&gt;&gt;|>>)(\d+)'
+        return list(set(int(m) for m in re.findall(ref_pattern, content)))
     
     @staticmethod
     def generate_tripcode(password: str, salt: Optional[bytes] = None) -> Optional[str]:
@@ -105,21 +130,45 @@ class Comment(SQLModel, table=True):
         return tripcode
         
     @staticmethod
-    def process_cross_references(content: str) -> str:
+    def process_cross_references(content: str, session: "Session" = None) -> str:
         """Process >>1234 style references to other comments.
         
         Handles both raw >> and HTML-escaped &gt;&gt; patterns.
+        If a session is provided, resolves cross-post references to full URLs.
         """
+        # Find all comment IDs referenced in the content
+        ref_pattern = r'(?:&gt;&gt;|>>)(\d+)'
+        referenced_ids = [int(m) for m in re.findall(ref_pattern, content)]
+        
+        # Build a map of comment_id -> post_slug for cross-post resolution
+        comment_post_map = {}
+        if session and referenced_ids:
+            from sqlmodel import select
+            # Batch fetch all referenced comments with their posts
+            comments = session.exec(
+                select(Comment).where(Comment.id.in_(referenced_ids))
+            ).all()
+            for comment in comments:
+                if comment.post:
+                    comment_post_map[comment.id] = comment.post.slug
+        
+        def make_link(match):
+            """Create the appropriate link for a comment reference."""
+            comment_id = int(match.group(1))
+            
+            # Check if we have cross-post info
+            if comment_id in comment_post_map:
+                post_slug = comment_post_map[comment_id]
+                href = f"/posts/{post_slug}#comment-{comment_id}"
+            else:
+                # Fallback to same-page anchor (works for same-post refs)
+                href = f"#comment-{comment_id}"
+            
+            return f'<a href="{href}" class="comment-reference" data-comment-id="{comment_id}">&gt;&gt;{comment_id}</a>'
+        
         # Match HTML-escaped version (after markdown processing)
-        content = re.sub(
-            r'&gt;&gt;(\d+)', 
-            r'<a href="#comment-\1" class="comment-reference">&gt;&gt;\1</a>', 
-            content
-        )
+        content = re.sub(r'&gt;&gt;(\d+)', make_link, content)
         # Also match raw version (for edge cases)
-        content = re.sub(
-            r'(?<!&gt;)>>(\d+)', 
-            r'<a href="#comment-\1" class="comment-reference">&gt;&gt;\1</a>', 
-            content
-        )
+        content = re.sub(r'(?<!&gt;)>>(\d+)', make_link, content)
+        
         return content

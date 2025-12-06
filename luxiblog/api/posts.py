@@ -13,6 +13,7 @@ from luxiblog.models.models import Post, Comment
 from luxiblog.utils.markdown import render_markdown
 from luxiblog.utils.posts import save_post
 from luxiblog.utils.templates import templates
+from luxiblog.api.comments import compute_backlinks_with_cross_post
 
 router = APIRouter(tags=["posts"])
 
@@ -50,6 +51,17 @@ def get_posts(
     # Query posts ordered by date
     query = select(Post).where(Post.published == True).order_by(Post.created_at.desc()).offset(offset).limit(per_page)
     posts = session.exec(query).all()
+    
+    # Get comment counts for each post
+    from sqlalchemy import func
+    comment_counts = {}
+    if posts:
+        post_ids = [p.id for p in posts]
+        count_query = select(Comment.post_id, func.count(Comment.id)).where(
+            Comment.post_id.in_(post_ids)
+        ).group_by(Comment.post_id)
+        counts = session.exec(count_query).all()
+        comment_counts = {post_id: count for post_id, count in counts}
 
     # Check if there are more posts beyond this page
     has_next_page = False
@@ -60,7 +72,7 @@ def get_posts(
     # Return HTML fragments for infinite scroll
     return templates.TemplateResponse(
         "fragments/post_list.html",
-        {"request": request, "posts": posts, "page": page, "has_next_page": has_next_page}
+        {"request": request, "posts": posts, "page": page, "has_next_page": has_next_page, "comment_counts": comment_counts}
     )
 
 
@@ -77,6 +89,9 @@ def get_post(request: Request, slug: str, session: Session = Depends(get_session
     comment_query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at)
     comments = session.exec(comment_query).all()
     
+    # Compute backlinks for display (including cross-post references)
+    backlinks = compute_backlinks_with_cross_post(comments, session)
+    
     # Return the full HTML page
     return templates.TemplateResponse(
         "post.html", 
@@ -84,6 +99,7 @@ def get_post(request: Request, slug: str, session: Session = Depends(get_session
             "request": request, 
             "post": post, 
             "comments": comments,
+            "backlinks": backlinks,
             "title": post.title
         }
     )
