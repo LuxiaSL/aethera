@@ -50,22 +50,10 @@
         {{ post.content_html | safe }}
     </div>
 
-    <footer class="mt-10 pt-5 border-t border-accent-soft text-text-muted">
-        <p>Posted under
-            {% if post.categories %}
-            {% for category in post.get_categories_list() %}
-            <a href="/category/{{ category }}" class="text-accent hover:underline">{{ category }}</a>{% if not loop.last
-            %}, {% endif %}
-            {% endfor %}
-            {% else %}
-            <span>Uncategorized</span>
-            {% endif %}
-        </p>
-
-        <p class="mt-3 text-sm">
-            Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" class="text-accent hover:underline">{{
-                post.license }}</a>
-        </p>
+    <footer class="post-footer">
+        <span>{% if post.categories %}{% for category in post.get_categories_list() %}<a href="/category/{{ category }}">{{ category }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Uncategorized{% endif %}</span>
+        <span class="separator">·</span>
+        <span><a href="https://creativecommons.org/licenses/by/4.0/">{{ post.license }}</a></span>
     </footer>
 </article>
 
@@ -75,37 +63,28 @@
     <!-- Comment form -->
     <div class="comment-form mb-8">
         <form hx-post="/posts/{{ post.slug }}/comments" hx-target="#comments-container" hx-swap="afterbegin"
-            class="bg-bg-elevated p-5 rounded shadow-inner border-l-2 border-accent-soft">
-            <div class="mb-4">
-                <label for="author" class="block text-text text-sm font-bold mb-2">Name (optional)</label>
-                <input type="text" name="author" id="author"
-                    class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text"
-                    placeholder="Anonymous">
+            hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('no-comments-placeholder')?.remove(); }"
+            class="bg-bg-elevated p-4 rounded border-l-2 border-accent">
+            
+            <!-- Name and Tripcode fields - horizontal on desktop -->
+            <div class="form-row">
+                <div class="form-field">
+                    <label for="author">Name</label>
+                    <input type="text" name="author" id="author" placeholder="Anonymous">
+                </div>
+                <div class="form-field">
+                    <label for="password">Tripcode</label>
+                    <input type="text" name="password" id="password" autocomplete="off" placeholder="Optional">
+                </div>
             </div>
 
-            <div class="mb-4">
-                <label for="password" class="block text-text text-sm font-bold mb-2">Password (for tripcode,
-                    optional)</label>
-                <input type="password" name="password" id="password"
-                    class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text"
-                    placeholder="Optional">
-                <p class="text-xs text-text-muted mt-1">Used to generate your tripcode for identification</p>
+            <div class="form-field">
+                <label for="content">Comment</label>
+                <textarea name="content" id="content" rows="3" required
+                    placeholder="Write your comment... (Markdown supported, >>123 to reference)"></textarea>
             </div>
 
-            <div class="mb-5">
-                <label for="content" class="block text-text text-sm font-bold mb-2">Comment</label>
-                <textarea name="content" id="content" rows="4" required
-                    class="w-full px-3 py-2 bg-bg border border-accent-soft rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-accent text-text font-mono text-sm"
-                    placeholder="Write your comment here..."></textarea>
-                <p class="text-xs text-text-muted mt-1">Markdown supported. Use >>123 to reference other comments.</p>
-            </div>
-
-            <div>
-                <button type="submit"
-                    class="bg-accent text-text font-bold py-2 px-5 rounded hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-accent-soft transition-colors">
-                    Post Comment
-                </button>
-            </div>
+            <button type="submit">Post Comment</button>
         </form>
     </div>
 

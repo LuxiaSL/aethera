@@ -10,7 +10,6 @@ Recent updates have focused on "memetic" optimization for AI agents (semantic HT
 - **`/luxiblog/`** - Main application package
   - `main.py` - Application entrypoint and FastAPI app configuration
   - **`/api/`** - API endpoints and routes
-    - `admin.py` - Admin dashboard and content management endpoints
     - `posts.py` - Blog post endpoints
     - `comments.py` - Comment endpoints and SSE (Server-Sent Events)
     - `seo.py` - SEO-related endpoints (RSS, sitemap, robots.txt, llms.txt)
@@ -21,7 +20,7 @@ Recent updates have focused on "memetic" optimization for AI agents (semantic HT
     - `base.html` - Base template with common layout
     - `index.html` - Homepage template
     - `post.html` - Individual post template
-    - **`/admin/`** - Admin interface templates
+    - `404.html` - Custom 404 error page
     - **`/fragments/`** - Partial templates for HTMX
   - **`/static/`** - Static assets
     - **`/css/`** - CSS files (branding.css)
@@ -29,8 +28,7 @@ Recent updates have focused on "memetic" optimization for AI agents (semantic HT
     - **`/vendor/`** - Local copies of external libraries (HTMX, Tailwind)
     - **`/uploads/`** - User-uploaded content
   - **`/utils/`** - Utility functions
-    - `auth.py` - Authentication utilities (Session-based admin, Tripcodes)
-    - `csrf.py` - CSRF protection
+    - `auth.py` - Authentication utilities (Tripcodes)
     - `markdown.py` - Markdown rendering
     - `posts.py` - Post creation/update utilities
     - `rate_limit.py` - Rate limiting for comments
@@ -66,14 +64,13 @@ uv run python -m luxiblog.main
     *   `/llms.txt` provides a condensed site map for AI agents.
     *   Semantic HTML and JSON-LD structured data are prioritized.
     *   Open Graph and Twitter Card tags are included for social sharing.
-4.  **Admin Authentication**: Simple session-based authentication using `SessionMiddleware` and a secure password hash.
+4.  **Content Management**: Posts are managed via scripts (e.g., `seed_data.py`) rather than a web-based admin interface, reducing attack surface.
 
 ### Request Flow
 1.  Request comes in to FastAPI router.
-2.  `SessionMiddleware` handles admin session state.
-3.  `SecurityHeadersMiddleware` adds security headers.
-4.  Router handlers process the request.
-5.  Jinja2 templates render the response, often using HTMX for partial updates.
+2.  `SecurityHeadersMiddleware` adds security headers.
+3.  Router handlers process the request.
+4.  Jinja2 templates render the response, often using HTMX for partial updates.
 
 ### Database Schema
 - **Posts**: Blog post content with metadata. Slugs are counter-based (e.g., `post-title-2`) for cleaner URLs.
@@ -83,7 +80,6 @@ uv run python -m luxiblog.main
 
 ### Environment Variables
 - `DATABASE_URL`: SQLite database URL (default: `sqlite:///./blog.sqlite`)
-- `LUXIBLOG_ADMIN_PASSWORD_HASH`: Bcrypt hash of the admin password.
 - `LUXIBLOG_SECRET_KEY`: Secret key for session signing.
 - `LUXIBLOG_TRIPCODE_SALT`: Salt for comment tripcodes.
 
@@ -96,7 +92,6 @@ docker build -t luxiblog:latest .
 
 # Run the container
 docker run -p 8000:8000 \
-  -e LUXIBLOG_ADMIN_PASSWORD_HASH=your_secure_hash \
   -e LUXIBLOG_SECRET_KEY=your_secret_key \
   -v ./data:/app/data \
   luxiblog:latest

@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title | default("LuxiBlog") }}{% endblock %}</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
     <!-- Meta tags and SEO -->
     {% block meta %}
     <meta name="description"
@@ -77,49 +80,37 @@
 
 <body class="bg-bg text-text">
     <header class="w-full relative">
-        <!-- Banner Image - Adjust the path when the banner is created -->
+        <!-- Cyberpunk schematic banner -->
         <div class="banner-container w-full">
             <img src="/static/uploads/banner.png" alt="LuxiBlog cybernetic circuit banner"
-                class="w-full h-auto opacity-90 mix-blend-screen"
-                style="mask-image: linear-gradient(to bottom, black 75%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);"
+                class="w-full"
                 onerror="this.style.display='none'" />
         </div>
 
-        <div class="max-w-prose mx-auto px-4 py-6 relative z-10">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-2xl tracking-wide">
-                    <a href="/"
-                        class="text-text hover:text-accent no-underline transition-colors duration-200">Luxi<span
-                            class="font-semibold">Blog</span></a>
+        <div class="max-w-4xl mx-auto px-4 py-6 relative z-10">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl tracking-wide m-0">
+                    <a href="/" class="text-text hover:text-accent transition-colors duration-200">Luxi<span class="font-semibold">Blog</span></a>
                 </h1>
-                <nav>
-                    <ul class="flex space-x-4 text-sm">
-                        <li><a href="/"
-                                class="text-text-muted hover:text-accent transition-colors duration-200">Home</a></li>
-                        <li><a href="/feed.xml"
-                                class="text-text-muted hover:text-accent transition-colors duration-200">RSS</a></li>
+                <nav class="site-nav">
+                    <ul class="flex space-x-6 text-sm m-0 list-none">
+                        <li><a href="/" class="text-text-muted hover:text-accent transition-colors duration-200">Home</a></li>
+                        <li><a href="/feed.xml" class="text-text-muted hover:text-accent transition-colors duration-200">RSS</a></li>
                     </ul>
                 </nav>
             </div>
         </div>
     </header>
 
-    <main class="max-w-prose mx-auto px-4 md:pl-20 mt-8">
+    <main class="max-w-4xl mx-auto px-4 md:pl-20 mt-8">
         {% block content %}{% endblock %}
     </main>
 
     <footer class="bg-bg-elevated mt-16 py-8 text-center text-text-muted text-sm border-t border-accent-soft">
-        <div class="max-w-prose mx-auto px-4">
-            <div class="flex justify-between items-center">
-                <div>
-                    <p>&copy; {{ now().year }} LuxiBlog. Licensed under <a
-                            href="https://creativecommons.org/licenses/by/4.0/"
-                            class="text-text-muted hover:text-accent">CC BY 4.0</a>.</p>
-                </div>
-                <div>
-                    <a href="/admin" class="text-text-muted hover:text-accent">Admin</a>
-                </div>
-            </div>
+        <div class="max-w-4xl mx-auto px-4">
+            <p>&copy; {{ now().year }} LuxiBlog. Licensed under <a
+                    href="https://creativecommons.org/licenses/by/4.0/"
+                    class="text-text-muted hover:text-accent">CC BY 4.0</a>.</p>
         </div>
     </footer>
 

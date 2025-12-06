@@ -38,8 +38,8 @@ def get_comments(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     
-    # Get comments for this post
-    query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at)
+    # Get comments for this post (newest first to match HTMX afterbegin behavior)
+    query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at.desc())
     comments = session.exec(query).all()
     
     # Return comments as HTML
@@ -60,8 +60,8 @@ def get_comments_json(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     
-    # Get comments for this post
-    query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at)
+    # Get comments for this post (newest first)
+    query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at.desc())
     comments = session.exec(query).all()
     
     # Convert to list of dicts and return
@@ -89,12 +89,17 @@ async def create_comment(
     _: None = Depends(rate_limit_comments),  # Apply rate limiting
 ):
     """Create a new comment on a post."""
+    # Validate content is not empty or whitespace-only
+    content = content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    
     # Find the post
     post = session.exec(select(Post).where(Post.slug == slug)).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     
-    # Process cross-references in content
+    # Process markdown first, then cross-references (regex handles HTML-escaped >>)
     content_html = render_comment_markdown(content)
     content_html = Comment.process_cross_references(content_html)
     

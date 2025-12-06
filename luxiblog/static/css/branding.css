@@ -1,172 +1,634 @@
-/* LuxiBlog Branding - Gwern-lite Aesthetic */
+/* LuxiBlog Branding - Cyberpunk Schematic Aesthetic
+ * Palette derived from banner.png circuit schematic art
+ * Dark theme optimized for the crimson-accented technical imagery
+ */
 
+/* ============================================
+   CSS Custom Properties (Design Tokens)
+   ============================================ */
 :root {
-    --bg-color: #fffbf7;
-    /* Warm off-white, similar to Gwern.net */
-    --text-color: #111;
-    --link-color: #900;
-    /* Dark red links */
-    --link-hover-color: #c00;
-    --code-bg: #f5f5f5;
-    --border-color: #ddd;
-    --accent-color: #900;
+    /* Backgrounds - midnight violet spectrum */
+    --bg: #0e0c12;
+    --bg-soft: #161219;
+    --bg-elevated: #1d1724;
+    
+    /* Text - high contrast for readability */
+    --text: #eae9ec;
+    --text-muted: #a8a3b5;
+    
+    /* Accent - crimson from banner center */
+    --accent: #9a2b2b;
+    --accent-hover: #b83636;
+    --accent-soft: #2d1f24;
+    
+    /* Code/Technical elements */
+    --code-bg: #1a1520;
+    --border-color: #2d2636;
+    
+    /* Schematic overlay hint */
+    --circuit-line: rgba(154, 43, 43, 0.15);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-color: #1a1a1a;
-        --text-color: #e0e0e0;
-        --link-color: #ff6b6b;
-        --link-hover-color: #ff8787;
-        --code-bg: #2a2a2a;
-        --border-color: #444;
-        --accent-color: #ff6b6b;
-    }
+/* ============================================
+   Tailwind-style Utility Classes
+   (Since we're using prebuilt Tailwind)
+   ============================================ */
+
+/* Background utilities */
+.bg-bg { background-color: var(--bg) !important; }
+.bg-bg-soft { background-color: var(--bg-soft) !important; }
+.bg-bg-elevated { background-color: var(--bg-elevated) !important; }
+
+/* Text utilities */
+.text-text { color: var(--text) !important; }
+.text-text-muted { color: var(--text-muted) !important; }
+.text-accent { color: var(--accent) !important; }
+
+/* Border utilities */
+.border-accent-soft { border-color: var(--accent-soft) !important; }
+
+/* ============================================
+   Base Styles
+   ============================================ */
+html {
+    scroll-behavior: smooth;
+    background-color: var(--bg);
 }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, serif;
-    /* Serif stack */
-    line-height: 1.6;
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+    font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    line-height: 1.7;
     font-size: 18px;
-    /* Larger base font size for readability */
-    max-width: 900px;
-    /* Optimal reading width */
-    margin: 0 auto;
-    padding: 2rem;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
 }
 
-/* Typography */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, serif;
+/* ============================================
+   Typography
+   ============================================ */
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
     font-weight: 700;
-    margin-top: 2em;
-    margin-bottom: 0.5em;
-    line-height: 1.2;
+    line-height: 1.25;
+    color: var(--text);
 }
 
-h1 {
-    font-size: 2.5rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5rem;
-}
+h1 { font-size: 2.25rem; margin-bottom: 1rem; }
+h2 { font-size: 1.75rem; margin-top: 2.5rem; margin-bottom: 0.75rem; }
+h3 { font-size: 1.375rem; margin-top: 2rem; margin-bottom: 0.5rem; }
 
-h2 {
-    font-size: 2rem;
-}
-
-h3 {
-    font-size: 1.5rem;
-}
-
+/* ============================================
+   Links
+   ============================================ */
 a {
-    color: var(--link-color);
+    color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dotted var(--link-color);
-    transition: color 0.2s ease, border-bottom-color 0.2s ease;
+    border-bottom: 1px dotted var(--accent);
+    transition: color 0.2s ease, border-color 0.2s ease;
 }
 
-a:hover {
-    color: var(--link-hover-color);
+a:hover, a:focus {
+    color: var(--accent-hover);
     border-bottom-style: solid;
+    border-color: var(--accent-hover);
 }
 
-/* Code */
-pre,
-code {
-    font-family: "Source Code Pro", "Consolas", "Monaco", monospace;
+/* Navigation links - cleaner style */
+nav a, .site-nav a {
+    border-bottom: none;
+}
+
+nav a:hover, .site-nav a:hover {
+    border-bottom: none;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+/* ============================================
+   Banner & Header
+   ============================================ */
+.banner-container {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
+}
+
+.banner-container img {
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0.85;
+    /* Remove mix-blend-screen for dark theme - let the image show naturally */
+    mix-blend-mode: normal;
+    /* Fade to background at bottom */
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+/* Header text styling */
+header h1 a {
+    border-bottom: none;
+    letter-spacing: 0.02em;
+}
+
+header h1 a:hover {
+    color: var(--accent);
+    border-bottom: none;
+}
+
+/* ============================================
+   Main Content Area
+   ============================================ */
+main {
+    max-width: 64rem; /* Wider than 72ch for better desktop experience */
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+    main {
+        padding: 2rem 3rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    main {
+        max-width: 70rem;
+    }
+}
+
+/* ============================================
+   Post Content (Prose)
+   ============================================ */
+.post-content, .prose {
+    color: var(--text);
+}
+
+.post-content p, .prose p {
+    margin-bottom: 1.5rem;
+}
+
+.post-content strong, .prose strong {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.post-content em, .prose em {
+    font-style: italic;
+}
+
+.post-content ul, .post-content ol,
+.prose ul, .prose ol {
+    margin: 1rem 0 1.5rem 1.5rem;
+}
+
+.post-content li, .prose li {
+    margin-bottom: 0.5rem;
+}
+
+.post-content blockquote, .prose blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 1.25rem;
+    margin: 1.5rem 0;
+    color: var(--text-muted);
+    font-style: italic;
+    background: var(--bg-soft);
+    padding: 1rem 1.25rem;
+    border-radius: 0 4px 4px 0;
+}
+
+.post-content hr, .prose hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2rem 0;
+}
+
+/* ============================================
+   Code Blocks
+   ============================================ */
+pre, code {
+    font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", "Consolas", monospace;
     font-size: 0.9em;
+}
+
+code {
     background-color: var(--code-bg);
+    color: #dcdcff;
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
 }
 
 pre {
-    padding: 1rem;
+    background-color: var(--code-bg);
+    color: #dcdcff;
+    padding: 1.25rem;
     overflow-x: auto;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid var(--border-color);
+    margin: 1.5rem 0;
 }
 
-/* Layout Utilities */
-.container {
-    max-width: 100%;
+pre code {
+    background: none;
     padding: 0;
 }
 
-.post-meta {
-    font-family: sans-serif;
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 2rem;
+/* ============================================
+   Tags
+   ============================================ */
+.post-content + div span,
+article header span[class*="bg-accent"] {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+    background-color: var(--accent-soft);
+    color: var(--text-muted);
+    border-radius: 3px;
+    font-family: system-ui, -apple-system, sans-serif;
 }
 
-.site-header {
-    margin-bottom: 4rem;
-    border-bottom: 2px solid var(--text-color);
-    padding-bottom: 1rem;
+/* ============================================
+   Comments Section
+   ============================================ */
+   
+/* Circuit-box styling - tight netting pattern */
+.circuit-box {
+    position: relative;
+    padding: 1.5rem;
+    border-radius: 6px;
+    background: 
+        linear-gradient(var(--circuit-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--circuit-line) 1px, transparent 1px),
+        var(--bg-soft);
+    background-size: 12px 12px, 12px 12px, 100% 100%;
+    border: 1px solid var(--border-color);
+}
+
+/* Comment form */
+.comment-form form {
+    background-color: var(--bg-elevated);
+    border-left: 2px solid var(--accent);
+    padding: 1.25rem;
+}
+
+/* Form row - horizontal layout on desktop */
+.comment-form .form-row {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
-.site-title {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--text-color);
+@media (min-width: 640px) {
+    .comment-form .form-row {
+        flex-direction: row;
+    }
+    
+    .comment-form .form-row .form-field {
+        flex: 1;
+    }
+}
+
+.comment-form .form-field {
+    margin-bottom: 0.75rem;
+}
+
+.comment-form .form-field:last-child {
+    margin-bottom: 1rem;
+}
+
+.comment-form label {
+    display: block;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+
+.comment-form input,
+.comment-form textarea {
+    width: 100%;
+    background-color: var(--bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comment-form textarea {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+    min-height: 5rem;
+}
+
+.comment-form input:focus,
+.comment-form textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+    outline: none;
+}
+
+.comment-form input::placeholder,
+.comment-form textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* Post Comment button */
+.comment-form button[type="submit"] {
+    background-color: var(--accent);
+    color: var(--text);
+    font-weight: 700;
+    padding: 0.6rem 1.25rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.8rem;
+}
+
+.comment-form button[type="submit"]:hover {
+    background-color: var(--accent-hover);
+}
+
+.comment-form button[type="submit"]:active {
+    transform: translateY(1px);
+}
+
+/* Individual comments */
+.comment {
+    background-color: var(--bg-soft);
+    border-left: 2px solid var(--accent-soft);
+    transition: border-color 0.2s ease;
+}
+
+.comment:hover {
+    border-left-color: var(--accent);
+}
+
+.comment:target {
+    border-left-color: var(--accent);
+    background-color: var(--bg-elevated);
+    animation: highlight-pulse 2s ease-out;
+}
+
+@keyframes highlight-pulse {
+    0% { box-shadow: 0 0 0 3px var(--accent-soft); }
+    100% { box-shadow: 0 0 0 0px transparent; }
+}
+
+/* Comment content */
+.comment-content {
+    color: var(--text);
+    line-height: 1.6;
+}
+
+.comment-content p {
+    margin-bottom: 0.75rem;
+}
+
+.comment-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Comment references */
+.comment-reference {
+    color: var(--accent);
+    font-weight: 600;
+    border-bottom: 1px dotted var(--accent);
+}
+
+.comment-reference:hover {
+    color: var(--accent-hover);
+    border-bottom-style: solid;
+}
+
+/* Tripcode */
+.tripcode {
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+footer {
+    background-color: var(--bg-elevated);
+    border-top: 1px solid var(--border-color);
+    color: var(--text-muted);
+}
+
+footer a {
+    color: var(--text-muted);
+    border-bottom: none;
+}
+
+footer a:hover {
+    color: var(--accent);
+}
+
+/* ============================================
+   404 Page
+   ============================================ */
+main h1.text-6xl,
+main .text-6xl {
+    color: var(--accent);
+    font-size: 5rem;
+    font-weight: 800;
+}
+
+/* ============================================
+   Post List (Homepage)
+   ============================================ */
+
+/* Post preview card */
+.post-preview {
+    margin-bottom: 1.5rem;
+}
+
+.post-preview .post-card-link {
+    display: block;
+    padding: 1.25rem 1.5rem;
+    background-color: var(--bg-soft);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid transparent;
+    border-radius: 4px;
     text-decoration: none;
-    border: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.site-nav a {
-    margin-left: 1rem;
-    font-family: sans-serif;
-    font-size: 1rem;
-    color: var(--text-color);
-    border: none;
+.post-preview .post-card-link:hover {
+    border-left-color: var(--accent);
+    background-color: var(--bg-elevated);
 }
 
-.site-nav a:hover {
-    text-decoration: underline;
+.post-preview .post-title {
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+    transition: color 0.2s ease;
 }
 
-/* Markdown Content Overrides */
-.prose {
-    max-width: none;
-    /* Let body handle width */
-    color: var(--text-color);
+.post-preview .post-card-link:hover .post-title {
+    color: var(--accent);
 }
 
-.prose blockquote {
-    border-left-color: var(--accent-color);
-    font-style: italic;
-    background: rgba(0, 0, 0, 0.02);
-    padding: 0.5rem 1rem;
+.post-preview .post-meta {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
 }
 
-/* Print Styles */
+.post-preview .post-tags {
+    margin-bottom: 0.75rem;
+}
+
+.post-preview .tag {
+    display: inline-block;
+    background-color: var(--accent-soft);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    margin-right: 0.4rem;
+    text-transform: lowercase;
+}
+
+.post-preview .post-excerpt {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    /* Fade effect for excerpt */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Single post page article styling */
+article.post {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+/* Post footer - inline category/license info */
+.post-footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.post-footer .separator {
+    opacity: 0.5;
+}
+
+.post-footer a {
+    color: var(--text-muted);
+    border-bottom: 1px dotted var(--text-muted);
+}
+
+.post-footer a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* ============================================
+   Scrollbar Styling (Webkit)
+   ============================================ */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-soft);
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--bg);
+}
+
+/* ============================================
+   Selection
+   ============================================ */
+::selection {
+    background-color: var(--accent);
+    color: var(--text);
+}
+
+::-moz-selection {
+    background-color: var(--accent);
+    color: var(--text);
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
 @media print {
     body {
         background: white;
         color: black;
         font-size: 12pt;
-        max-width: 100%;
-        padding: 0;
     }
-
+    
     a {
-        text-decoration: underline;
         color: black;
+        text-decoration: underline;
         border: none;
     }
-
-    .site-header,
-    .site-nav {
+    
+    header, footer, .comment-form {
         display: none;
+    }
+    
+    .banner-container {
+        display: none;
+    }
+}
+
+/* ============================================
+   Reduced Motion
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    html {
+        scroll-behavior: auto;
     }
 }

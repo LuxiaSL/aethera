@@ -1,5 +1,5 @@
 """
-Post utilities for shared functionality between API and admin routes.
+Post utilities for shared functionality.
 """
 from typing import Optional
 from datetime import datetime

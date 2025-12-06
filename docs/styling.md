@@ -92,7 +92,7 @@ Add the Google Fonts links once in `<head>`.
   </main>
 
   <footer class="bg-bg-elevated mt-16 py-8 text-center text-text-muted text-sm">
-      © {{now().year}} Luxia Caelum. CC‑BY 4.0.
+      © {{now().year}} Luxia. CC‑BY 4.0.
   </footer>
 </body>
 ```

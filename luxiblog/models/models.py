@@ -106,9 +106,20 @@ class Comment(SQLModel, table=True):
         
     @staticmethod
     def process_cross_references(content: str) -> str:
-        """Process >>1234 style references to other comments."""
-        return re.sub(
-            r'>>(\d+)', 
+        """Process >>1234 style references to other comments.
+        
+        Handles both raw >> and HTML-escaped &gt;&gt; patterns.
+        """
+        # Match HTML-escaped version (after markdown processing)
+        content = re.sub(
+            r'&gt;&gt;(\d+)', 
             r'<a href="#comment-\1" class="comment-reference">&gt;&gt;\1</a>', 
             content
         )
+        # Also match raw version (for edge cases)
+        content = re.sub(
+            r'(?<!&gt;)>>(\d+)', 
+            r'<a href="#comment-\1" class="comment-reference">&gt;&gt;\1</a>', 
+            content
+        )
+        return content

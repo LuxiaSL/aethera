@@ -1,36 +1,22 @@
 {% for post in posts %}
-<article class="post-preview mb-10 pb-8 border-b border-accent-soft circuit-box">
-    <header>
-        <h2 class="text-xl font-bold mb-3">
-            <a href="/posts/{{ post.slug }}" class="text-text hover:text-accent transition-colors duration-200">{{ post.title }}</a>
-        </h2>
-        <div class="text-sm text-text-muted mb-4">
+<article class="post-preview">
+    <a href="/posts/{{ post.slug }}" class="post-card-link">
+        <h2 class="post-title">{{ post.title }}</h2>
+        <div class="post-meta">
             <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%B %d, %Y') }}</time>
             {% if post.author %} · {{ post.author }}{% endif %}
-            {% if post.tags %}
-            <div class="mt-2">
-                {% for tag in post.get_tags_list() %}
-                <span class="inline-block bg-accent-soft text-text-muted text-xs px-2 py-1 rounded-sm mr-2 opacity-80 hover:opacity-100 transition-opacity">{{ tag }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
         </div>
-    </header>
-    
-    <div class="post-excerpt">
-        {% if post.excerpt %}
-        <p class="text-text opacity-90">{{ post.excerpt }}</p>
+        {% if post.tags %}
+        <div class="post-tags">
+            {% for tag in post.get_tags_list() %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+        </div>
         {% endif %}
-    </div>
-    
-    <footer class="mt-4">
-        <a href="/posts/{{ post.slug }}" class="text-accent hover:underline opacity-80 hover:opacity-100 transition-opacity flex items-center">
-            Read more 
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-        </a>
-    </footer>
+        {% if post.excerpt %}
+        <p class="post-excerpt">{{ post.excerpt }}</p>
+        {% endif %}
+    </a>
 </article>
 {% endfor %}
 
