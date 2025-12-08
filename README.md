@@ -44,7 +44,6 @@ nano .env
 Key environment variables:
 - `DATABASE_URL`: SQLite or other database URL
 - `AETHERA_TRIPCODE_SALT`: Salt for comment tripcodes
-- `AETHERA_SECRET_KEY`: Secret key for sessions
 
 ### Database Setup
 
@@ -101,7 +100,6 @@ docker run -p 8000:8000 \
 
 Ensure you set the following environment variables for production:
 - `AETHERA_TRIPCODE_SALT`: Custom salt for comment tripcodes
-- `AETHERA_SECRET_KEY`: Secure secret key for session management
 
 ## License
 

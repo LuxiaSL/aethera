@@ -49,9 +49,8 @@ docker build -t aethera:latest .
 ### 3. Run the Container
 
 ```bash
-# Generate secure salts
+# Generate secure salt for tripcodes
 TRIPCODE_SALT=$(openssl rand -hex 32)
-SECRET_KEY=$(openssl rand -hex 32)
 
 # Run the container
 docker run -d \
@@ -59,7 +58,6 @@ docker run -d \
   --restart unless-stopped \
   -p 127.0.0.1:8000:8000 \
   -e AETHERA_TRIPCODE_SALT="$TRIPCODE_SALT" \
-  -e AETHERA_SECRET_KEY="$SECRET_KEY" \
   -v /opt/aethera/data:/app/data \
   aethera:latest
 
@@ -148,12 +146,10 @@ cd aethera
 cat > .env << 'EOF'
 DATABASE_URL=sqlite:///./data/blog.sqlite
 AETHERA_TRIPCODE_SALT=your-random-salt-here
-AETHERA_SECRET_KEY=your-random-secret-here
 EOF
 
-# Generate random values
+# Generate random salt
 sed -i "s/your-random-salt-here/$(openssl rand -hex 32)/" .env
-sed -i "s/your-random-secret-here/$(openssl rand -hex 32)/" .env
 
 # Create data directory
 mkdir -p data
@@ -377,7 +373,7 @@ curl -vI https://aetherawi.red 2>&1 | grep -i "subject\|issuer"
 - [ ] SSH key authentication (disable password login)
 - [ ] Firewall: Only allow ports 22, 80, 443
 - [ ] Keep system updated: `apt update && apt upgrade`
-- [ ] Set strong values for `AETHERA_TRIPCODE_SALT` and `AETHERA_SECRET_KEY`
+- [ ] Set a strong value for `AETHERA_TRIPCODE_SALT`
 - [ ] Regular backups of the SQLite database
 - [ ] Monitor disk space for uploads
 

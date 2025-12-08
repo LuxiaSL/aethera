@@ -2,13 +2,11 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 from pathlib import Path
 from sqlmodel import Session
 from contextlib import asynccontextmanager
-import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -34,10 +32,6 @@ app = FastAPI(lifespan=lifespan)
 # Add middleware
 app.add_middleware(SecurityHeadersMiddleware)  # Security headers should be first
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-# Add SessionMiddleware for session support
-# In production, use a secure secret key from env
-secret_key = os.environ.get("AETHERA_SECRET_KEY", "dev-secret-key-change-me")
-app.add_middleware(SessionMiddleware, secret_key=secret_key)
 
 # Mount static files
 static_path = Path(__file__).parent / "static"
