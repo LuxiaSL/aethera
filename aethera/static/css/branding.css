@@ -4,6 +4,17 @@
  */
 
 /* ============================================
+   Custom Fonts
+   ============================================ */
+@font-face {
+    font-family: 'Libertinus Mono';
+    src: url('/static/fonts/LibertinusMono-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* ============================================
    CSS Custom Properties (Design Tokens)
    ============================================ */
 :root {
@@ -61,21 +72,22 @@ html {
 body {
     background-color: var(--bg) !important;
     color: var(--text) !important;
-    font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-family: "Libertinus Mono", "JetBrains Mono", "Fira Code", monospace;
     line-height: 1.7;
-    font-size: 18px;
+    font-size: 17px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+    letter-spacing: -0.01em;
 }
 
 /* ============================================
    Typography
    ============================================ */
 h1, h2, h3, h4, h5, h6 {
-    font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-family: "Libertinus Mono", "JetBrains Mono", "Fira Code", monospace;
     font-weight: 700;
-    line-height: 1.25;
+    line-height: 1.3;
     color: var(--text);
 }
 
@@ -215,7 +227,7 @@ main {
    Code Blocks
    ============================================ */
 pre, code {
-    font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", "Consolas", monospace;
+    font-family: "Libertinus Mono", "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
     font-size: 0.9em;
 }
 
@@ -251,7 +263,7 @@ article header span[class*="bg-accent"] {
     background-color: var(--accent-soft);
     color: var(--text-muted);
     border-radius: 3px;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: "Libertinus Mono", monospace;
 }
 
 /* ============================================
@@ -327,7 +339,7 @@ article header span[class*="bg-accent"] {
 }
 
 .comment-form textarea {
-    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-family: "Libertinus Mono", "JetBrains Mono", "Fira Code", monospace;
     font-size: 0.85rem;
     resize: vertical;
     min-height: 5rem;
