@@ -1,0 +1,48 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            
+            echo "📦 Pulling latest changes..."
+            cd /opt/aethera
+            git pull origin main
+            
+            echo "🔨 Building Docker image..."
+            docker build -t aethera:latest .
+            
+            echo "🔄 Restarting container..."
+            docker stop aethera || true
+            docker rm aethera || true
+            docker run -d \
+              --name aethera \
+              --restart unless-stopped \
+              -p 127.0.0.1:8000:8000 \
+              --env-file /opt/aethera/.env \
+              -v /opt/aethera/data:/app/data \
+              aethera:latest
+            
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            
+            echo "✅ Deploy complete!"
+            docker ps | grep aethera
+
+
