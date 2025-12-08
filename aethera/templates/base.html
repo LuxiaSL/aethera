@@ -17,47 +17,66 @@
     <link rel="canonical" href="{{ canonical_url }}">
     {% endif %}
     <meta name="license" content="CC BY 4.0">
-    <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml" />
+    
+    <!-- Search Engine Verification (uncomment and add your codes) -->
+    <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" /> -->
+    <!-- <meta name="msvalidate.01" content="YOUR_BING_VERIFICATION_CODE" /> -->
     {% endblock %}
 
     <!-- Schema.org structured data -->
     {% block schema %}
     {% if post is defined %}
-    <!-- Article schema for post pages -->
+    <!-- BlogPosting schema for post pages -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "Article",
+        "@type": "BlogPosting",
         "headline": "{{ post.title }}",
         "datePublished": "{{ post.created_at.isoformat() }}",
         "dateModified": "{{ post.updated_at.isoformat() }}",
         "author": {
             "@type": "Person",
-            "name": "{{ post.author }}"
+            "name": "{{ post.author }}",
+            "url": "{{ request.base_url }}"
         },
+        "publisher": {
+            "@type": "Person",
+            "name": "Luxia",
+            "url": "{{ request.base_url }}"
+        },
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "{% if post.canonical_url %}{{ post.canonical_url }}{% else %}{{ request.url }}{% endif %}"
+        },
+        {% if post.excerpt %}
+        "description": "{{ post.excerpt | replace('"', '\\"') }}",
+        {% endif %}
         {% if post.tags %}
         "keywords": "{{ post.tags }}",
         {% endif %}
-        {% if post.canonical_url %}
-        "url": "{{ post.canonical_url }}"
-        {% else %}
-        "url": "{{ request.url }}"
-        {% endif %}
+        "inLanguage": "en",
+        "license": "https://creativecommons.org/licenses/by/4.0/",
+        "isAccessibleForFree": true,
+        "url": "{% if post.canonical_url %}{{ post.canonical_url }}{% else %}{{ request.url }}{% endif %}"
     }
     </script>
     {% else %}
-    <!-- Website schema for home/index page -->
+    <!-- Blog schema for home/index page -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "WebSite",
+        "@type": "Blog",
         "name": "æthera",
-        "description": "{% block schema_description %}{{ self.description() }}{% endblock %}",
+        "description": "thoughts, fragments, and transmissions from the digital aether",
         "url": "{{ request.base_url }}",
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": "{{ request.base_url }}search?q={search_term_string}",
-            "query-input": "required name=search_term_string"
+        "inLanguage": "en",
+        "license": "https://creativecommons.org/licenses/by/4.0/",
+        "author": {
+            "@type": "Person",
+            "name": "Luxia",
+            "url": "{{ request.base_url }}"
         }
     }
     </script>

@@ -19,7 +19,7 @@ router = APIRouter(tags=["posts"])
 
 
 class PostResponse(BaseModel):
-    """Pydantic model for post response."""
+    """Pydantic model for full post response."""
     id: int
     title: str
     slug: str
@@ -36,6 +36,31 @@ class PostResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class PostListItem(BaseModel):
+    """Pydantic model for post list item (lighter than full response)."""
+    id: int
+    title: str
+    slug: str
+    author: str
+    excerpt: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    tags: Optional[str] = None
+    categories: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class PostListResponse(BaseModel):
+    """Pydantic model for paginated post list."""
+    posts: List[PostListItem]
+    total: int
+    page: int
+    per_page: int
+    has_next: bool
 
 
 @router.get("/posts", response_class=HTMLResponse)
@@ -118,6 +143,51 @@ def get_post_body(slug: str, session: Session = Depends(get_session)):
     return post.content_html
 
 
+# =============================================================================
+# JSON API ENDPOINTS (Machine-Readable)
+# =============================================================================
+
+@router.get("/api/posts", response_model=PostListResponse)
+def list_posts_json(
+    request: Request,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    """
+    List all published posts as JSON.
+    
+    Machine-readable endpoint for AI agents, crawlers, and integrations.
+    Returns post metadata without full content (use /api/posts/{slug} for full content).
+    """
+    from sqlalchemy import func
+    
+    offset = (page - 1) * per_page
+    
+    # Get total count
+    total = session.exec(select(func.count(Post.id)).where(Post.published == True)).one()
+    
+    # Get posts for this page
+    query = (
+        select(Post)
+        .where(Post.published == True)
+        .order_by(Post.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+    )
+    posts = session.exec(query).all()
+    
+    has_next = (offset + len(posts)) < total
+    
+    return PostListResponse(
+        posts=[PostListItem.model_validate(p) for p in posts],
+        total=total,
+        page=page,
+        per_page=per_page,
+        has_next=has_next
+    )
+
+
 @router.get("/api/posts/{slug}", response_model=PostResponse)
 def get_post_json(slug: str, session: Session = Depends(get_session)):
     """Get a post as JSON (machine-readable endpoint)."""
@@ -129,6 +199,83 @@ def get_post_json(slug: str, session: Session = Depends(get_session)):
     
     # Return the post directly, FastAPI will convert it to the response model
     return post
+
+
+# =============================================================================
+# PLAIN TEXT ENDPOINTS (Raw Content Access)
+# =============================================================================
+
+from fastapi.responses import PlainTextResponse
+
+@router.get("/posts/{slug}.txt", response_class=PlainTextResponse)
+def get_post_plaintext(slug: str, session: Session = Depends(get_session)):
+    """
+    Get post as plain text (raw markdown source).
+    
+    Ideal for AI agents that prefer clean text over HTML parsing.
+    Returns the original markdown content with metadata header.
+    """
+    query = select(Post).where(Post.slug == slug, Post.published == True)
+    post = session.exec(query).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Build a clean plain text representation with metadata
+    lines = [
+        f"Title: {post.title}",
+        f"Author: {post.author}",
+        f"Date: {post.created_at.strftime('%Y-%m-%d')}",
+    ]
+    
+    if post.tags:
+        lines.append(f"Tags: {post.tags}")
+    if post.categories:
+        lines.append(f"Categories: {post.categories}")
+    
+    lines.append(f"License: {post.license}")
+    lines.append("")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append(post.content)  # Original markdown
+    
+    return "\n".join(lines)
+
+
+@router.get("/posts/{slug}.md", response_class=PlainTextResponse)
+def get_post_markdown(slug: str, session: Session = Depends(get_session)):
+    """
+    Get post as raw markdown with frontmatter.
+    
+    Returns the post in a format that could be directly saved as a .md file.
+    """
+    query = select(Post).where(Post.slug == slug, Post.published == True)
+    post = session.exec(query).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Build markdown with YAML frontmatter
+    frontmatter = [
+        "---",
+        f"title: {post.title}",
+        f"author: {post.author}",
+        f"date: {post.created_at.strftime('%Y-%m-%d')}",
+    ]
+    
+    if post.tags:
+        frontmatter.append(f"tags: {post.tags}")
+    if post.categories:
+        frontmatter.append(f"categories: {post.categories}")
+    if post.excerpt:
+        frontmatter.append(f"excerpt: {post.excerpt}")
+    
+    frontmatter.append(f"license: {post.license}")
+    frontmatter.append("---")
+    frontmatter.append("")
+    frontmatter.append(post.content)
+    
+    return "\n".join(frontmatter)
 
 
 @router.post("/api/posts", status_code=status.HTTP_201_CREATED)

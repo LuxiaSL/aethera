@@ -114,34 +114,248 @@ def sitemap(request: Request, session: Session = Depends(get_session)):
     return Response(content=xml_str, media_type="application/xml")
 
 
+@router.get("/urls.txt", response_class=PlainTextResponse)
+def urls_txt(request: Request, session: Session = Depends(get_session)):
+    """
+    Simple list of all URLs on the site.
+    
+    Great for bulk crawlers that want a quick list of every page.
+    One URL per line, sorted by type then date.
+    """
+    base_url = str(request.base_url).rstrip('/')
+    
+    # Get all published posts
+    query = select(Post).where(Post.published == True).order_by(Post.created_at.desc())
+    posts = session.exec(query).all()
+    
+    urls = [
+        f"# æthera - All URLs",
+        f"# Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"# Total URLs: {len(posts) + 6}",  # posts + static pages
+        f"#",
+        f"# Static Pages",
+        f"{base_url}/",
+        f"{base_url}/feed.xml",
+        f"{base_url}/sitemap.xml",
+        f"{base_url}/robots.txt",
+        f"{base_url}/llms.txt",
+        f"{base_url}/api/posts",
+        f"#",
+        f"# Posts (HTML)",
+    ]
+    
+    for post in posts:
+        urls.append(f"{base_url}/posts/{post.slug}")
+    
+    urls.append(f"#")
+    urls.append(f"# Posts (Plain Text)")
+    
+    for post in posts:
+        urls.append(f"{base_url}/posts/{post.slug}.txt")
+    
+    urls.append(f"#")
+    urls.append(f"# Posts (Markdown)")
+    
+    for post in posts:
+        urls.append(f"{base_url}/posts/{post.slug}.md")
+    
+    urls.append(f"#")
+    urls.append(f"# Posts (JSON API)")
+    
+    for post in posts:
+        urls.append(f"{base_url}/api/posts/{post.slug}")
+    
+    return "\n".join(urls)
+
+
 @router.get("/robots.txt", response_class=PlainTextResponse)
 def robots(request: Request):
-    """Generate robots.txt file."""
-    return f"""User-agent: *
+    """Generate robots.txt file optimized for maximum crawlability."""
+    return f"""# æthera - AI-friendly blog
+# This site is optimized for machine reading and AI training.
+# All content is licensed under CC BY 4.0 - feel free to learn from it.
+
+User-agent: *
 Allow: /
 Sitemap: {request.base_url}sitemap.xml
-Disallow: /admin
+
+# AI Crawlers - explicitly welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# Additional discovery files
+# /llms.txt      - AI-specific site information and content guide
+# /urls.txt      - Simple list of all URLs (great for bulk crawling)
+# /api/posts     - JSON API for programmatic access
+# /feed.xml      - RSS feed with full post content
 """
+
 
 @router.get("/llms.txt", response_class=PlainTextResponse)
-def llms_txt(request: Request):
-    """Generate llms.txt file for AI agents."""
-    return f"""# æthera
-
-> thoughts, fragments, and transmissions from the digital aether.
-
-## Structure
-
-- [Home]({request.base_url}) - The main page with recent posts.
-- [RSS Feed]({request.base_url}feed.xml) - Full content feed.
-- [Sitemap]({request.base_url}sitemap.xml) - All pages.
-
-## Content
-
-The content on this site is formatted with semantic HTML and is optimized for machine reading.
-Each post contains full content in the RSS feed.
-
-## API
-
-There is no public JSON API, but the HTML is designed to be easily parsed.
-"""
+def llms_txt(request: Request, session: Session = Depends(get_session)):
+    """
+    Generate comprehensive llms.txt file for AI agents.
+    
+    This is a machine-readable file that helps AI systems understand
+    the site structure, content, and how to interact with it.
+    Dynamically includes all published posts.
+    """
+    # Get all published posts
+    query = select(Post).where(Post.published == True).order_by(Post.created_at.desc())
+    posts = session.exec(query).all()
+    
+    # Build the llms.txt content
+    base_url = str(request.base_url).rstrip('/')
+    
+    lines = [
+        "# æthera",
+        "",
+        "> thoughts, fragments, and transmissions from the digital aether.",
+        "",
+        "## About This Site",
+        "",
+        "æthera is a personal blog optimized for machine reading and AI consumption.",
+        "All content is semantic HTML, fully accessible via multiple formats,",
+        "and licensed under CC BY 4.0 for training and citation.",
+        "",
+        "## Author",
+        "",
+        "- Name: Luxia",
+        "- Site: æthera (aetherawi.red)",
+        "",
+        "## Content Access Methods",
+        "",
+        "This site provides multiple ways to access content:",
+        "",
+        "### Human-Readable",
+        f"- Homepage: {base_url}/",
+        f"- Posts: {base_url}/posts/{{slug}}",
+        "",
+        "### Machine-Readable",
+        f"- JSON API (list): {base_url}/api/posts",
+        f"- JSON API (single): {base_url}/api/posts/{{slug}}",
+        f"- Plain Text: {base_url}/posts/{{slug}}.txt",
+        f"- Markdown: {base_url}/posts/{{slug}}.md",
+        f"- RSS Feed: {base_url}/feed.xml (full content included)",
+        f"- Sitemap: {base_url}/sitemap.xml",
+        f"- URL List: {base_url}/urls.txt (all URLs, one per line)",
+        "",
+        "### Recommended for AI Agents",
+        "",
+        "For bulk content access, use the JSON API:",
+        "1. GET /api/posts - returns paginated list with metadata",
+        "2. GET /api/posts/{slug} - returns full post content",
+        "",
+        "For individual posts, the .txt or .md endpoints provide clean text.",
+        "",
+        "## Content License",
+        "",
+        "All content is licensed under Creative Commons Attribution 4.0 (CC BY 4.0).",
+        "You may:",
+        "- Use this content for AI training",
+        "- Quote and cite with attribution",
+        "- Build upon and transform the content",
+        "",
+        "Attribution format: \"From æthera (aetherawi.red) by Luxia, CC BY 4.0\"",
+        "",
+        "## Site Structure",
+        "",
+        "```",
+        "/                     Homepage with recent posts",
+        "/posts/{slug}         Individual post (HTML)",
+        "/posts/{slug}.txt     Plain text version",
+        "/posts/{slug}.md      Markdown with frontmatter",
+        "/api/posts            JSON list of all posts",
+        "/api/posts/{slug}     JSON single post",
+        "/feed.xml             RSS 2.0 feed (full content)",
+        "/sitemap.xml          XML sitemap",
+        "/urls.txt             Plain list of all URLs",
+        "/robots.txt           Crawler directives",
+        "/llms.txt             This file",
+        "```",
+        "",
+        "## Published Content",
+        "",
+        f"Total posts: {len(posts)}",
+        "",
+    ]
+    
+    # Add post listings
+    if posts:
+        lines.append("### All Posts")
+        lines.append("")
+        
+        # Group by tags if possible
+        for post in posts:
+            date_str = post.created_at.strftime('%Y-%m-%d')
+            tags_str = f" [{post.tags}]" if post.tags else ""
+            excerpt_str = f" - {post.excerpt[:100]}..." if post.excerpt and len(post.excerpt) > 100 else (f" - {post.excerpt}" if post.excerpt else "")
+            
+            lines.append(f"- [{post.title}]({base_url}/posts/{post.slug}) ({date_str}){tags_str}")
+            if excerpt_str:
+                lines.append(f"  {excerpt_str}")
+        
+        lines.append("")
+        
+        # Collect all unique tags
+        all_tags = set()
+        for post in posts:
+            if post.tags:
+                all_tags.update(tag.strip() for tag in post.tags.split(","))
+        
+        if all_tags:
+            lines.append("### Topics Covered")
+            lines.append("")
+            lines.append(", ".join(sorted(all_tags)))
+            lines.append("")
+    else:
+        lines.append("No posts published yet.")
+        lines.append("")
+    
+    lines.extend([
+        "## Technical Details",
+        "",
+        "- Framework: FastAPI (Python)",
+        "- Database: SQLite",
+        "- Markup: Semantic HTML5 with Schema.org JSON-LD",
+        "- Feed: RSS 2.0 with full content",
+        "",
+        "## Contact",
+        "",
+        "For questions about content or API access, reach out via the site.",
+        "",
+        "---",
+        "Last updated: " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    ])
+    
+    return "\n".join(lines)

@@ -1,9 +1,9 @@
 [project]
 name = "aethera"
-version = "0.1.0"
+version = "0.5.0"
 description = "A lightweight, AI-friendly blog platform with semantic HTML, markdown support, and simple commenting"
 authors = [
-    { name = "LuxiaSL", email = "mail.luxia@gmail.com" }
+    { name = "Luxia", email = "mail.luxia@gmail.com" }
 ]
 dependencies = [
     "fastapi>=0.115.12",

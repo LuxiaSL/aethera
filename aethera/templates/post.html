@@ -27,33 +27,40 @@
 {% endblock %}
 
 {% block content %}
-<article class="post">
+<!-- h-entry microformat for IndieWeb compatibility -->
+<article class="post h-entry">
     <header class="mb-8">
-        <h1 class="text-3xl font-bold mb-3">{{ post.title }}</h1>
+        <h1 class="text-3xl font-bold mb-3 p-name">{{ post.title }}</h1>
         <div class="text-text-muted">
-            <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%B %d, %Y') }}</time>
-            {% if post.author %} · {{ post.author }}{% endif %}
+            <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%B %d, %Y') }}</time>
+            {% if post.author %} · <span class="p-author h-card">{{ post.author }}</span>{% endif %}
         </div>
+        
+        <!-- Hidden machine-readable metadata -->
+        <data class="u-url hidden" value="{{ request.url }}"></data>
+        {% if post.excerpt %}
+        <data class="p-summary hidden" value="{{ post.excerpt }}"></data>
+        {% endif %}
 
         {% if post.tags %}
         <div class="mt-4">
             {% for tag in post.get_tags_list() %}
             <span
-                class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80 hover:opacity-100 transition-opacity">{{
+                class="p-category inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80 hover:opacity-100 transition-opacity">{{
                 tag }}</span>
             {% endfor %}
         </div>
         {% endif %}
     </header>
 
-    <div class="post-content prose lg:prose-lg max-w-none text-text">
+    <div class="post-content prose lg:prose-lg max-w-none text-text e-content">
         {{ post.content_html | safe }}
     </div>
 
     <footer class="post-footer">
-        <span>{% if post.categories %}{% for category in post.get_categories_list() %}<a href="/category/{{ category }}">{{ category }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Uncategorized{% endif %}</span>
+        <span>{% if post.categories %}{% for category in post.get_categories_list() %}<a href="/category/{{ category }}" class="p-category">{{ category }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Uncategorized{% endif %}</span>
         <span class="separator">·</span>
-        <span><a href="https://creativecommons.org/licenses/by/4.0/">{{ post.license }}</a></span>
+        <span><a href="https://creativecommons.org/licenses/by/4.0/" rel="license">{{ post.license }}</a></span>
     </footer>
 </article>
 

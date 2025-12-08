@@ -79,7 +79,7 @@ docker run -p 8000:8000 \
 ## Project Structure
 
 - `aethera/` - Main package
-  - `api/` - API routers for posts, comments, admin, and SEO
+  - `api/` - API routers for posts, comments, and SEO
   - `models/` - SQLModel database models
   - `templates/` - Jinja2 templates
   - `static/` - Static files (CSS, JS, uploads)

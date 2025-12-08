@@ -39,6 +39,9 @@
 .bg-bg-soft { background-color: var(--bg-soft) !important; }
 .bg-bg-elevated { background-color: var(--bg-elevated) !important; }
 
+/* Visibility utilities */
+.hidden { display: none !important; }
+
 /* Text utilities */
 .text-text { color: var(--text) !important; }
 .text-text-muted { color: var(--text-muted) !important; }
