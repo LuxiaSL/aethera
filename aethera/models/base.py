@@ -4,7 +4,8 @@ from sqlmodel import Field, SQLModel, create_engine
 import os
 from typing import Optional
 
-DATABASE_URL = "sqlite:///blog.sqlite"
+# Read from environment (set in Dockerfile for production) or use local default
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///blog.sqlite")
 
 # Global singleton engine - create once and reuse
 _ENGINE = None
