@@ -7,7 +7,7 @@
     <title>{% block title %}{{ title | default("æthera") }}{% endblock %}</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/ico" href="/static/favicon.ico">
 
     <!-- Meta tags and SEO -->
     {% block meta %}
@@ -132,27 +132,24 @@
                 onerror="this.style.display='none'" />
         </div>
 
-        <div class="max-w-4xl mx-auto px-4 py-6 relative z-10">
-            <div class="flex justify-between items-center">
-                <a href="/" class="site-logo" aria-label="æthera home">
-                    <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
-                </a>
-                <nav class="site-nav">
-                    <ul class="flex space-x-6 text-sm m-0 list-none">
-                        <li><a href="/" class="text-text-muted hover:text-accent transition-colors duration-200">Home</a></li>
-                        <li><a href="/feed.xml" class="text-text-muted hover:text-accent transition-colors duration-200">RSS</a></li>
-                    </ul>
-                </nav>
-            </div>
+        <div class="header-content">
+            <a href="/" class="site-logo" aria-label="æthera home">
+                <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
+            </a>
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto px-4 md:pl-20 mt-8">
+    <main>
         {% block content %}{% endblock %}
     </main>
 
     <footer class="bg-bg-elevated mt-16 py-8 text-center text-text-muted text-sm border-t border-accent-soft">
         <div class="max-w-4xl mx-auto px-4">
+            <p class="mb-2">
+                <a href="/feed.xml" class="text-text-muted hover:text-accent">RSS</a>
+                <span class="mx-2">·</span>
+                <a href="/llms.txt" class="text-text-muted hover:text-accent">llms.txt</a>
+            </p>
             <p>&copy; {{ now().year }} æthera. Licensed under <a
                     href="https://creativecommons.org/licenses/by/4.0/"
                     class="text-text-muted hover:text-accent">CC BY 4.0</a>.</p>

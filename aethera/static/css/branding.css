@@ -67,6 +67,7 @@
 html {
     scroll-behavior: smooth;
     background-color: var(--bg);
+    overflow-x: hidden;
 }
 
 body {
@@ -77,8 +78,11 @@ body {
     font-size: 17px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    min-height: 100vh;
     letter-spacing: -0.01em;
+    /* Sticky footer setup */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ============================================
@@ -92,7 +96,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 { font-size: 2.25rem; margin-bottom: 1rem; }
-h2 { font-size: 1.75rem; margin-top: 2.5rem; margin-bottom: 0.75rem; }
+h2 { font-size: 1.75rem; margin-bottom: 0.75rem; }
 h3 { font-size: 1.375rem; margin-top: 2rem; margin-bottom: 0.5rem; }
 
 /* ============================================
@@ -145,9 +149,19 @@ nav a:hover, .site-nav a:hover {
     -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }
 
+/* Header Row */
+/* Header content container - matches main width */
+.header-content {
+    width: 100%;
+    max-width: 64rem;
+    margin: 0 auto;
+    padding-top: 2.5rem;
+    box-sizing: border-box;
+}
+
 /* Site Logo */
 .site-logo {
-    display: block;
+    display: inline-block;
     border-bottom: none;
     transition: opacity 0.2s ease;
 }
@@ -158,14 +172,20 @@ nav a:hover, .site-nav a:hover {
 }
 
 .site-logo-img {
-    height: 40px;
+    height: 56px;
     width: auto;
     display: block;
 }
 
 @media (min-width: 640px) {
     .site-logo-img {
-        height: 48px;
+        height: 68px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .site-logo-img {
+        height: 80px;
     }
 }
 
@@ -184,14 +204,40 @@ header h1 a:hover {
    Main Content Area
    ============================================ */
 main {
-    max-width: 64rem; /* Wider than 72ch for better desktop experience */
+    width: 100%; /* Required for flex child to stretch */
+    max-width: 64rem;
     margin: 0 auto;
-    padding: 2rem 1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-bottom: 2rem;
+    padding-top: 2.5rem;
+    flex: 1; /* Grow to push footer down */
+    box-sizing: border-box;
+}
+
+/* Ensure content doesn't overflow on mobile */
+.post-content, .prose {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.post-content p, .prose p {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+/* Force horizontal scroll on any overflow elements */
+article {
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 @media (min-width: 768px) {
     main {
-        padding: 2rem 3rem;
+        padding-left: 3rem;
+        padding-right: 3rem;
     }
 }
 
@@ -260,6 +306,7 @@ code {
     color: #dcdcff;
     padding: 0.15em 0.4em;
     border-radius: 3px;
+    word-break: break-word;
 }
 
 pre {
@@ -270,11 +317,22 @@ pre {
     border-radius: 6px;
     border: 1px solid var(--border-color);
     margin: 1.5rem 0;
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+@media (max-width: 640px) {
+    pre {
+        padding: 1rem;
+        font-size: 0.8em;
+    }
 }
 
 pre code {
     background: none;
     padding: 0;
+    word-break: normal;
 }
 
 /* ============================================
