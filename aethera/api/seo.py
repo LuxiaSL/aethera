@@ -114,6 +114,63 @@ def sitemap(request: Request, session: Session = Depends(get_session)):
     return Response(content=xml_str, media_type="application/xml")
 
 
+@router.get("/oembed")
+def oembed(request: Request, url: str, format: str = "json", session: Session = Depends(get_session)):
+    """
+    oEmbed endpoint for rich embeds in platforms like Reddit, Notion, etc.
+    
+    Spec: https://oembed.com/
+    """
+    from urllib.parse import urlparse
+    
+    base_url = str(request.base_url).rstrip('/')
+    
+    # Parse the URL to find the post
+    parsed = urlparse(url)
+    path_parts = parsed.path.strip('/').split('/')
+    
+    # Default response for homepage
+    response_data = {
+        "version": "1.0",
+        "type": "link",
+        "title": "æthera",
+        "author_name": "Luxia",
+        "author_url": base_url,
+        "provider_name": "æthera",
+        "provider_url": base_url,
+        "thumbnail_url": f"{base_url}/static/uploads/og-card.png",
+        "thumbnail_width": 1200,
+        "thumbnail_height": 630,
+    }
+    
+    # If it's a post URL, get post-specific info
+    if len(path_parts) >= 2 and path_parts[0] == "posts":
+        slug = path_parts[1].split('.')[0]  # Handle .txt, .md extensions
+        post = session.exec(select(Post).where(Post.slug == slug, Post.published == True)).first()
+        
+        if post:
+            response_data.update({
+                "type": "rich",
+                "title": post.title,
+                "author_name": post.author,
+                "html": f'<blockquote><a href="{base_url}/posts/{post.slug}">{post.title}</a> — {post.excerpt or ""}</blockquote>',
+                "width": 600,
+                "height": 200,
+            })
+    
+    if format == "xml":
+        # Return XML format (rarely used but part of spec)
+        import xml.etree.ElementTree as ET
+        root = ET.Element("oembed")
+        for key, value in response_data.items():
+            el = ET.SubElement(root, key)
+            el.text = str(value)
+        xml_str = '<?xml version="1.0" encoding="UTF-8"?>' + ET.tostring(root, encoding="unicode")
+        return Response(content=xml_str, media_type="application/xml")
+    
+    return response_data
+
+
 @router.get("/urls.txt", response_class=PlainTextResponse)
 def urls_txt(request: Request, session: Session = Depends(get_session)):
     """

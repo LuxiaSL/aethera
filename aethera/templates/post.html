@@ -17,11 +17,32 @@
 <meta property="og:url" content="{{ request.url }}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="æthera">
+<meta property="og:image" content="{{ request.base_url }}static/uploads/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:author" content="{{ post.author }}">
+<meta property="article:published_time" content="{{ post.created_at.isoformat() }}">
+<meta property="article:modified_time" content="{{ post.updated_at.isoformat() }}">
+{% if post.tags %}
+{% for tag in post.get_tags_list() %}
+<meta property="article:tag" content="{{ tag }}">
+{% endfor %}
+{% endif %}
 
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary">
+<!-- Twitter/X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@slLuxia">
+<meta name="twitter:creator" content="@slLuxia">
 <meta name="twitter:title" content="{{ post.title }}">
 <meta name="twitter:description" content="{{ post.excerpt }}">
+<meta name="twitter:image" content="{{ request.base_url }}static/uploads/og-card.png">
+<meta name="twitter:image:alt" content="æthera logo">
+
+<!-- oEmbed Discovery -->
+<link rel="alternate" type="application/json+oembed" href="{{ request.base_url }}oembed?url={{ request.url }}&format=json" title="{{ post.title }} oEmbed">
+
+<!-- Theme Color -->
+<meta name="theme-color" content="#0e0c12">
 
 <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
 {% endblock %}

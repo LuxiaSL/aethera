@@ -20,6 +20,32 @@
     <meta name="robots" content="index, follow, max-image-preview:large">
     <link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml" />
     
+    <!-- Open Graph (default for homepage) -->
+    <meta property="og:title" content="æthera">
+    <meta property="og:description" content="thoughts, fragments, and transmissions from the digital aether">
+    <meta property="og:url" content="{{ request.base_url }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="æthera">
+    <meta property="og:image" content="{{ request.base_url }}static/uploads/og-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    
+    <!-- Twitter/X Card (default for homepage) -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@slLuxia">
+    <meta name="twitter:creator" content="@slLuxia">
+    <meta name="twitter:title" content="æthera">
+    <meta name="twitter:description" content="thoughts, fragments, and transmissions from the digital aether">
+    <meta name="twitter:image" content="{{ request.base_url }}static/uploads/og-card.png">
+    <meta name="twitter:image:alt" content="æthera logo">
+    
+    <!-- oEmbed Discovery -->
+    <link rel="alternate" type="application/json+oembed" href="{{ request.base_url }}oembed?url={{ request.url }}&format=json" title="æthera oEmbed">
+    
+    <!-- Theme Color (browser chrome, PWA) -->
+    <meta name="theme-color" content="#0e0c12">
+    <meta name="msapplication-TileColor" content="#0e0c12">
+    
     <!-- Search Engine Verification (uncomment and add your codes) -->
     <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" /> -->
     <!-- <meta name="msvalidate.01" content="YOUR_BING_VERIFICATION_CODE" /> -->
@@ -108,9 +134,9 @@
 
         <div class="max-w-4xl mx-auto px-4 py-6 relative z-10">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl tracking-wide m-0">
-                    <a href="/" class="text-text hover:text-accent transition-colors duration-200">æ<span class="font-semibold">thera</span></a>
-                </h1>
+                <a href="/" class="site-logo" aria-label="æthera home">
+                    <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
+                </a>
                 <nav class="site-nav">
                     <ul class="flex space-x-6 text-sm m-0 list-none">
                         <li><a href="/" class="text-text-muted hover:text-accent transition-colors duration-200">Home</a></li>

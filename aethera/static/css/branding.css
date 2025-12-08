@@ -145,7 +145,31 @@ nav a:hover, .site-nav a:hover {
     -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }
 
-/* Header text styling */
+/* Site Logo */
+.site-logo {
+    display: block;
+    border-bottom: none;
+    transition: opacity 0.2s ease;
+}
+
+.site-logo:hover {
+    opacity: 0.85;
+    border-bottom: none;
+}
+
+.site-logo-img {
+    height: 40px;
+    width: auto;
+    display: block;
+}
+
+@media (min-width: 640px) {
+    .site-logo-img {
+        height: 48px;
+    }
+}
+
+/* Legacy header text styling (fallback) */
 header h1 a {
     border-bottom: none;
     letter-spacing: 0.02em;
