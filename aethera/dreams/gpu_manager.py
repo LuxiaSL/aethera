@@ -176,6 +176,9 @@ class RunPodManager:
             logger.info("GPU already idle, skipping stop")
             return True
         
+        # Capture uptime before changing state (uptime_seconds requires RUNNING state)
+        uptime = self.uptime_seconds
+        
         await self._set_state(GPUState.STOPPING)
         
         try:
@@ -192,7 +195,7 @@ class RunPodManager:
             self.stats.stop_time = time.time()
             await self._set_state(GPUState.IDLE)
             
-            logger.info(f"GPU stopped (uptime: {self.uptime_seconds:.1f}s)")
+            logger.info(f"GPU stopped (uptime: {uptime:.1f}s)")
             return True
         
         except Exception as e:

@@ -221,13 +221,13 @@ class DreamWebSocketHub:
         Handle binary message from GPU
         
         Args:
-            data: Binary message (type byte + payload)
+            data: Binary message (type byte + optional payload)
         """
-        if len(data) < 2:
+        if len(data) < 1:
             return
         
         msg_type = data[0]
-        payload = data[1:]
+        payload = data[1:] if len(data) > 1 else b""
         
         if msg_type == MSG_FRAME:
             await self._handle_gpu_frame(payload)

@@ -159,6 +159,9 @@ class ViewerPresenceTracker:
         
         except asyncio.CancelledError:
             logger.debug("Shutdown task cancelled")
+        
+        finally:
+            self._shutdown_task = None
     
     def get_status(self) -> dict:
         """Get presence tracking status"""

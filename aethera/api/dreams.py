@@ -382,9 +382,11 @@ async def gpu_websocket(websocket: WebSocket):
         return
     
     hub = get_hub()
+    connected = False
     
     try:
         await hub.connect_gpu(websocket)
+        connected = True
         
         while True:
             try:
@@ -398,6 +400,8 @@ async def gpu_websocket(websocket: WebSocket):
         logger.error(f"GPU WebSocket error: {e}")
     
     finally:
-        await hub.disconnect_gpu()
+        # Only disconnect if we successfully connected (avoid disconnecting existing GPU)
+        if connected:
+            await hub.disconnect_gpu()
 
 
