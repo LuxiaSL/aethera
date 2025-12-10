@@ -18,26 +18,26 @@
    CSS Custom Properties (Design Tokens)
    ============================================ */
 :root {
-    /* Backgrounds - midnight violet spectrum */
-    --bg: #0e0c12;
-    --bg-soft: #161219;
-    --bg-elevated: #1d1724;
-    
-    /* Text - high contrast for readability */
-    --text: #eae9ec;
-    --text-muted: #a8a3b5;
-    
-    /* Accent - crimson from banner center */
-    --accent: #9a2b2b;
-    --accent-hover: #b83636;
-    --accent-soft: #2d1f24;
-    
+    /* Backgrounds - pure black */
+    --bg: #000000;
+    --bg-soft: #0a0a0a;
+    --bg-elevated: #111111;
+
+    /* Text - white */
+    --text: #ffffff;
+    --text-muted: #888888;
+
+    /* Accent - neutral for now, will add color later */
+    --accent: #ffffff;
+    --accent-hover: #cccccc;
+    --accent-soft: #1a1a1a;
+
     /* Code/Technical elements */
-    --code-bg: #1a1520;
-    --border-color: #2d2636;
-    
-    /* Schematic overlay hint */
-    --circuit-line: rgba(154, 43, 43, 0.15);
+    --code-bg: #0a0a0a;
+    --border-color: #222222;
+
+    /* Disabled for now */
+    --circuit-line: transparent;
 }
 
 /* ============================================
@@ -68,6 +68,8 @@ html {
     scroll-behavior: smooth;
     background-color: var(--bg);
     overflow-x: hidden;
+    /* Prevent layout shift from scrollbar appearing/disappearing */
+    scrollbar-gutter: stable;
 }
 
 body {
@@ -83,6 +85,59 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+}
+
+/* ============================================
+   Page-wide CRT Effects
+   ============================================ */
+
+/* CRT scan lines overlay - covers entire viewport */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 1px,
+        rgba(0, 0, 0, 0.2) 1px,
+        rgba(0, 0, 0, 0.2) 2px
+    );
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* CRT vignette - subtle darkening at edges */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        transparent 60%,
+        rgba(0, 0, 0, 0.3) 100%
+    );
+    pointer-events: none;
+    z-index: 9998;
+}
+
+/* Subtle page flicker */
+@keyframes page-flicker {
+    0%, 100% { opacity: 1; }
+    97% { opacity: 1; }
+    97.5% { opacity: 0.95; }
+    98% { opacity: 1; }
+}
+
+body {
+    animation: page-flicker 5s infinite;
 }
 
 /* ============================================
@@ -103,116 +158,107 @@ h3 { font-size: 1.375rem; margin-top: 2rem; margin-bottom: 0.5rem; }
    Links
    ============================================ */
 a {
-    color: var(--accent);
+    color: var(--text);
     text-decoration: none;
-    border-bottom: 1px dotted var(--accent);
-    transition: color 0.2s ease, border-color 0.2s ease;
 }
 
 a:hover, a:focus {
-    color: var(--accent-hover);
-    border-bottom-style: solid;
-    border-color: var(--accent-hover);
-}
-
-/* Navigation links - cleaner style */
-nav a, .site-nav a {
-    border-bottom: none;
-}
-
-nav a:hover, .site-nav a:hover {
-    border-bottom: none;
-    text-decoration: underline;
-    text-underline-offset: 4px;
+    color: var(--text-muted);
 }
 
 /* ============================================
-   Banner & Header
+   Header
    ============================================ */
-.banner-container {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
-}
 
-.banner-container img {
-    width: 100%;
-    height: auto;
-    max-height: 320px;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0.85;
-    /* Remove mix-blend-screen for dark theme - let the image show naturally */
-    mix-blend-mode: normal;
-    /* Fade to background at bottom */
-    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-}
-
-/* Header Row */
-/* Header content container - matches main width */
+/* Header content container */
 .header-content {
     width: 100%;
     max-width: 64rem;
     margin: 0 auto;
-    padding-top: 2.5rem;
+    padding: 1rem;
+    padding-bottom: 0.25rem;
     box-sizing: border-box;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+@media (min-width: 1024px) {
+    .header-content {
+        max-width: 70rem;
+    }
 }
 
 /* Site Logo */
 .site-logo {
     display: inline-block;
-    border-bottom: none;
-    transition: opacity 0.2s ease;
-}
-
-.site-logo:hover {
-    opacity: 0.85;
-    border-bottom: none;
+    position: relative;
 }
 
 .site-logo-img {
-    height: 56px;
+    height: 48px;
     width: auto;
     display: block;
+    /* CRT glow effect */
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4))
+            drop-shadow(0 0 15px rgba(255, 255, 255, 0.15));
+}
+
+/* CRT scan lines overlay */
+.site-logo::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 1px,
+        rgba(0, 0, 0, 0.2) 1px,
+        rgba(0, 0, 0, 0.2) 2px
+    );
+    pointer-events: none;
+}
+
+/* Subtle flicker animation */
+@keyframes crt-flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.85; }
+    94% { opacity: 1; }
+}
+
+.site-logo-img {
+    animation: crt-flicker 3s infinite;
 }
 
 @media (min-width: 640px) {
     .site-logo-img {
-        height: 68px;
+        height: 56px;
     }
 }
 
 @media (min-width: 1024px) {
     .site-logo-img {
-        height: 80px;
+        height: 64px;
     }
-}
-
-/* Legacy header text styling (fallback) */
-header h1 a {
-    border-bottom: none;
-    letter-spacing: 0.02em;
-}
-
-header h1 a:hover {
-    color: var(--accent);
-    border-bottom: none;
 }
 
 /* ============================================
    Main Content Area
    ============================================ */
 main {
-    width: 100%; /* Required for flex child to stretch */
+    width: 100%;
     max-width: 64rem;
     margin: 0 auto;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    padding: 0;
     padding-bottom: 2rem;
-    padding-top: 2.5rem;
-    flex: 1; /* Grow to push footer down */
+    flex: 1;
     box-sizing: border-box;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
 }
 
 /* Ensure content doesn't overflow on mobile */
@@ -234,12 +280,6 @@ article {
     overflow-x: auto;
 }
 
-@media (min-width: 768px) {
-    main {
-        padding-left: 3rem;
-        padding-right: 3rem;
-    }
-}
 
 @media (min-width: 1024px) {
     main {
@@ -857,18 +897,15 @@ article header span[class*="bg-accent"] {
    Footer
    ============================================ */
 footer {
-    background-color: var(--bg-elevated);
-    border-top: 1px solid var(--border-color);
     color: var(--text-muted);
 }
 
 footer a {
     color: var(--text-muted);
-    border-bottom: none;
 }
 
 footer a:hover {
-    color: var(--accent);
+    color: var(--text);
 }
 
 /* ============================================
@@ -882,81 +919,104 @@ main .text-6xl {
 }
 
 /* ============================================
+   Marquee
+   ============================================ */
+
+.marquee {
+    background: #fff;
+    color: #000;
+    overflow: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.marquee-content {
+    display: inline-block;
+    animation: marquee 20s linear infinite;
+}
+
+.marquee-content span {
+    padding: 0.5rem 1rem;
+    display: inline-block;
+}
+
+@keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* ============================================
    Post List (Homepage)
    ============================================ */
 
-/* Post preview card */
 .post-preview {
-    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
-.post-preview .post-card-link {
-    display: block;
-    padding: 1.25rem 1.5rem;
-    background-color: var(--bg-soft);
-    border: 1px solid var(--border-color);
-    border-left: 3px solid transparent;
-    border-radius: 4px;
-    text-decoration: none;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+.post-preview:last-child {
+    border-bottom: none;
 }
 
-.post-preview .post-card-link:hover {
-    border-left-color: var(--accent);
-    background-color: var(--bg-elevated);
-}
-
-.post-preview .post-title {
+.post-preview .post-link {
     color: var(--text);
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin: 0 0 0.5rem 0;
-    line-height: 1.3;
-    transition: color 0.2s ease;
+    display: block;
 }
 
-.post-preview .post-card-link:hover .post-title {
-    color: var(--accent);
+.post-preview .post-link:hover {
+    color: var(--text-muted);
 }
 
 .post-preview .post-meta {
     color: var(--text-muted);
-    font-size: 0.85rem;
-    margin-bottom: 0.5rem;
-}
-
-.post-preview .post-tags {
-    margin-bottom: 0.75rem;
+    margin-top: 0.25rem;
 }
 
 .post-preview .tag {
     display: inline-block;
-    background-color: var(--accent-soft);
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 2px;
-    margin-right: 0.4rem;
-    text-transform: lowercase;
-}
-
-.post-preview .post-excerpt {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    line-height: 1.5;
-    margin: 0;
-    /* Fade effect for excerpt */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    border: 1px solid var(--text-muted);
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.35rem;
 }
 
 /* Single post page article styling */
 article.post {
     border-bottom: none;
+    padding: 1rem;
     padding-bottom: 0;
     margin-bottom: 0;
+}
+
+.post-header {
+    margin-bottom: 2rem;
+}
+
+.post-header h1 {
+    margin-bottom: 0.5rem;
+}
+
+.post-header .post-meta {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.post-header .tag {
+    display: inline-block;
+    border: 1px solid var(--text-muted);
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.35rem;
+    font-size: 0.75rem;
+}
+
+.comments-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.comments-section h2 {
+    margin-bottom: 1.5rem;
 }
 
 /* Post footer - inline category/license info */

@@ -42,7 +42,7 @@
 <link rel="alternate" type="application/json+oembed" href="{{ request.base_url }}oembed?url={{ request.url }}&format=json" title="{{ post.title }} oEmbed">
 
 <!-- Theme Color -->
-<meta name="theme-color" content="#0e0c12">
+<meta name="theme-color" content="#000000">
 
 <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
 {% endblock %}
@@ -50,31 +50,20 @@
 {% block content %}
 <!-- h-entry microformat for IndieWeb compatibility -->
 <article class="post h-entry">
-    <header class="mb-8">
-        <h1 class="text-3xl font-bold mb-3 p-name">{{ post.title }}</h1>
-        <div class="text-text-muted">
-            <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%B %d, %Y') }}</time>
-            {% if post.author %} · <span class="p-author h-card">{{ post.author }}</span>{% endif %}
+    <header class="post-header">
+        <h1 class="p-name">{{ post.title }}</h1>
+        <div class="post-meta">
+            <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%Y-%m-%d') }}</time> | <span class="p-author h-card">{{ post.author }}</span>{% if post.tags %} | {% for tag in post.get_tags_list() %}<span class="tag p-category">{{ tag }}</span>{% endfor %}{% endif %}
         </div>
-        
+
         <!-- Hidden machine-readable metadata -->
         <data class="u-url hidden" value="{{ request.url }}"></data>
         {% if post.excerpt %}
         <data class="p-summary hidden" value="{{ post.excerpt }}"></data>
         {% endif %}
-
-        {% if post.tags %}
-        <div class="mt-4">
-            {% for tag in post.get_tags_list() %}
-            <span
-                class="p-category inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80 hover:opacity-100 transition-opacity">{{
-                tag }}</span>
-            {% endfor %}
-        </div>
-        {% endif %}
     </header>
 
-    <div class="post-content prose lg:prose-lg max-w-none text-text e-content">
+    <div class="post-content e-content">
         {{ post.content_html | safe }}
     </div>
 
@@ -85,8 +74,8 @@
     </footer>
 </article>
 
-<section class="circuit-box comments-section mt-12 bg-bg-soft">
-    <h2 class="text-2xl font-bold mb-6">Comments</h2>
+<section class="comments-section">
+    <h2>Comments</h2>
 
     <!-- Comment form -->
     <div class="comment-form mb-8">

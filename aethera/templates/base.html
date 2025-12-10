@@ -43,8 +43,8 @@
     <link rel="alternate" type="application/json+oembed" href="{{ request.base_url }}oembed?url={{ request.url }}&format=json" title="æthera oEmbed">
     
     <!-- Theme Color (browser chrome, PWA) -->
-    <meta name="theme-color" content="#0e0c12">
-    <meta name="msapplication-TileColor" content="#0e0c12">
+    <meta name="theme-color" content="#000000">
+    <meta name="msapplication-TileColor" content="#000000">
     
     <!-- Search Engine Verification (uncomment and add your codes) -->
     <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" /> -->
@@ -124,14 +124,7 @@
 </head>
 
 <body class="bg-bg text-text">
-    <header class="w-full relative">
-        <!-- Cyberpunk schematic banner -->
-        <div class="banner-container w-full">
-            <img src="/static/uploads/banner.png" alt="æthera cybernetic circuit banner"
-                class="w-full"
-                onerror="this.style.display='none'" />
-        </div>
-
+    <header class="w-full">
         <div class="header-content">
             <a href="/" class="site-logo" aria-label="æthera home">
                 <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
@@ -143,17 +136,14 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-bg-elevated mt-16 py-8 text-center text-text-muted text-sm border-t border-accent-soft">
-        <div class="max-w-4xl mx-auto px-4">
-            <p class="mb-2">
-                <a href="/feed.xml" class="text-text-muted hover:text-accent">RSS</a>
-                <span class="mx-2">·</span>
-                <a href="/llms.txt" class="text-text-muted hover:text-accent">llms.txt</a>
-            </p>
-            <p>&copy; {{ now().year }} æthera. Licensed under <a
-                    href="https://creativecommons.org/licenses/by/4.0/"
-                    class="text-text-muted hover:text-accent">CC BY 4.0</a>.</p>
-        </div>
+    <footer class="mt-16 py-8 text-center text-sm">
+        <p>
+            <a href="/feed.xml">RSS</a>
+            ·
+            <a href="/llms.txt">llms.txt</a>
+            ·
+            <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
+        </p>
     </footer>
 
     {% block scripts %}{% endblock %}
