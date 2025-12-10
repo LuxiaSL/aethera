@@ -2,10 +2,15 @@ from typing import Optional
 from datetime import datetime
 from sqlmodel import Field, SQLModel, create_engine
 import os
+from pathlib import Path
 from typing import Optional
 
+# Compute default database path relative to project root
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+_DEFAULT_DB = f"sqlite:///{_PROJECT_ROOT / 'data' / 'blog.sqlite'}"
+
 # Read from environment (set in Dockerfile for production) or use local default
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///blog.sqlite")
+DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_DB)
 
 # Global singleton engine - create once and reuse
 _ENGINE = None

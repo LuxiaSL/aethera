@@ -1,0 +1,373 @@
+"""
+WebSocket Hub for Dream Window
+
+Manages two types of WebSocket connections:
+1. Browser viewers: Receive frame broadcasts
+2. GPU connection: Sends frames to broadcast
+
+Frame protocol uses binary messages for efficiency:
+- Type byte (0x01 = frame, 0x02 = state, etc.)
+- Payload (WebP data, msgpack, etc.)
+"""
+
+import asyncio
+import logging
+import time
+from typing import Optional, Set, TYPE_CHECKING
+from fastapi import WebSocket, WebSocketDisconnect
+
+from .frame_cache import FrameCache
+from .presence import ViewerPresenceTracker
+
+if TYPE_CHECKING:
+    from .gpu_manager import RunPodManager
+
+logger = logging.getLogger(__name__)
+
+# Message type bytes
+MSG_FRAME = 0x01
+MSG_STATE = 0x02
+MSG_HEARTBEAT = 0x03
+MSG_STATUS = 0x04
+
+
+class DreamWebSocketHub:
+    """
+    Central hub for Dream Window WebSocket connections
+    
+    Responsibilities:
+    - Accept browser viewer connections
+    - Receive frames from GPU connection
+    - Broadcast frames to all viewers
+    - Track connection health
+    """
+    
+    def __init__(
+        self,
+        frame_cache: FrameCache,
+        presence_tracker: ViewerPresenceTracker,
+        gpu_manager: Optional["RunPodManager"] = None,
+    ):
+        """
+        Initialize WebSocket hub
+        
+        Args:
+            frame_cache: Cache for storing received frames
+            presence_tracker: Tracks viewer presence for GPU lifecycle
+            gpu_manager: Optional GPU manager for lifecycle notifications
+        """
+        self.frame_cache = frame_cache
+        self.presence = presence_tracker
+        self.gpu_manager = gpu_manager
+        
+        self._viewers: Set[WebSocket] = set()
+        self._gpu_websocket: Optional[WebSocket] = None
+        self._lock = asyncio.Lock()
+        
+        # Status tracking
+        self._status = "idle"  # idle, starting, ready, error
+        self._status_message = "Waiting for connection..."
+        self._last_frame_time: float = 0
+    
+    @property
+    def viewer_count(self) -> int:
+        return len(self._viewers)
+    
+    @property
+    def gpu_connected(self) -> bool:
+        return self._gpu_websocket is not None
+    
+    @property
+    def status(self) -> str:
+        return self._status
+    
+    def set_status(self, status: str, message: str = "") -> None:
+        """Update status and optionally broadcast to viewers"""
+        self._status = status
+        self._status_message = message
+        logger.info(f"Status changed: {status} - {message}")
+    
+    # ==================== Viewer Connections ====================
+    
+    async def connect_viewer(self, websocket: WebSocket) -> None:
+        """
+        Handle a new browser viewer connection
+        
+        Args:
+            websocket: The connecting WebSocket
+        """
+        await websocket.accept()
+        
+        async with self._lock:
+            self._viewers.add(websocket)
+        
+        # Track presence (may trigger GPU start)
+        await self.presence.on_viewer_connect(websocket)
+        
+        # Send current status
+        await self._send_status_to_viewer(websocket)
+        
+        # Send current frame if available
+        current_frame = await self.frame_cache.get_current_frame()
+        if current_frame:
+            try:
+                await websocket.send_bytes(bytes([MSG_FRAME]) + current_frame.data)
+            except Exception as e:
+                logger.warning(f"Failed to send initial frame: {e}")
+    
+    async def disconnect_viewer(self, websocket: WebSocket) -> None:
+        """
+        Handle viewer disconnection
+        
+        Args:
+            websocket: The disconnecting WebSocket
+        """
+        async with self._lock:
+            self._viewers.discard(websocket)
+        
+        # Track presence (may trigger GPU shutdown timer)
+        await self.presence.on_viewer_disconnect(websocket)
+    
+    async def handle_viewer_message(self, websocket: WebSocket, data: str) -> None:
+        """
+        Handle message from viewer
+        
+        Args:
+            websocket: The viewer's WebSocket
+            data: JSON message string
+        """
+        import json
+        try:
+            msg = json.loads(data)
+            msg_type = msg.get("type")
+            
+            if msg_type == "ping":
+                # Keepalive - just acknowledge
+                await websocket.send_json({"type": "pong"})
+            
+            # Future: handle quality preferences, etc.
+        
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid JSON from viewer: {data[:100]}")
+    
+    async def _send_status_to_viewer(self, websocket: WebSocket) -> None:
+        """Send current status to a specific viewer"""
+        try:
+            await websocket.send_json({
+                "type": "status",
+                "status": self._status,
+                "message": self._status_message,
+                "frame_count": self.frame_cache.total_frames_received,
+                "viewer_count": self.viewer_count,
+            })
+        except Exception as e:
+            logger.warning(f"Failed to send status: {e}")
+    
+    async def broadcast_status(self, status: str, message: str) -> None:
+        """Broadcast status update to all viewers"""
+        self.set_status(status, message)
+        
+        status_msg = {
+            "type": "status",
+            "status": status,
+            "message": message,
+            "frame_count": self.frame_cache.total_frames_received,
+            "viewer_count": self.viewer_count,
+        }
+        
+        await self._broadcast_json(status_msg)
+    
+    # ==================== GPU Connection ====================
+    
+    async def connect_gpu(self, websocket: WebSocket) -> None:
+        """
+        Handle GPU worker connection
+        
+        Only one GPU connection is allowed at a time.
+        
+        Args:
+            websocket: The GPU's WebSocket connection
+        """
+        if self._gpu_websocket is not None:
+            logger.warning("GPU already connected, rejecting new connection")
+            await websocket.close(code=4000, reason="GPU already connected")
+            return
+        
+        await websocket.accept()
+        self._gpu_websocket = websocket
+        self.presence.set_gpu_running(True)
+        
+        # Notify GPU manager
+        if self.gpu_manager:
+            self.gpu_manager.on_gpu_connected()
+        
+        logger.info("GPU connected")
+        await self.broadcast_status("ready", "Dreams flowing...")
+    
+    async def disconnect_gpu(self) -> None:
+        """Handle GPU disconnection"""
+        self._gpu_websocket = None
+        self.presence.set_gpu_running(False)
+        
+        # Notify GPU manager
+        if self.gpu_manager:
+            self.gpu_manager.on_gpu_disconnected()
+        
+        logger.info("GPU disconnected")
+        await self.broadcast_status("idle", "Dream machine sleeping...")
+    
+    async def handle_gpu_message(self, data: bytes) -> None:
+        """
+        Handle binary message from GPU
+        
+        Args:
+            data: Binary message (type byte + payload)
+        """
+        if len(data) < 2:
+            return
+        
+        msg_type = data[0]
+        payload = data[1:]
+        
+        if msg_type == MSG_FRAME:
+            await self._handle_gpu_frame(payload)
+        
+        elif msg_type == MSG_STATE:
+            await self._handle_gpu_state(payload)
+        
+        elif msg_type == MSG_HEARTBEAT:
+            # Just update last contact time
+            self._last_frame_time = time.time()
+        
+        elif msg_type == MSG_STATUS:
+            # GPU status update (JSON)
+            import json
+            try:
+                status = json.loads(payload.decode())
+                logger.debug(f"GPU status: {status}")
+            except:
+                pass
+    
+    async def _handle_gpu_frame(self, frame_data: bytes) -> None:
+        """Process and broadcast a frame from GPU"""
+        self._last_frame_time = time.time()
+        
+        # Notify GPU manager of frame receipt
+        if self.gpu_manager:
+            self.gpu_manager.on_frame_received()
+        
+        # Extract frame metadata if present (future: prepended JSON header)
+        # For now, assume raw WebP data
+        frame_number = self.frame_cache.total_frames_received + 1
+        
+        # Cache the frame
+        await self.frame_cache.add_frame(
+            data=frame_data,
+            frame_number=frame_number,
+        )
+        
+        # Broadcast to all viewers
+        await self._broadcast_frame(frame_data)
+    
+    async def _handle_gpu_state(self, state_data: bytes) -> None:
+        """Handle state snapshot from GPU"""
+        # TODO: Persist state to disk for recovery
+        logger.debug(f"Received state snapshot: {len(state_data)} bytes")
+    
+    # ==================== Broadcasting ====================
+    
+    async def _broadcast_frame(self, frame_data: bytes) -> None:
+        """Broadcast frame to all connected viewers"""
+        if not self._viewers:
+            return
+        
+        message = bytes([MSG_FRAME]) + frame_data
+        dead_viewers = set()
+        
+        async with self._lock:
+            viewers = set(self._viewers)
+        
+        for viewer in viewers:
+            try:
+                await viewer.send_bytes(message)
+            except Exception:
+                dead_viewers.add(viewer)
+        
+        # Clean up dead connections
+        if dead_viewers:
+            async with self._lock:
+                self._viewers -= dead_viewers
+            
+            for viewer in dead_viewers:
+                await self.presence.on_viewer_disconnect(viewer)
+    
+    async def _broadcast_json(self, data: dict) -> None:
+        """Broadcast JSON message to all viewers"""
+        if not self._viewers:
+            return
+        
+        dead_viewers = set()
+        
+        async with self._lock:
+            viewers = set(self._viewers)
+        
+        for viewer in viewers:
+            try:
+                await viewer.send_json(data)
+            except Exception:
+                dead_viewers.add(viewer)
+        
+        # Clean up dead connections
+        if dead_viewers:
+            async with self._lock:
+                self._viewers -= dead_viewers
+    
+    # ==================== GPU Control ====================
+    
+    async def send_to_gpu(self, msg_type: int, payload: bytes = b"") -> bool:
+        """
+        Send control message to GPU
+        
+        Args:
+            msg_type: Message type byte
+            payload: Optional payload bytes
+        
+        Returns:
+            True if sent successfully
+        """
+        if not self._gpu_websocket:
+            return False
+        
+        try:
+            await self._gpu_websocket.send_bytes(bytes([msg_type]) + payload)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send to GPU: {e}")
+            return False
+    
+    async def request_gpu_shutdown(self) -> bool:
+        """Request GPU to save state and shutdown"""
+        return await self.send_to_gpu(0x13)  # SHUTDOWN
+    
+    async def request_gpu_save_state(self) -> bool:
+        """Request GPU to save current state"""
+        return await self.send_to_gpu(0x12)  # SAVE_STATE
+    
+    # ==================== Statistics ====================
+    
+    def get_stats(self) -> dict:
+        """Get hub statistics"""
+        cache_stats = self.frame_cache.get_stats()
+        presence_stats = self.presence.get_status()
+        
+        return {
+            "status": self._status,
+            "status_message": self._status_message,
+            "viewer_count": self.viewer_count,
+            "gpu_connected": self.gpu_connected,
+            "last_frame_age_seconds": round(time.time() - self._last_frame_time, 1) if self._last_frame_time > 0 else None,
+            **cache_stats,
+            **presence_stats,
+        }
+
+

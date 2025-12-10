@@ -31,6 +31,10 @@ import re
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Tuple
+from dotenv import load_dotenv
+
+# Load environment variables from .env file (if present)
+load_dotenv()
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
