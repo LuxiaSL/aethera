@@ -10,10 +10,56 @@ Provides endpoints for:
 """
 
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends
+import os
+import secrets
+import time
+from collections import defaultdict
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response, JSONResponse
 
 from aethera.utils.templates import templates
+
+# GPU Authentication Token (set via environment variable)
+GPU_AUTH_TOKEN = os.environ.get("DREAM_GEN_AUTH_TOKEN")
+
+# Simple rate limiting for API endpoints
+# Uses sliding window counter per IP
+_rate_limit_data: dict[str, list[float]] = defaultdict(list)
+RATE_LIMIT_REQUESTS = 60  # Max requests per window
+RATE_LIMIT_WINDOW = 60  # Window in seconds
+
+
+def check_rate_limit(request: Request, limit: int = RATE_LIMIT_REQUESTS) -> bool:
+    """
+    Simple rate limiter using sliding window
+    
+    Args:
+        request: FastAPI request
+        limit: Max requests per window
+    
+    Returns:
+        True if request is allowed
+    
+    Raises:
+        HTTPException: If rate limit exceeded
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    window_start = now - RATE_LIMIT_WINDOW
+    
+    # Clean old entries and add new
+    _rate_limit_data[client_ip] = [
+        t for t in _rate_limit_data[client_ip] if t > window_start
+    ]
+    
+    if len(_rate_limit_data[client_ip]) >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {limit} requests per {RATE_LIMIT_WINDOW}s."
+        )
+    
+    _rate_limit_data[client_ip].append(now)
+    return True
 from aethera.dreams import (
     DreamWebSocketHub, 
     FrameCache, 
@@ -157,7 +203,9 @@ async def dreams_status(request: Request):
     Get Dream Window status
     
     Returns system status, viewer count, GPU state, and generation stats.
+    Rate limited to 60 requests per minute per IP.
     """
+    check_rate_limit(request)
     global _gpu_manager
     
     hub = get_hub()
@@ -201,7 +249,9 @@ async def dreams_current_frame(request: Request):
     Get the current frame as a WebP image
     
     Returns the most recent frame, or 204 No Content if no frames available.
+    Rate limited to 60 requests per minute per IP.
     """
+    check_rate_limit(request)
     hub = get_hub()
     hub.presence.on_api_access()
     
@@ -279,6 +329,35 @@ async def dreams_websocket(websocket: WebSocket):
         await hub.disconnect_viewer(websocket)
 
 
+def verify_gpu_token(auth_header: str | None) -> bool:
+    """
+    Verify GPU authentication token
+    
+    Args:
+        auth_header: Authorization header value (e.g., "Bearer <token>")
+    
+    Returns:
+        True if token is valid or auth is disabled
+    """
+    # If no token configured, allow all connections (dev mode)
+    if not GPU_AUTH_TOKEN:
+        logger.warning("GPU auth disabled (DREAM_GEN_AUTH_TOKEN not set)")
+        return True
+    
+    if not auth_header:
+        return False
+    
+    # Extract token from "Bearer <token>" format
+    parts = auth_header.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return False
+    
+    token = parts[1]
+    
+    # Constant-time comparison to prevent timing attacks
+    return secrets.compare_digest(token, GPU_AUTH_TOKEN)
+
+
 @router.websocket("/ws/gpu")
 async def gpu_websocket(websocket: WebSocket):
     """
@@ -290,15 +369,19 @@ async def gpu_websocket(websocket: WebSocket):
     Sends:
     - Binary control messages (pause, resume, shutdown)
     
-    Authentication: TODO Phase 3 - verify auth token
+    Authentication:
+    - Set DREAM_GEN_AUTH_TOKEN env var on both VPS and GPU
+    - GPU sends token in Authorization header: "Bearer <token>"
+    - If env var not set, auth is disabled (dev mode)
     """
-    hub = get_hub()
+    # Verify authentication token
+    auth_header = websocket.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        logger.warning(f"GPU connection rejected: invalid auth token")
+        await websocket.close(code=4001, reason="Unauthorized")
+        return
     
-    # TODO Phase 3: Verify authentication token
-    # auth_token = websocket.headers.get("Authorization")
-    # if not verify_gpu_token(auth_token):
-    #     await websocket.close(code=4001, reason="Unauthorized")
-    #     return
+    hub = get_hub()
     
     try:
         await hub.connect_gpu(websocket)
