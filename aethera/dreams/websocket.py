@@ -13,11 +13,14 @@ Frame protocol uses binary messages for efficiency:
 import asyncio
 import logging
 import time
-from typing import Optional, Set
+from typing import Optional, Set, TYPE_CHECKING
 from fastapi import WebSocket, WebSocketDisconnect
 
 from .frame_cache import FrameCache
 from .presence import ViewerPresenceTracker
+
+if TYPE_CHECKING:
+    from .gpu_manager import RunPodManager
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ class DreamWebSocketHub:
         self,
         frame_cache: FrameCache,
         presence_tracker: ViewerPresenceTracker,
+        gpu_manager: Optional["RunPodManager"] = None,
     ):
         """
         Initialize WebSocket hub
@@ -50,9 +54,11 @@ class DreamWebSocketHub:
         Args:
             frame_cache: Cache for storing received frames
             presence_tracker: Tracks viewer presence for GPU lifecycle
+            gpu_manager: Optional GPU manager for lifecycle notifications
         """
         self.frame_cache = frame_cache
         self.presence = presence_tracker
+        self.gpu_manager = gpu_manager
         
         self._viewers: Set[WebSocket] = set()
         self._gpu_websocket: Optional[WebSocket] = None
@@ -191,6 +197,10 @@ class DreamWebSocketHub:
         self._gpu_websocket = websocket
         self.presence.set_gpu_running(True)
         
+        # Notify GPU manager
+        if self.gpu_manager:
+            self.gpu_manager.on_gpu_connected()
+        
         logger.info("GPU connected")
         await self.broadcast_status("ready", "Dreams flowing...")
     
@@ -198,6 +208,10 @@ class DreamWebSocketHub:
         """Handle GPU disconnection"""
         self._gpu_websocket = None
         self.presence.set_gpu_running(False)
+        
+        # Notify GPU manager
+        if self.gpu_manager:
+            self.gpu_manager.on_gpu_disconnected()
         
         logger.info("GPU disconnected")
         await self.broadcast_status("idle", "Dream machine sleeping...")
@@ -237,6 +251,10 @@ class DreamWebSocketHub:
     async def _handle_gpu_frame(self, frame_data: bytes) -> None:
         """Process and broadcast a frame from GPU"""
         self._last_frame_time = time.time()
+        
+        # Notify GPU manager of frame receipt
+        if self.gpu_manager:
+            self.gpu_manager.on_frame_received()
         
         # Extract frame metadata if present (future: prepended JSON header)
         # For now, assume raw WebP data

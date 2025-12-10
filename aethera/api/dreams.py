@@ -14,7 +14,15 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import HTMLResponse, Response, JSONResponse
 
 from aethera.utils.templates import templates
-from aethera.dreams import DreamWebSocketHub, FrameCache, ViewerPresenceTracker
+from aethera.dreams import (
+    DreamWebSocketHub, 
+    FrameCache, 
+    ViewerPresenceTracker,
+    RunPodManager,
+    GPUState,
+    get_gpu_manager,
+    configure_gpu_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,41 +34,95 @@ router = APIRouter(tags=["dreams"])
 _frame_cache: FrameCache | None = None
 _presence_tracker: ViewerPresenceTracker | None = None
 _websocket_hub: DreamWebSocketHub | None = None
+_gpu_manager: RunPodManager | None = None
 
 
 def get_hub() -> DreamWebSocketHub:
     """Get or create the WebSocket hub singleton"""
-    global _frame_cache, _presence_tracker, _websocket_hub
+    global _frame_cache, _presence_tracker, _websocket_hub, _gpu_manager
     
     if _websocket_hub is None:
+        # Initialize GPU manager first
+        _gpu_manager = configure_gpu_manager(
+            on_state_change=_on_gpu_state_change,
+        )
+        
+        # Initialize frame cache
         _frame_cache = FrameCache(max_frames=30)
+        
+        # Initialize presence tracker with GPU callbacks
         _presence_tracker = ViewerPresenceTracker(
             shutdown_delay=30.0,
             api_timeout=300.0,
             on_should_start=_on_gpu_should_start,
             on_should_stop=_on_gpu_should_stop,
         )
+        
+        # Initialize WebSocket hub with all components
         _websocket_hub = DreamWebSocketHub(
             frame_cache=_frame_cache,
             presence_tracker=_presence_tracker,
+            gpu_manager=_gpu_manager,
         )
-        logger.info("Dreams WebSocket hub initialized")
+        logger.info("Dreams module initialized (WebSocket hub + GPU manager)")
     
     return _websocket_hub
 
 
 async def _on_gpu_should_start() -> None:
-    """Callback when GPU should start (placeholder for Phase 3)"""
-    logger.info("GPU should start (RunPod orchestration not yet implemented)")
-    # TODO Phase 3: RunPod orchestration
-    # await runpod_manager.start_worker()
+    """Callback when GPU should start"""
+    global _gpu_manager, _websocket_hub
+    
+    if _gpu_manager is None:
+        logger.warning("GPU manager not initialized")
+        return
+    
+    if _gpu_manager.is_configured:
+        logger.info("Starting GPU via RunPod...")
+        if _websocket_hub:
+            await _websocket_hub.broadcast_status("starting", "Waking up the dream machine...")
+        await _gpu_manager.start_gpu()
+    else:
+        logger.info("GPU start requested (RunPod not configured - waiting for manual GPU connection)")
+        if _websocket_hub:
+            await _websocket_hub.broadcast_status("starting", "Waiting for GPU connection...")
 
 
 async def _on_gpu_should_stop() -> None:
-    """Callback when GPU should stop (placeholder for Phase 3)"""
-    logger.info("GPU should stop (RunPod orchestration not yet implemented)")
-    # TODO Phase 3: RunPod orchestration
-    # await runpod_manager.stop_worker()
+    """Callback when GPU should stop"""
+    global _gpu_manager, _websocket_hub
+    
+    if _gpu_manager is None:
+        logger.warning("GPU manager not initialized")
+        return
+    
+    if _gpu_manager.is_configured:
+        logger.info("Stopping GPU via RunPod...")
+        # Request GPU to save state before stopping
+        if _websocket_hub:
+            await _websocket_hub.request_gpu_save_state()
+        await _gpu_manager.stop_gpu()
+    else:
+        logger.info("GPU stop requested (RunPod not configured)")
+
+
+async def _on_gpu_state_change(state: GPUState, error: str | None) -> None:
+    """Callback when GPU state changes"""
+    global _websocket_hub
+    
+    if _websocket_hub is None:
+        return
+    
+    status_map = {
+        GPUState.IDLE: ("idle", "Dream machine sleeping..."),
+        GPUState.STARTING: ("starting", "Waking up the dream machine..."),
+        GPUState.RUNNING: ("ready", "Dreams flowing..."),
+        GPUState.STOPPING: ("stopping", "Saving dreams..."),
+        GPUState.ERROR: ("error", error or "Something went wrong"),
+    }
+    
+    status, message = status_map.get(state, ("unknown", "Unknown state"))
+    await _websocket_hub.broadcast_status(status, message)
 
 
 # ==================== HTML Pages ====================
@@ -96,17 +158,24 @@ async def dreams_status(request: Request):
     
     Returns system status, viewer count, GPU state, and generation stats.
     """
+    global _gpu_manager
+    
     hub = get_hub()
     hub.presence.on_api_access()  # Track API activity
     
     stats = hub.get_stats()
+    gpu_stats = _gpu_manager.get_status() if _gpu_manager else {}
     
     return JSONResponse({
         "status": stats["status"],
         "gpu": {
             "active": stats["gpu_connected"],
+            "state": gpu_stats.get("state", "unknown"),
+            "configured": gpu_stats.get("configured", False),
             "provider": "runpod",
-            "uptime_seconds": stats.get("uptime_seconds", 0),
+            "uptime_seconds": gpu_stats.get("uptime_seconds", 0),
+            "frames_received": gpu_stats.get("frames_received", 0),
+            "error_message": gpu_stats.get("error_message"),
         },
         "generation": {
             "frame_count": stats["total_frames_received"],
