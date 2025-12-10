@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Dreams | æthera{% endblock %}
+
+{% block description %}Live AI-generated morphing art. Watch ethereal digital dreams evolve in real-time.{% endblock %}
+
+{% block meta %}
+{{ super() }}
+<!-- Dreams-specific Open Graph -->
+<meta property="og:title" content="Dreams | æthera">
+<meta property="og:description" content="Live AI-generated morphing art. Watch ethereal digital dreams evolve in real-time.">
+<meta property="og:image" content="{{ request.base_url }}api/dreams/current">
+<meta property="og:type" content="website">
+<link rel="canonical" href="{{ request.base_url }}dreams">
+
+<!-- Twitter/X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dreams | æthera">
+<meta name="twitter:description" content="Live AI-generated morphing art">
+<meta name="twitter:image" content="{{ request.base_url }}api/dreams/current">
+{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Dreams",
+    "description": "Live AI-generated morphing art viewer. Continuously evolving ethereal digital imagery powered by stable diffusion.",
+    "url": "{{ request.base_url }}dreams",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web Browser",
+    "author": {
+        "@type": "Person",
+        "name": "Luxia",
+        "url": "{{ request.base_url }}"
+    }
+}
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<link href="/static/css/dreams.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="dreams-page">
+    <!-- Page header -->
+    <header class="dreams-header">
+        <h1 class="dreams-title">dreams</h1>
+        <p class="dreams-subtitle">live ai-generated ethereal imagery</p>
+    </header>
+    
+    <!-- Main viewer container -->
+    <div class="dream-container circuit-box">
+        <!-- Canvas for frame display -->
+        <canvas id="dream-canvas" width="1024" height="512"></canvas>
+        
+        <!-- Loading overlay -->
+        <div id="dream-loading" class="dream-loading">
+            <div class="dream-loading-content">
+                <div class="dream-pulse-container">
+                    <div class="dream-pulse"></div>
+                    <div class="dream-pulse dream-pulse-delayed"></div>
+                </div>
+                <span id="dream-status" class="dream-status">connecting...</span>
+                <div class="dream-progress">
+                    <div id="dream-progress-bar" class="dream-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error overlay -->
+        <div id="dream-error" class="dream-error hidden">
+            <div class="dream-error-content">
+                <span class="dream-error-icon">⚠</span>
+                <span id="dream-error-message" class="dream-error-message">connection lost</span>
+                <button id="dream-retry-btn" class="dream-retry-btn">retry</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status bar -->
+    <div class="dream-status-bar">
+        <span id="dream-frame-count" class="dream-stat">
+            <span class="dream-stat-label">frame</span>
+            <span class="dream-stat-value">—</span>
+        </span>
+        <span id="dream-viewer-count" class="dream-stat">
+            <span class="dream-stat-label">viewers</span>
+            <span class="dream-stat-value">—</span>
+        </span>
+        <span id="dream-connection-status" class="dream-stat">
+            <span class="dream-stat-indicator"></span>
+            <span class="dream-stat-value">offline</span>
+        </span>
+    </div>
+    
+    <!-- Description -->
+    <div class="dreams-description">
+        <p>
+            A window into an algorithm's dreams — continuously morphing AI-generated art 
+            that never repeats. Powered by <a href="https://github.com/LuxiaSL/dream_gen">Dream Window</a>, 
+            using stable diffusion with VAE latent interpolation for smooth transitions.
+        </p>
+        <p class="dreams-technical">
+            Resolution: 1024×512 · Frame rate: ~3.5 FPS · Model: Stable Diffusion 1.5
+        </p>
+    </div>
+    
+    <!-- Embed section -->
+    <details class="dreams-embed-section">
+        <summary>embed this</summary>
+        <div class="dreams-embed-content">
+            <p>Add Dream Window to your own site:</p>
+            <pre class="dreams-embed-code"><code>&lt;iframe 
+  src="{{ request.base_url }}dreams?embed=1" 
+  width="1024" 
+  height="512" 
+  frameborder="0"
+  loading="lazy"&gt;&lt;/iframe&gt;</code></pre>
+            <p class="dreams-embed-note">
+                Or fetch the current frame directly: 
+                <a href="/api/dreams/current"><code>/api/dreams/current</code></a>
+            </p>
+        </div>
+    </details>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dreams.js"></script>
+{% endblock %}
+
+
