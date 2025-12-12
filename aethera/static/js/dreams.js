@@ -68,10 +68,12 @@ class DreamViewer {
     
     handleVisibilityChange() {
         if (document.hidden) {
-            // Tab hidden - disconnect to save server resources
-            if (this.ws) {
-                this.ws.close(1000, 'tab_hidden');
-            }
+            // Tab hidden - but KEEP connection alive!
+            // Disconnecting triggers GPU shutdown on server.
+            // Instead, just reduce activity (stop rendering new frames)
+            console.log('Tab hidden - keeping connection alive');
+            // Don't disconnect - the server will keep sending frames
+            // which we'll display when tab becomes visible again
         } else {
             // Tab visible - reconnect
             if (!this.connected) {

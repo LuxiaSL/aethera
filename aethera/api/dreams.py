@@ -97,8 +97,9 @@ def get_hub() -> DreamWebSocketHub:
         _frame_cache = FrameCache(max_frames=30)
         
         # Initialize presence tracker with GPU callbacks
+        # Longer shutdown delay to prevent premature GPU shutdown when tabbing away
         _presence_tracker = ViewerPresenceTracker(
-            shutdown_delay=30.0,
+            shutdown_delay=300.0,  # 5 minutes - match API timeout
             api_timeout=300.0,
             on_should_start=_on_gpu_should_start,
             on_should_stop=_on_gpu_should_stop,
