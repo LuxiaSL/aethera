@@ -151,11 +151,6 @@ The GPU worker only runs when viewers are present:
 - In a multi-worker/process deployment, each worker maintains its own rate limit state
 - For production with multiple workers or load balancing, consider implementing a Redis-backed rate limiter
 
-### Security
-
-Ensure you set the following environment variables for production:
-- `AETHERA_TRIPCODE_SALT`: Custom salt for comment tripcodes
-
 ## License
 
 Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
