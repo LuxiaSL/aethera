@@ -1,6 +1,9 @@
 {% for post in posts %}
 <article class="post-preview">
-    <a href="/posts/{{ post.slug }}" class="post-link">{{ post.title }}</a>
+    <a href="/posts/{{ post.slug }}" class="post-link">
+        <span class="post-title">{{ post.title }}</span>
+        <span class="post-meta">{{ post.created_at.strftime('%Y-%m-%d') }} · {{ post.author }}</span>
+    </a>
 </article>
 {% endfor %}
 

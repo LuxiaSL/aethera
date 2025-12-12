@@ -66,14 +66,18 @@
    ============================================ */
 html {
     scroll-behavior: smooth;
-    background-color: var(--bg);
+    background-color: transparent;
     overflow-x: hidden;
     /* Prevent layout shift from scrollbar appearing/disappearing */
     scrollbar-gutter: stable;
 }
 
+header {
+    overflow: visible;
+}
+
 body {
-    background-color: var(--bg) !important;
+    background-color: transparent !important;
     color: var(--text) !important;
     font-family: "Libertinus Mono", "JetBrains Mono", "Fira Code", monospace;
     line-height: 1.7;
@@ -87,58 +91,18 @@ body {
     flex-direction: column;
 }
 
-/* ============================================
-   Page-wide CRT Effects
-   ============================================ */
-
-/* CRT scan lines overlay - covers entire viewport */
-body::before {
-    content: '';
+/* Animated video background */
+.video-bg {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 1px,
-        rgba(0, 0, 0, 0.2) 1px,
-        rgba(0, 0, 0, 0.2) 2px
-    );
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: -1;
     pointer-events: none;
-    z-index: 9999;
 }
 
-/* CRT vignette - subtle darkening at edges */
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(
-        ellipse at center,
-        transparent 0%,
-        transparent 60%,
-        rgba(0, 0, 0, 0.3) 100%
-    );
-    pointer-events: none;
-    z-index: 9998;
-}
-
-/* Subtle page flicker */
-@keyframes page-flicker {
-    0%, 100% { opacity: 1; }
-    97% { opacity: 1; }
-    97.5% { opacity: 0.95; }
-    98% { opacity: 1; }
-}
-
-body {
-    animation: page-flicker 5s infinite;
-}
 
 /* ============================================
    Typography
@@ -176,11 +140,30 @@ a:hover, a:focus {
     max-width: 64rem;
     margin: 0 auto;
     padding: 1rem;
-    padding-bottom: 0.25rem;
+    padding-top: 0.5rem;
     box-sizing: border-box;
-    border-left: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    border: none;
+    text-align: center;
+    position: relative;
+}
+
+/* Logo container with caustics canvas */
+.logo-container {
+    position: relative;
+    display: inline-block;
+    width: 28rem;
+    height: 6rem;
+}
+
+#caustics-canvas {
+    position: absolute;
+    top: -8rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 20rem;
+    pointer-events: none;
 }
 
 @media (min-width: 1024px) {
@@ -191,47 +174,18 @@ a:hover, a:focus {
 
 /* Site Logo */
 .site-logo {
-    display: inline-block;
-    position: relative;
+    display: block;
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .site-logo-img {
     height: 48px;
     width: auto;
     display: block;
-    /* CRT glow effect */
-    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4))
-            drop-shadow(0 0 15px rgba(255, 255, 255, 0.15));
-}
-
-/* CRT scan lines overlay */
-.site-logo::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 1px,
-        rgba(0, 0, 0, 0.2) 1px,
-        rgba(0, 0, 0, 0.2) 2px
-    );
-    pointer-events: none;
-}
-
-/* Subtle flicker animation */
-@keyframes crt-flicker {
-    0%, 100% { opacity: 1; }
-    92% { opacity: 1; }
-    93% { opacity: 0.85; }
-    94% { opacity: 1; }
-}
-
-.site-logo-img {
-    animation: crt-flicker 3s infinite;
+    filter: brightness(0) invert(0);
 }
 
 @media (min-width: 640px) {
@@ -257,8 +211,9 @@ main {
     padding-bottom: 2rem;
     flex: 1;
     box-sizing: border-box;
-    border-left: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
+    background: transparent;
+    border: none;
+    overflow: visible;
 }
 
 /* Ensure content doesn't overflow on mobile */
@@ -897,16 +852,34 @@ article header span[class*="bg-accent"] {
    Footer
    ============================================ */
 footer {
-    color: var(--text-muted);
+    color: #000;
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    border: none;
+    position: relative;
+}
+
+footer::before {
+    content: '';
+    position: absolute;
+    top: -1rem;
+    left: -4rem;
+    right: -4rem;
+    bottom: -1rem;
+    background: radial-gradient(ellipse 70% 50% at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 35%, rgba(255,255,255,0.3) 55%, transparent 75%);
+    z-index: -1;
 }
 
 footer a {
-    color: var(--text-muted);
+    color: #000;
 }
 
 footer a:hover {
-    color: var(--text);
+    color: #444;
 }
+
+
 
 /* ============================================
    404 Page
@@ -950,26 +923,56 @@ main .text-6xl {
    ============================================ */
 
 .post-preview {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: 0.5rem 0;
+    margin-left: 1.5rem;
+    margin-bottom: 0.5rem;
+    border: none;
+    overflow: visible;
 }
 
 .post-preview:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .post-preview .post-link {
-    color: var(--text);
-    display: block;
+    color: #000;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative;
+    padding: 0.5rem 1rem;
+}
+
+.post-preview .post-link::before {
+    content: '';
+    position: absolute;
+    top: -0.5rem;
+    left: -1.5rem;
+    right: -1.5rem;
+    bottom: -0.5rem;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 35%, rgba(255,255,255,0.3) 55%, transparent 75%);
+    z-index: -1;
 }
 
 .post-preview .post-link:hover {
-    color: var(--text-muted);
+    color: #444;
+}
+
+.post-preview .post-title {
+    display: block;
+}
+
+.post-preview .post-link .post-meta {
+    display: block;
+    color: #555;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
 }
 
 .post-preview .post-meta {
-    color: var(--text-muted);
+    color: #555;
     margin-top: 0.25rem;
+    font-size: 0.85rem;
 }
 
 .post-preview .tag {

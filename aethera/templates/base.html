@@ -124,13 +124,20 @@
 </head>
 
 <body class="bg-bg text-text">
+    <video class="video-bg" autoplay muted loop playsinline>
+        <source src="/static/uploads/background_web.mp4" type="video/mp4">
+    </video>
     <header class="w-full">
         <div class="header-content">
-            <a href="/" class="site-logo" aria-label="æthera home">
-                <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
-            </a>
+            <div class="logo-container">
+                <canvas id="caustics-canvas"></canvas>
+                <a href="/" class="site-logo" aria-label="æthera home">
+                    <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
+                </a>
+            </div>
         </div>
     </header>
+    <script src="/static/js/caustics.js"></script>
 
     <main>
         {% block content %}{% endblock %}
