@@ -71,7 +71,7 @@ class RunPodManager:
     """
     
     # RunPod API endpoints
-    RUNPOD_API_BASE = "https://api.runpod.io/v2"
+    RUNPOD_API_BASE = "https://api.runpod.ai/v2"
     
     def __init__(
         self,
