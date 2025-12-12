@@ -171,6 +171,22 @@ async def _on_gpu_state_change(state: GPUState, error: str | None) -> None:
     await _websocket_hub.broadcast_status(status, message)
 
 
+# ==================== Debug Endpoint (REMOVE IN PRODUCTION) ====================
+
+@router.get("/api/dreams/debug-auth")
+async def debug_auth():
+    """
+    Temporary debug endpoint to check auth configuration.
+    REMOVE THIS IN PRODUCTION!
+    """
+    return {
+        "token_configured": GPU_AUTH_TOKEN is not None,
+        "token_length": len(GPU_AUTH_TOKEN) if GPU_AUTH_TOKEN else 0,
+        "token_prefix": GPU_AUTH_TOKEN[:8] if GPU_AUTH_TOKEN else None,
+        "token_suffix": GPU_AUTH_TOKEN[-4:] if GPU_AUTH_TOKEN else None,
+    }
+
+
 # ==================== HTML Pages ====================
 
 @router.get("/dreams", response_class=HTMLResponse)
@@ -345,17 +361,26 @@ def verify_gpu_token(auth_header: str | None) -> bool:
         return True
     
     if not auth_header:
+        logger.warning("GPU auth rejected: no auth header provided")
         return False
     
     # Extract token from "Bearer <token>" format
     parts = auth_header.split(" ", 1)
     if len(parts) != 2 or parts[0].lower() != "bearer":
+        logger.warning(f"GPU auth rejected: malformed header (got {len(parts)} parts)")
         return False
     
-    token = parts[1]
+    token = parts[1].strip()  # Strip any whitespace
+    
+    # Debug logging (show partial tokens for troubleshooting)
+    logger.info(f"GPU auth attempt: provided={token[:8]}...{token[-4:]} (len={len(token)})")
+    logger.info(f"GPU auth expected: expected={GPU_AUTH_TOKEN[:8]}...{GPU_AUTH_TOKEN[-4:]} (len={len(GPU_AUTH_TOKEN)})")
     
     # Constant-time comparison to prevent timing attacks
-    return secrets.compare_digest(token, GPU_AUTH_TOKEN)
+    result = secrets.compare_digest(token, GPU_AUTH_TOKEN)
+    if not result:
+        logger.warning("GPU auth rejected: token mismatch")
+    return result
 
 
 @router.websocket("/ws/gpu")
