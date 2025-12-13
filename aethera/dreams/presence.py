@@ -99,9 +99,14 @@ class ViewerPresenceTracker:
             logger.debug("Cancelled pending shutdown")
         
         # Start GPU if not running
+        # The on_should_start callback (gpu_manager.start_gpu) has its own
+        # protection against duplicate jobs, but we avoid unnecessary calls
         if not self._gpu_running and self.on_should_start:
             logger.info("Starting GPU due to viewer connection")
-            await self.on_should_start()
+            try:
+                await self.on_should_start()
+            except Exception as e:
+                logger.error(f"Failed to start GPU: {e}")
     
     async def on_viewer_disconnect(self, websocket: WebSocket) -> None:
         """
@@ -134,9 +139,16 @@ class ViewerPresenceTracker:
             logger.debug("Cancelled pending shutdown due to API access")
         
         # Start GPU if not running
+        # The on_should_start callback (gpu_manager.start_gpu) has its own
+        # protection against duplicate jobs, but we avoid unnecessary calls
         if not self._gpu_running and self.on_should_start:
             logger.info("Starting GPU due to API access")
-            asyncio.create_task(self.on_should_start())
+            async def _start_with_error_handling():
+                try:
+                    await self.on_should_start()
+                except Exception as e:
+                    logger.error(f"Failed to start GPU from API access: {e}")
+            asyncio.create_task(_start_with_error_handling())
     
     async def _delayed_shutdown(self) -> None:
         """Wait, then shutdown if still no activity"""

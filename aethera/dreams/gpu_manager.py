@@ -95,6 +95,8 @@ class RunPodManager:
         self._http_client: Optional[Any] = None
         self._running_job_id: Optional[str] = None
         self._health_task: Optional[asyncio.Task] = None
+        self._start_lock = asyncio.Lock()  # Prevent concurrent start attempts
+        self._last_job_submit_time: float = 0  # Debounce rapid submits
         
         if not self.api_key:
             logger.warning("No RunPod API key configured - GPU management disabled")
@@ -124,46 +126,67 @@ class RunPodManager:
         """
         Start GPU instance on RunPod
         
-        Returns:
-            True if start was initiated successfully
-        """
-        if not self.is_configured:
-            logger.error("Cannot start GPU: RunPod not configured")
-            await self._set_state(GPUState.ERROR, "RunPod not configured")
-            return False
+        Thread-safe with lock to prevent duplicate job submissions.
+        Also includes debounce to prevent rapid-fire submissions.
         
+        Returns:
+            True if start was initiated successfully (or already running)
+        """
+        # Fast path: already running, no lock needed
         if self.stats.state in (GPUState.STARTING, GPUState.RUNNING):
-            logger.info(f"GPU already {self.stats.state.value}, skipping start")
+            logger.debug(f"GPU already {self.stats.state.value}, skipping start (fast path)")
             return True
         
-        self.stats.start_attempts += 1
-        await self._set_state(GPUState.STARTING)
-        
-        try:
-            # Submit async job to RunPod
-            job_id = await self._submit_runpod_job({
-                "type": "start",
-                "vps_websocket_url": self._get_vps_websocket_url(),
-            })
-            
-            if job_id:
-                self._running_job_id = job_id
-                logger.info(f"RunPod job submitted: {job_id}")
-                
-                # Start health check task
-                if self._health_task:
-                    self._health_task.cancel()
-                self._health_task = asyncio.create_task(self._health_check_loop())
-                
+        # Use lock to prevent concurrent start attempts
+        async with self._start_lock:
+            # Re-check state after acquiring lock (may have changed)
+            if self.stats.state in (GPUState.STARTING, GPUState.RUNNING):
+                logger.info(f"GPU already {self.stats.state.value}, skipping start")
                 return True
-            else:
-                await self._set_state(GPUState.ERROR, "Failed to submit RunPod job")
+            
+            # Debounce: prevent submitting another job within 30 seconds
+            time_since_last = time.time() - self._last_job_submit_time
+            if time_since_last < 30 and self._running_job_id:
+                logger.warning(
+                    f"Ignoring start request: job {self._running_job_id} submitted "
+                    f"{time_since_last:.0f}s ago (debounce: 30s)"
+                )
+                return True  # Return True to indicate "handled"
+            
+            if not self.is_configured:
+                logger.error("Cannot start GPU: RunPod not configured")
+                await self._set_state(GPUState.ERROR, "RunPod not configured")
                 return False
-        
-        except Exception as e:
-            logger.error(f"Failed to start GPU: {e}")
-            await self._set_state(GPUState.ERROR, str(e))
-            return False
+            
+            self.stats.start_attempts += 1
+            await self._set_state(GPUState.STARTING)
+            
+            try:
+                # Submit async job to RunPod
+                job_id = await self._submit_runpod_job({
+                    "type": "start",
+                    "vps_websocket_url": self._get_vps_websocket_url(),
+                })
+                
+                if job_id:
+                    self._running_job_id = job_id
+                    self._last_job_submit_time = time.time()
+                    logger.info(f"RunPod job submitted: {job_id}")
+                    
+                    # Start health check task
+                    if self._health_task:
+                        self._health_task.cancel()
+                    self._health_task = asyncio.create_task(self._health_check_loop())
+                    
+                    return True
+                else:
+                    await self._set_state(GPUState.ERROR, "Failed to submit RunPod job")
+                    return False
+            
+            except Exception as e:
+                logger.error(f"Failed to start GPU: {e}")
+                await self._set_state(GPUState.ERROR, str(e))
+                return False
     
     async def stop_gpu(self) -> bool:
         """
