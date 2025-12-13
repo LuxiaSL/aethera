@@ -197,6 +197,9 @@ class DreamWebSocketHub:
         self._gpu_websocket = websocket
         self.presence.set_gpu_running(True)
         
+        # Reset FPS session stats for accurate measurement
+        self.frame_cache.reset_session()
+        
         # Notify GPU manager
         if self.gpu_manager:
             self.gpu_manager.on_gpu_connected()

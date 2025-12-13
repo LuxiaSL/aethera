@@ -246,7 +246,8 @@ async def dreams_status(request: Request):
             "frame_count": stats["total_frames_received"],
             "current_frame": stats["current_frame_number"],
             "current_keyframe": stats["current_keyframe_number"],
-            "fps": stats["average_fps"],
+            "fps": stats["average_fps"],  # Rolling FPS (last 30s)
+            "session_fps": stats.get("session_fps", 0.0),  # FPS since GPU connected
             "resolution": [1024, 512],
         },
         "viewers": {

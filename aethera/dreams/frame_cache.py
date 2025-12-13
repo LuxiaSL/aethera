@@ -52,6 +52,12 @@ class FrameCache:
         self.total_frames_received = 0
         self.total_bytes_received = 0
         self.start_time = time.time()
+        
+        # Rolling FPS calculation (tracks frames in last N seconds)
+        self._fps_window_seconds = 30.0  # Calculate FPS over last 30 seconds
+        self._frame_timestamps: deque[float] = deque()  # Timestamps of recent frames
+        self._session_start_time: Optional[float] = None  # Reset when GPU connects
+        self._session_frames = 0  # Frames in current session
     
     async def add_frame(
         self,
@@ -82,6 +88,20 @@ class FrameCache:
             
             self.total_frames_received += 1
             self.total_bytes_received += len(data)
+            
+            # Track for rolling FPS calculation
+            now = time.time()
+            self._frame_timestamps.append(now)
+            self._session_frames += 1
+            
+            # Start session timer on first frame
+            if self._session_start_time is None:
+                self._session_start_time = now
+            
+            # Prune old timestamps (keep only last N seconds)
+            cutoff = now - self._fps_window_seconds
+            while self._frame_timestamps and self._frame_timestamps[0] < cutoff:
+                self._frame_timestamps.popleft()
     
     async def get_current_frame(self) -> Optional[CachedFrame]:
         """Get the most recent frame"""
@@ -100,15 +120,34 @@ class FrameCache:
     
     def get_stats(self) -> dict:
         """Get cache statistics"""
-        uptime = time.time() - self.start_time
-        fps = self.total_frames_received / uptime if uptime > 0 else 0
+        now = time.time()
+        uptime = now - self.start_time
+        
+        # Rolling FPS: frames in the last N seconds
+        if len(self._frame_timestamps) >= 2:
+            # Time span of frames in window
+            window_span = self._frame_timestamps[-1] - self._frame_timestamps[0]
+            if window_span > 0:
+                rolling_fps = (len(self._frame_timestamps) - 1) / window_span
+            else:
+                rolling_fps = 0.0
+        else:
+            rolling_fps = 0.0
+        
+        # Session FPS: frames since GPU connected
+        if self._session_start_time and self._session_frames > 0:
+            session_time = now - self._session_start_time
+            session_fps = self._session_frames / session_time if session_time > 0 else 0.0
+        else:
+            session_fps = 0.0
         
         return {
             "frames_cached": len(self._frames),
             "max_frames": self.max_frames,
             "total_frames_received": self.total_frames_received,
             "total_bytes_received": self.total_bytes_received,
-            "average_fps": round(fps, 2),
+            "average_fps": round(rolling_fps, 2),  # Now uses rolling window
+            "session_fps": round(session_fps, 2),  # FPS since GPU connected
             "uptime_seconds": round(uptime, 1),
             "current_frame_number": self._current_frame.frame_number if self._current_frame else 0,
             "current_keyframe_number": self._current_frame.keyframe_number if self._current_frame else 0,
@@ -119,5 +158,11 @@ class FrameCache:
         async with self._lock:
             self._frames.clear()
             self._current_frame = None
+    
+    def reset_session(self) -> None:
+        """Reset session stats (call when GPU connects)"""
+        self._session_start_time = None
+        self._session_frames = 0
+        self._frame_timestamps.clear()
 
 
