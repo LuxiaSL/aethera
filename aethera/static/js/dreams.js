@@ -8,16 +8,19 @@
 class DreamViewer {
     constructor(options = {}) {
         this.canvasId = options.canvasId || 'dream-canvas';
+        this.containerId = options.containerId || 'dream-container';
         this.loadingId = options.loadingId || 'dream-loading';
         this.errorId = options.errorId || 'dream-error';
         this.statusId = options.statusId || 'dream-status';
         
         // Elements
         this.canvas = document.getElementById(this.canvasId);
+        this.container = document.getElementById(this.containerId);
         this.ctx = this.canvas?.getContext('2d');
         this.loadingEl = document.getElementById(this.loadingId);
         this.errorEl = document.getElementById(this.errorId);
         this.statusEl = document.getElementById(this.statusId);
+        this.fullscreenBtn = document.getElementById('dream-fullscreen-btn');
         
         // WebSocket
         this.ws = null;
@@ -29,6 +32,7 @@ class DreamViewer {
         this.connected = false;
         this.frameCount = 0;
         this.lastFrameTime = 0;
+        this.isFullscreen = false;
         
         // Stats elements
         this.frameCountEl = document.querySelector('#dream-frame-count .dream-stat-value');
@@ -39,6 +43,8 @@ class DreamViewer {
         // Bind methods
         this.connect = this.connect.bind(this);
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+        this.toggleFullscreen = this.toggleFullscreen.bind(this);
+        this.handleFullscreenChange = this.handleFullscreenChange.bind(this);
         
         // Setup event listeners
         this.setupEventListeners();
@@ -64,6 +70,36 @@ class DreamViewer {
                 this.ws.close(1000, 'page_unload');
             }
         });
+        
+        // Fullscreen controls
+        if (this.fullscreenBtn) {
+            this.fullscreenBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleFullscreen();
+            });
+        }
+        
+        // Click canvas to toggle fullscreen
+        if (this.canvas) {
+            this.canvas.addEventListener('click', () => {
+                this.toggleFullscreen();
+            });
+        }
+        
+        // Keyboard shortcut: F for fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f' || e.key === 'F') {
+                // Only if not typing in an input
+                if (document.activeElement.tagName !== 'INPUT' && 
+                    document.activeElement.tagName !== 'TEXTAREA') {
+                    this.toggleFullscreen();
+                }
+            }
+        });
+        
+        // Listen for fullscreen change events
+        document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', this.handleFullscreenChange);
     }
     
     handleVisibilityChange() {
@@ -333,6 +369,91 @@ class DreamViewer {
             clearInterval(this.pingInterval);
             this.pingInterval = null;
         }
+    }
+    
+    // ==================== Fullscreen ====================
+    
+    toggleFullscreen() {
+        if (!this.container) return;
+        
+        if (this.isFullscreen) {
+            this.exitFullscreen();
+        } else {
+            this.enterFullscreen();
+        }
+    }
+    
+    enterFullscreen() {
+        const container = this.container;
+        
+        if (container.requestFullscreen) {
+            container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+            container.webkitRequestFullscreen();
+        } else if (container.mozRequestFullScreen) {
+            container.mozRequestFullScreen();
+        } else if (container.msRequestFullscreen) {
+            container.msRequestFullscreen();
+        }
+    }
+    
+    exitFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    }
+    
+    handleFullscreenChange() {
+        const isNowFullscreen = !!(
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement
+        );
+        
+        this.isFullscreen = isNowFullscreen;
+        
+        if (this.container) {
+            if (isNowFullscreen) {
+                this.container.classList.add('is-fullscreen');
+            } else {
+                this.container.classList.remove('is-fullscreen');
+            }
+        }
+        
+        // Resize canvas to fit fullscreen properly
+        if (isNowFullscreen && this.canvas) {
+            this.resizeCanvasForFullscreen();
+        }
+    }
+    
+    resizeCanvasForFullscreen() {
+        // Calculate optimal size to maintain 2:1 aspect ratio
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const targetRatio = 2; // 1024:512 = 2:1
+        
+        let canvasWidth, canvasHeight;
+        
+        if (screenWidth / screenHeight > targetRatio) {
+            // Screen is wider than content - fit to height
+            canvasHeight = screenHeight;
+            canvasWidth = screenHeight * targetRatio;
+        } else {
+            // Screen is taller than content - fit to width
+            canvasWidth = screenWidth;
+            canvasHeight = screenWidth / targetRatio;
+        }
+        
+        // Apply via CSS (canvas buffer stays 1024x512)
+        this.canvas.style.width = `${canvasWidth}px`;
+        this.canvas.style.height = `${canvasHeight}px`;
     }
 }
 
