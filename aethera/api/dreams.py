@@ -258,6 +258,7 @@ async def dreams_status(request: Request):
             "frames_cached": stats["frames_cached"],
             "total_bytes": stats["total_bytes_received"],
         },
+        "playback": stats.get("playback", {}),
     })
 
 

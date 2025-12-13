@@ -7,14 +7,21 @@
 
 class DreamViewer {
     constructor(options = {}) {
-        this.canvasId = options.canvasId || 'dream-canvas';
         this.loadingId = options.loadingId || 'dream-loading';
         this.errorId = options.errorId || 'dream-error';
         this.statusId = options.statusId || 'dream-status';
         
-        // Elements
-        this.canvas = document.getElementById(this.canvasId);
-        this.ctx = this.canvas?.getContext('2d');
+        // Dual-canvas for smooth crossfade (no black flicker)
+        this.canvasA = document.getElementById('dream-canvas-a');
+        this.canvasB = document.getElementById('dream-canvas-b');
+        this.ctxA = this.canvasA?.getContext('2d');
+        this.ctxB = this.canvasB?.getContext('2d');
+        this.activeCanvas = 'a';  // Track which canvas is currently visible
+        
+        // Initialize canvas A as active
+        if (this.canvasA) this.canvasA.classList.add('active');
+        
+        // Other elements
         this.loadingEl = document.getElementById(this.loadingId);
         this.errorEl = document.getElementById(this.errorId);
         this.statusEl = document.getElementById(this.statusId);
@@ -228,25 +235,29 @@ class DreamViewer {
     }
     
     displayFrame(frameData) {
-        if (!this.ctx) return;
+        // Dual-canvas crossfade: draw to back canvas, then swap
+        const isAActive = this.activeCanvas === 'a';
+        const backCanvas = isAActive ? this.canvasB : this.canvasA;
+        const backCtx = isAActive ? this.ctxB : this.ctxA;
+        const frontCanvas = isAActive ? this.canvasA : this.canvasB;
+        
+        if (!backCtx) return;
         
         const blob = new Blob([frameData], { type: 'image/webp' });
         const url = URL.createObjectURL(blob);
         const img = new Image();
         
         img.onload = () => {
-            // Trigger smooth transition animation
-            // Remove and re-add class to restart animation
-            this.canvas.classList.remove('frame-transition');
-            // Force reflow to restart animation
-            void this.canvas.offsetWidth;
-            this.canvas.classList.add('frame-transition');
-            
-            // Draw to canvas
-            this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+            // Draw new frame to BACK canvas (currently hidden)
+            backCtx.drawImage(img, 0, 0, backCanvas.width, backCanvas.height);
             URL.revokeObjectURL(url);
             
-            // Update stats
+            // Swap: make back canvas active (fades in), front becomes inactive (fades out)
+            backCanvas.classList.add('active');
+            frontCanvas.classList.remove('active');
+            
+            // Update tracking
+            this.activeCanvas = isAActive ? 'b' : 'a';
             this.frameCount++;
             this.lastFrameTime = Date.now();
             

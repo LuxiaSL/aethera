@@ -70,6 +70,10 @@ class DreamWebSocketHub:
         self._status_message = "Waiting for connection..."
         self._last_frame_time: float = 0
         
+        # Frame numbering counter (incremented on receive, not cache add)
+        # Prevents duplicate frame numbers when frames queue before caching
+        self._next_frame_number: int = 1
+        
         # Frame playback queue for smooth pacing
         self._playback_queue = FramePlaybackQueue(
             broadcast_callback=self._broadcast_frame,
@@ -208,6 +212,9 @@ class DreamWebSocketHub:
         # Reset FPS session stats for accurate measurement
         self.frame_cache.reset_session()
         
+        # Reset frame numbering counter
+        self._next_frame_number = 1
+        
         # Reset and start playback queue
         self._playback_queue.reset()
         self._playback_task = asyncio.create_task(self._playback_queue.run())
@@ -288,8 +295,10 @@ class DreamWebSocketHub:
         if self.gpu_manager:
             self.gpu_manager.on_frame_received()
         
-        # Frame number for tracking
-        frame_number = self.frame_cache.total_frames_received + 1
+        # Assign frame number now (at receive time, not cache time)
+        # This prevents duplicate numbers when frames queue before caching
+        frame_number = self._next_frame_number
+        self._next_frame_number += 1
         
         # Queue for smooth playback (instead of immediate broadcast)
         # The playback loop will broadcast at steady FPS

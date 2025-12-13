@@ -53,8 +53,9 @@
     
     <!-- Main viewer container -->
     <div class="dream-container circuit-box">
-        <!-- Canvas for frame display -->
-        <canvas id="dream-canvas" width="1024" height="512"></canvas>
+        <!-- Dual canvases for smooth crossfade (no flicker) -->
+        <canvas id="dream-canvas-a" class="dream-canvas" width="1024" height="512"></canvas>
+        <canvas id="dream-canvas-b" class="dream-canvas" width="1024" height="512"></canvas>
         
         <!-- Loading overlay -->
         <div id="dream-loading" class="dream-loading">
