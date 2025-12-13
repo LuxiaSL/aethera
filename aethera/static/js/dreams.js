@@ -235,6 +235,13 @@ class DreamViewer {
         const img = new Image();
         
         img.onload = () => {
+            // Trigger smooth transition animation
+            // Remove and re-add class to restart animation
+            this.canvas.classList.remove('frame-transition');
+            // Force reflow to restart animation
+            void this.canvas.offsetWidth;
+            this.canvas.classList.add('frame-transition');
+            
             // Draw to canvas
             this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
             URL.revokeObjectURL(url);

@@ -18,6 +18,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from .frame_cache import FrameCache
 from .presence import ViewerPresenceTracker
+from .frame_playback import FramePlaybackQueue
 
 if TYPE_CHECKING:
     from .gpu_manager import RunPodManager
@@ -68,6 +69,13 @@ class DreamWebSocketHub:
         self._status = "idle"  # idle, starting, ready, error
         self._status_message = "Waiting for connection..."
         self._last_frame_time: float = 0
+        
+        # Frame playback queue for smooth pacing
+        self._playback_queue = FramePlaybackQueue(
+            broadcast_callback=self._broadcast_frame,
+            on_frame_displayed=self._on_frame_displayed,
+        )
+        self._playback_task: Optional[asyncio.Task] = None
     
     @property
     def viewer_count(self) -> int:
@@ -200,6 +208,11 @@ class DreamWebSocketHub:
         # Reset FPS session stats for accurate measurement
         self.frame_cache.reset_session()
         
+        # Reset and start playback queue
+        self._playback_queue.reset()
+        self._playback_task = asyncio.create_task(self._playback_queue.run())
+        logger.info("Playback queue started")
+        
         # Notify GPU manager
         if self.gpu_manager:
             self.gpu_manager.on_gpu_connected()
@@ -211,6 +224,17 @@ class DreamWebSocketHub:
         """Handle GPU disconnection"""
         self._gpu_websocket = None
         self.presence.set_gpu_running(False)
+        
+        # Stop playback queue
+        self._playback_queue.stop()
+        if self._playback_task and not self._playback_task.done():
+            self._playback_task.cancel()
+            try:
+                await self._playback_task
+            except asyncio.CancelledError:
+                pass
+        self._playback_task = None
+        logger.info("Playback queue stopped")
         
         # Notify GPU manager
         if self.gpu_manager:
@@ -243,34 +267,41 @@ class DreamWebSocketHub:
             self._last_frame_time = time.time()
         
         elif msg_type == MSG_STATUS:
-            # GPU status update (JSON)
+            # GPU status update (JSON) - may include config like target_fps
             import json
             try:
                 status = json.loads(payload.decode())
                 logger.debug(f"GPU status: {status}")
-            except:
-                pass
+                
+                # Check for FPS configuration
+                if "target_fps" in status:
+                    self._playback_queue.target_fps = float(status["target_fps"])
+                    logger.info(f"GPU configured target FPS: {status['target_fps']}")
+            except Exception as e:
+                logger.warning(f"Failed to parse GPU status: {e}")
     
     async def _handle_gpu_frame(self, frame_data: bytes) -> None:
-        """Process and broadcast a frame from GPU"""
+        """Queue a frame from GPU for smooth playback"""
         self._last_frame_time = time.time()
         
         # Notify GPU manager of frame receipt
         if self.gpu_manager:
             self.gpu_manager.on_frame_received()
         
-        # Extract frame metadata if present (future: prepended JSON header)
-        # For now, assume raw WebP data
+        # Frame number for tracking
         frame_number = self.frame_cache.total_frames_received + 1
         
-        # Cache the frame
+        # Queue for smooth playback (instead of immediate broadcast)
+        # The playback loop will broadcast at steady FPS
+        await self._playback_queue.add_frame(frame_data, frame_number)
+    
+    async def _on_frame_displayed(self, frame_data: bytes, frame_number: int) -> None:
+        """Callback when playback queue displays a frame"""
+        # Add to cache (for new viewer catchup and stats)
         await self.frame_cache.add_frame(
             data=frame_data,
             frame_number=frame_number,
         )
-        
-        # Broadcast to all viewers
-        await self._broadcast_frame(frame_data)
     
     async def _handle_gpu_state(self, state_data: bytes) -> None:
         """Handle state snapshot from GPU"""
@@ -362,6 +393,7 @@ class DreamWebSocketHub:
         """Get hub statistics"""
         cache_stats = self.frame_cache.get_stats()
         presence_stats = self.presence.get_status()
+        playback_stats = self._playback_queue.get_stats()
         
         return {
             "status": self._status,
@@ -371,6 +403,7 @@ class DreamWebSocketHub:
             "last_frame_age_seconds": round(time.time() - self._last_frame_time, 1) if self._last_frame_time > 0 else None,
             **cache_stats,
             **presence_stats,
+            "playback": playback_stats,
         }
 
 

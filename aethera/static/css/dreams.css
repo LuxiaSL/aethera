@@ -49,6 +49,18 @@
     height: 100%;
     display: block;
     background: var(--bg);
+    /* Smooth crossfade between frames - subtle blend hides micro-jitter */
+    transition: opacity 0.08s ease-out;
+}
+
+/* Frame transition animation - triggered on each new frame */
+@keyframes frame-blend {
+    0% { opacity: 0.92; }
+    100% { opacity: 1; }
+}
+
+#dream-canvas.frame-transition {
+    animation: frame-blend 0.12s ease-out;
 }
 
 /* ============================================
