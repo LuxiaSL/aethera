@@ -250,7 +250,8 @@ article {
 }
 
 .post-content p, .prose p {
-    margin-bottom: 1.5rem;
+    margin-top: 0;
+    margin-bottom: 1.25rem;
 }
 
 .post-content strong, .prose strong {
@@ -264,7 +265,8 @@ article {
 
 .post-content ul, .post-content ol,
 .prose ul, .prose ol {
-    margin: 1rem 0 1.5rem 1.5rem;
+    margin: 0 0 1.25rem 1.5rem !important;
+    padding: 0;
 }
 
 .post-content li, .prose li {
@@ -983,11 +985,124 @@ main .text-6xl {
 }
 
 /* Single post page article styling */
-article.post {
+article.post,
+article.post-body {
     border-bottom: none;
-    padding: 1rem;
-    padding-bottom: 0;
+    padding: 4rem 2.5rem;
+    padding-bottom: 0.5rem;
     margin-bottom: 0;
+    position: relative;
+    color: #000;
+    overflow: visible;
+}
+
+#post-caustics-canvas {
+    position: absolute;
+    top: -1rem;
+    left: -6rem;
+    right: -6rem;
+    width: calc(100% + 12rem);
+    height: calc(100% + 2rem);
+    z-index: -1;
+    pointer-events: none;
+}
+
+article.post a,
+article.post-body a {
+    color: #333;
+    text-decoration: underline;
+}
+
+article.post a:hover,
+article.post-body a:hover {
+    color: #666;
+}
+
+article.post .post-content,
+article.post .prose,
+article.post-body .post-content,
+article.post-body .prose {
+    color: #000;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+article.post-body .post-content > *:first-child {
+    margin-top: 0 !important;
+}
+
+article.post-body .post-content > h1:first-child {
+    display: none;
+}
+
+article.post-body .post-content h1,
+article.post-body .post-content h2,
+article.post-body .post-content h3,
+article.post-body .post-content h4 {
+    color: #000;
+}
+
+article.post-body .post-content .content-section {
+    margin-top: 0 !important;
+}
+
+article.post-body .post-content > *:last-child,
+article.post-body .prose > *:last-child,
+article.post-body .post-content > p:last-child,
+article.post-body .prose > p:last-child {
+    margin-bottom: 0 !important;
+}
+
+article.post .post-content strong,
+article.post .prose strong,
+article.post-body .post-content strong,
+article.post-body .prose strong {
+    color: #000;
+}
+
+article.post .post-content blockquote,
+article.post .prose blockquote,
+article.post-body .post-content blockquote,
+article.post-body .prose blockquote {
+    color: #444;
+    border-left-color: #888;
+    background: rgba(0,0,0,0.05);
+}
+
+/* Standalone post header with ellipse glow */
+.post-header-standalone {
+    position: relative;
+    padding: 1.5rem 2rem;
+    margin-top: 0;
+    margin-bottom: 2rem;
+    color: #000;
+    text-align: center;
+}
+
+.post-header-standalone::before {
+    content: '';
+    position: absolute;
+    top: -0.5rem;
+    left: -1.5rem;
+    right: -1.5rem;
+    bottom: -0.5rem;
+    background: radial-gradient(ellipse 65% 60% at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 40%, rgba(255,255,255,0.3) 60%, transparent 80%);
+    z-index: -1;
+}
+
+.post-header-standalone h1 {
+    margin-bottom: 0.5rem;
+    color: #000;
+    font-size: 1.75rem;
+}
+
+.post-header-standalone .post-meta {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.post-header-standalone .tag {
+    color: #555;
 }
 
 .post-header {
@@ -996,57 +1111,190 @@ article.post {
 
 .post-header h1 {
     margin-bottom: 0.5rem;
+    color: #000;
 }
 
 .post-header .post-meta {
-    color: var(--text-muted);
+    color: #555;
     font-size: 0.9rem;
 }
 
 .post-header .tag {
     display: inline-block;
-    border: 1px solid var(--text-muted);
+    border: 1px solid #888;
     padding: 0.1rem 0.4rem;
     margin-left: 0.35rem;
     font-size: 0.75rem;
+    color: #555;
 }
 
 .comments-section {
     margin-top: 2rem;
-    padding: 1rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--border-color);
+    padding: 1rem 0;
+    position: relative;
+    overflow: visible;
 }
 
-.comments-section h2 {
-    margin-bottom: 1.5rem;
+/* Reply button with ellipse background */
+.comments-section .open-reply-btn {
+    position: relative;
+    background: transparent !important;
+    color: #000 !important;
+    padding: 0.5rem 1.5rem;
+    margin-bottom: 2rem;
+    margin-left: 1rem;
+    display: inline-block;
+    border: none !important;
 }
 
-/* Post footer - inline category/license info */
-.post-footer {
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
+.comments-section .open-reply-btn::before {
+    content: '';
+    position: absolute;
+    top: -0.75rem;
+    left: -1.5rem;
+    right: -1.5rem;
+    bottom: -0.75rem;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 35%, rgba(255,255,255,0.3) 55%, transparent 75%);
+    z-index: -1;
 }
 
-.post-footer .separator {
-    opacity: 0.5;
+.comments-section .open-reply-btn:hover {
+    color: #444 !important;
+    background: transparent !important;
 }
 
-.post-footer a {
-    color: var(--text-muted);
-    border-bottom: 1px dotted var(--text-muted);
+/* Comment form with soft fade rect */
+.comments-section .comment-form {
+    position: relative;
+    margin-bottom: 8rem;
+    padding: 3rem 2.5rem;
 }
 
-.post-footer a:hover {
-    color: var(--accent);
-    border-color: var(--accent);
+.comments-section .comment-form .comment-bg-canvas {
+    position: absolute;
+    top: -1rem;
+    left: -6rem;
+    right: -6rem;
+    width: calc(100% + 12rem);
+    height: calc(100% + 2rem);
+    z-index: -1;
+    pointer-events: none;
+}
+
+.comments-section .comment-form form {
+    background: transparent !important;
+    border: none !important;
+    padding: 0;
+}
+
+.comments-section .comment-form label {
+    color: #555 !important;
+}
+
+.comments-section .comment-form input,
+.comments-section .comment-form textarea {
+    background-color: rgba(0,0,0,0.05) !important;
+    border-color: #ccc !important;
+    color: #000 !important;
+}
+
+.comments-section .comment-form input::placeholder,
+.comments-section .comment-form textarea::placeholder {
+    color: #888 !important;
+}
+
+.comments-section .comment-form button {
+    background-color: #000 !important;
+    color: #fff !important;
+}
+
+.comments-section .comment-form button:hover {
+    background-color: #333 !important;
+}
+
+/* Individual comments with soft fade rect */
+.comments-section .comment {
+    position: relative;
+    background: transparent !important;
+    border: none !important;
+    padding: 1.5rem 2.5rem;
+    margin-top: 1rem;
+    margin-bottom: 4rem;
+}
+
+.comments-section .comment .comment-bg-canvas {
+    position: absolute;
+    top: -1rem;
+    left: -6rem;
+    right: -6rem;
+    width: calc(100% + 12rem);
+    height: calc(100% + 2rem);
+    z-index: -1;
+    pointer-events: none;
+}
+
+.comments-section .comment-header {
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 0.5rem;
+}
+
+.comments-section .comment-author {
+    font-weight: 700;
+    color: #000;
+}
+
+.comments-section .comment-tripcode {
+    color: #666;
+}
+
+.comments-section .comment-id-link {
+    color: #555;
+}
+
+.comments-section .comment-id-link:hover {
+    color: #000;
+}
+
+.comments-section .comment-reference {
+    color: #555;
+}
+
+.comments-section .comment-reference:hover {
+    color: #000;
+}
+
+.comments-section .comment-content,
+.comments-section .comment-content p {
+    color: #000;
+}
+
+.comments-section .comment-content a {
+    color: #333;
+    text-decoration: underline;
+}
+
+.comments-section .comment-content a:hover {
+    color: #000;
+}
+
+/* Post footer - license info */
+article.post-body .post-footer {
+    margin-top: -0.5rem;
+    margin-left: 0;
+    padding-left: 0;
+    text-indent: 0;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+article.post-body .post-footer a {
+    color: #555;
+    text-decoration: underline;
+}
+
+article.post-body .post-footer a:hover {
+    color: #333;
 }
 
 /* ============================================

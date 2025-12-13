@@ -48,40 +48,37 @@
 {% endblock %}
 
 {% block content %}
-<!-- h-entry microformat for IndieWeb compatibility -->
-<article class="post h-entry">
-    <header class="post-header">
-        <h1 class="p-name">{{ post.title }}</h1>
-        <div class="post-meta">
-            <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%Y-%m-%d') }}</time> | <span class="p-author h-card">{{ post.author }}</span>{% if post.tags %} | {% for tag in post.get_tags_list() %}<span class="tag p-category">{{ tag }}</span>{% endfor %}{% endif %}
-        </div>
+<!-- Post title/meta with ellipse background like homepage -->
+<header class="post-header-standalone h-entry">
+    <h1 class="p-name">{{ post.title }}</h1>
+    <div class="post-meta">
+        <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%Y-%m-%d') }}</time> · <span class="p-author h-card">{{ post.author }}</span>{% if post.tags %} · {% for tag in post.get_tags_list() %}<span class="tag p-category">{{ tag }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+    </div>
+    <!-- Hidden machine-readable metadata -->
+    <data class="u-url hidden" value="{{ request.url }}"></data>
+    {% if post.excerpt %}
+    <data class="p-summary hidden" value="{{ post.excerpt }}"></data>
+    {% endif %}
+</header>
 
-        <!-- Hidden machine-readable metadata -->
-        <data class="u-url hidden" value="{{ request.url }}"></data>
-        {% if post.excerpt %}
-        <data class="p-summary hidden" value="{{ post.excerpt }}"></data>
-        {% endif %}
-    </header>
-
+<!-- Post body with rectangular white background -->
+<article class="post-body">
+    <canvas id="post-caustics-canvas"></canvas>
     <div class="post-content e-content">
         {{ post.content_html | safe }}
     </div>
 
     <footer class="post-footer">
-        <span>{% if post.categories %}{% for category in post.get_categories_list() %}<a href="/category/{{ category }}" class="p-category">{{ category }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Uncategorized{% endif %}</span>
-        <span class="separator">·</span>
-        <span><a href="https://creativecommons.org/licenses/by/4.0/" rel="license">{{ post.license }}</a></span>
+        <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">{{ post.license }}</a>
     </footer>
 </article>
 
 <section class="comments-section">
-    <h2>Comments</h2>
 
     <!-- Comment form -->
     <div class="comment-form mb-8">
         <form hx-post="/posts/{{ post.slug }}/comments" hx-target="#comments-container" hx-swap="afterbegin"
-            hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('no-comments-placeholder')?.remove(); }"
-            class="bg-bg-elevated p-4 rounded border-l-2 border-accent">
+            hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('no-comments-placeholder')?.remove(); }">
             
             <!-- Name and Tripcode fields - horizontal on desktop -->
             <div class="form-row">
@@ -114,6 +111,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Post caustics background -->
+<script src="/static/js/post-caustics.js"></script>
 <!-- 4chan-style comment system -->
 <script src="/static/js/comments.js"></script>
 <script>
