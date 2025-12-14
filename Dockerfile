@@ -15,6 +15,7 @@ RUN uv sync --frozen --no-dev --no-editable
 COPY aethera/ ./aethera/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./
+COPY docs/ ./docs/
 
 # Create data directory for SQLite and state persistence
 RUN mkdir -p /app/data /app/data/dreams

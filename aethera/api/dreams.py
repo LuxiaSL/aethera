@@ -225,17 +225,16 @@ async def dreams_api_docs(request: Request):
     from aethera.utils.markdown import render_markdown
     
     # Read the markdown documentation
-    # Use resolve() to get absolute path, then traverse up from api/ to aethera/aethera/ to aethera/ to find docs/
+    # The docs folder is at the root of the aethera package (alongside aethera/, migrations/, etc.)
+    # In Docker this is /app/docs/, locally it's relative to the package root
     docs_path = Path(__file__).resolve().parent.parent.parent / "docs" / "DREAMS_API.md"
-    
-    logger.info(f"Looking for docs at: {docs_path}")
     
     if docs_path.exists():
         content = docs_path.read_text(encoding="utf-8")
         content_html = render_markdown(content)
     else:
         logger.warning(f"Documentation not found at {docs_path}")
-        content_html = f"<p>Documentation not found at {docs_path}</p>"
+        content_html = "<p>Documentation not available. Please rebuild the Docker image to include the docs folder.</p>"
     
     return templates.TemplateResponse(
         request=request,
