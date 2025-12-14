@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Dreams API Documentation | æthera{% endblock %}
+
+{% block description %}API documentation for the Dreams live AI art streaming service. WebSocket, SSE, and REST endpoints for consuming real-time generated frames.{% endblock %}
+
+{% block meta %}
+{{ super() }}
+<meta property="og:title" content="Dreams API Documentation | æthera">
+<meta property="og:description" content="API documentation for the Dreams live AI art streaming service.">
+<meta property="og:type" content="article">
+<link rel="canonical" href="{{ request.base_url }}dreams/api">
+{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "Dreams API Documentation",
+    "description": "API documentation for the Dreams live AI art streaming service. WebSocket, SSE, and REST endpoints.",
+    "author": {
+        "@type": "Person",
+        "name": "Luxia",
+        "url": "{{ request.base_url }}"
+    },
+    "datePublished": "2024-12-13",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{ request.url }}"
+    }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<article class="post h-entry">
+    <header class="mb-8">
+        <h1 class="text-3xl font-bold mb-3 p-name">Dreams API Documentation</h1>
+        <div class="text-text-muted">
+            <a href="/dreams" class="text-accent hover:underline">← Back to Dreams</a>
+        </div>
+        
+        <div class="mt-4">
+            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">api</span>
+            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">websocket</span>
+            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">streaming</span>
+            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">documentation</span>
+        </div>
+    </header>
+
+    <div class="post-content prose lg:prose-lg max-w-none text-text e-content">
+        {{ content_html | safe }}
+    </div>
+
+    <footer class="post-footer">
+        <span><a href="/dreams">Dreams</a></span>
+        <span class="separator">·</span>
+        <span><a href="https://creativecommons.org/licenses/by/4.0/" rel="license">CC BY 4.0</a></span>
+    </footer>
+</article>
+{% endblock %}
+

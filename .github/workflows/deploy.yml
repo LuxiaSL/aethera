@@ -6,6 +6,15 @@ on:
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
 
+# Required VPS Setup:
+# 1. Caddy reverse proxy configured for aetherawi.red
+#    (WebSocket support is automatic with Caddy)
+# 2. /opt/aethera/.env file with:
+#    - AETHERA_TRIPCODE_SALT=<your-salt>
+#    - DREAM_GEN_AUTH_TOKEN=<shared-secret-with-runpod>
+#    - RUNPOD_API_KEY=<your-runpod-api-key>
+#    - RUNPOD_ENDPOINT_ID=<your-endpoint-id>
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -44,5 +53,9 @@ jobs:
             
             echo "✅ Deploy complete!"
             docker ps | grep aethera
+            
+            echo ""
+            echo "🌙 Dreams module ready at /dreams"
+            echo "   Make sure .env has DREAM_GEN_AUTH_TOKEN, RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID"
 
 

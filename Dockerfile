@@ -11,16 +11,22 @@ COPY pyproject.toml uv.lock README.md ./
 # Install dependencies
 RUN uv sync --frozen --no-dev --no-editable
 
-# Copy application code
+# Copy application code (includes dreams/ module)
 COPY aethera/ ./aethera/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./
+COPY docs/ ./docs/
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
+# Create data directory for SQLite and state persistence
+RUN mkdir -p /app/data /app/data/dreams
 
 # Set environment variables
 ENV DATABASE_URL=sqlite:///./data/blog.sqlite
+
+# Dreams module expects these from .env file:
+# - DREAM_GEN_AUTH_TOKEN (required for GPU auth)
+# - RUNPOD_API_KEY (required for GPU management)
+# - RUNPOD_ENDPOINT_ID (required for GPU management)
 
 EXPOSE 8000
 

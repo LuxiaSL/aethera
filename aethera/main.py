@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from aethera.models.base import init_db, get_session
-from aethera.api import posts, comments, seo
+from aethera.api import posts, comments, seo, dreams
 from aethera.utils.security import SecurityHeadersMiddleware
 from aethera.utils.templates import templates
 
@@ -41,6 +41,7 @@ app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 app.include_router(posts.router)
 app.include_router(comments.router)
 app.include_router(seo.router)
+app.include_router(dreams.router)
 
 
 # Custom 404 error handler

@@ -18,6 +18,9 @@ dependencies = [
     "itsdangerous>=2.1.2",
     "python-dotenv",
     "pillow>=12.0.0",
+    "websockets>=15.0.1",
+    # Dreams module dependencies
+    "httpx>=0.28.1",  # RunPod API calls
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
