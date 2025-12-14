@@ -189,6 +189,16 @@ class DreamWebSocketHub:
         
         await self._broadcast_json(status_msg)
     
+    async def _broadcast_config(self, target_fps: float) -> None:
+        """Broadcast playback config to all viewers"""
+        config_msg = {
+            "type": "config",
+            "target_fps": target_fps,
+        }
+        
+        await self._broadcast_json(config_msg)
+        logger.debug(f"Broadcast config to {self.viewer_count} viewers: {target_fps} FPS")
+    
     # ==================== GPU Connection ====================
     
     async def connect_gpu(self, websocket: WebSocket) -> None:
@@ -282,8 +292,12 @@ class DreamWebSocketHub:
                 
                 # Check for FPS configuration
                 if "target_fps" in status:
-                    self._playback_queue.target_fps = float(status["target_fps"])
-                    logger.info(f"GPU configured target FPS: {status['target_fps']}")
+                    target_fps = float(status["target_fps"])
+                    self._playback_queue.target_fps = target_fps
+                    logger.info(f"GPU configured target FPS: {target_fps}")
+                    
+                    # Broadcast config to browser clients for client-side pacing
+                    await self._broadcast_config(target_fps)
             except Exception as e:
                 logger.warning(f"Failed to parse GPU status: {e}")
     

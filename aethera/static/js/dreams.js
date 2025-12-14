@@ -3,25 +3,24 @@
  * 
  * Connects to the dreams WebSocket endpoint and displays
  * live AI-generated frames on a canvas element.
+ * 
+ * Features:
+ * - Client-side frame queue for smooth playback
+ * - Canvas alpha blending for seamless transitions
+ * - Adaptive FPS for buffer management
+ * - Tab visibility handling (pause/skip-to-live)
  */
 
 class DreamViewer {
     constructor(options = {}) {
+        this.canvasId = options.canvasId || 'dream-canvas';
         this.loadingId = options.loadingId || 'dream-loading';
         this.errorId = options.errorId || 'dream-error';
         this.statusId = options.statusId || 'dream-status';
         
-        // Dual-canvas for smooth crossfade (no black flicker)
-        this.canvasA = document.getElementById('dream-canvas-a');
-        this.canvasB = document.getElementById('dream-canvas-b');
-        this.ctxA = this.canvasA?.getContext('2d');
-        this.ctxB = this.canvasB?.getContext('2d');
-        this.activeCanvas = 'a';  // Track which canvas is currently visible
-        
-        // Initialize canvas A as active
-        if (this.canvasA) this.canvasA.classList.add('active');
-        
-        // Other elements
+        // Canvas elements
+        this.canvas = document.getElementById(this.canvasId);
+        this.ctx = this.canvas?.getContext('2d');
         this.loadingEl = document.getElementById(this.loadingId);
         this.errorEl = document.getElementById(this.errorId);
         this.statusEl = document.getElementById(this.statusId);
@@ -32,10 +31,27 @@ class DreamViewer {
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 1000;
         
-        // State
+        // Connection state
         this.connected = false;
         this.frameCount = 0;
         this.lastFrameTime = 0;
+        
+        // ==================== Frame Queue System ====================
+        this.frameQueue = [];           // Decoded Image objects waiting to display
+        this.targetFps = 3.0;           // Updated from server config
+        this.minBufferFrames = 3;       // Wait for ~1s buffer before starting
+        this.maxQueueSize = 30;         // ~10s max buffer
+        this.targetBufferFrames = 5;    // Ideal buffer size for adaptive FPS
+        this.playbackStarted = false;
+        this.playbackInterval = null;
+        this.playbackPaused = false;    // Paused when tab hidden
+        
+        // ==================== Alpha Blend System ====================
+        this.currentImage = null;       // Currently displayed image
+        this.blendingImage = null;      // Image being blended in
+        this.blendStartTime = null;
+        this.blendDuration = 80;        // 80ms crossfade
+        this.blendAnimationId = null;
         
         // Stats elements
         this.frameCountEl = document.querySelector('#dream-frame-count .dream-stat-value');
@@ -46,13 +62,15 @@ class DreamViewer {
         // Bind methods
         this.connect = this.connect.bind(this);
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+        this.playbackTick = this.playbackTick.bind(this);
+        this.blendLoop = this.blendLoop.bind(this);
         
         // Setup event listeners
         this.setupEventListeners();
     }
     
     setupEventListeners() {
-        // Visibility API - disconnect when tab hidden
+        // Visibility API - pause/resume playback
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
         
         // Retry button
@@ -75,20 +93,197 @@ class DreamViewer {
     
     handleVisibilityChange() {
         if (document.hidden) {
-            // Tab hidden - but KEEP connection alive!
-            // Disconnecting triggers GPU shutdown on server.
-            // Instead, just reduce activity (stop rendering new frames)
-            console.log('Tab hidden - keeping connection alive');
-            // Don't disconnect - the server will keep sending frames
-            // which we'll display when tab becomes visible again
+            // Tab hidden - pause playback (frames keep queueing)
+            console.log('Tab hidden - pausing playback');
+            this.pausePlayback();
         } else {
-            // Tab visible - reconnect
+            // Tab visible - skip to live if we fell behind, then resume
+            console.log('Tab visible - resuming playback');
+            this.skipToLiveIfNeeded();
+            this.resumePlayback();
+            
+            // Reconnect if disconnected
             if (!this.connected) {
                 this.reconnectAttempts = 0;
                 this.connect();
             }
         }
     }
+    
+    // ==================== Frame Queue Management ====================
+    
+    queueFrame(frameData) {
+        // Decode image asynchronously
+        const blob = new Blob([frameData], { type: 'image/webp' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            
+            // Add to queue
+            this.frameQueue.push(img);
+            
+            // Start playback if we have enough buffer
+            if (!this.playbackStarted && !this.playbackPaused && 
+                this.frameQueue.length >= this.minBufferFrames) {
+                this.startPlayback();
+            }
+        };
+        
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            console.error('Failed to decode frame');
+        };
+        
+        img.src = url;
+    }
+    
+    startPlayback() {
+        if (this.playbackInterval) return;
+        
+        this.playbackStarted = true;
+        this.scheduleNextFrame();
+        console.log(`Playback started: ${this.frameQueue.length} frames buffered, target ${this.targetFps} FPS`);
+    }
+    
+    scheduleNextFrame() {
+        if (this.playbackPaused) return;
+        
+        // Calculate effective FPS with adaptive adjustment
+        const effectiveFps = this.calculateEffectiveFps();
+        const intervalMs = 1000 / effectiveFps;
+        
+        this.playbackInterval = setTimeout(() => {
+            this.playbackTick();
+            this.scheduleNextFrame();
+        }, intervalMs);
+    }
+    
+    calculateEffectiveFps() {
+        const queueDepth = this.frameQueue.length;
+        const overrun = queueDepth - this.targetBufferFrames;
+        
+        if (overrun <= 0) {
+            // At or below target - play at normal speed
+            return this.targetFps;
+        } else if (overrun <= 5) {
+            // Small overrun - speed up gently (3-15% faster)
+            const boost = 1 + (overrun * 0.03);
+            return this.targetFps * boost;
+        } else {
+            // Larger overrun - cap at 15% faster
+            // (skip-to-live handles extreme cases)
+            return this.targetFps * 1.15;
+        }
+    }
+    
+    playbackTick() {
+        if (this.frameQueue.length === 0) {
+            // Underrun - hold current frame (nothing to do)
+            return;
+        }
+        
+        const nextImage = this.frameQueue.shift();
+        
+        // Start alpha blend to new frame
+        this.startBlend(nextImage);
+        
+        // Update stats
+        this.frameCount++;
+        this.lastFrameTime = Date.now();
+        
+        if (this.frameCountEl) {
+            this.frameCountEl.textContent = this.frameCount.toLocaleString();
+        }
+        
+        // Hide loading on first displayed frame
+        this.hideLoading();
+    }
+    
+    pausePlayback() {
+        this.playbackPaused = true;
+        if (this.playbackInterval) {
+            clearTimeout(this.playbackInterval);
+            this.playbackInterval = null;
+        }
+    }
+    
+    resumePlayback() {
+        this.playbackPaused = false;
+        if (this.playbackStarted && !this.playbackInterval) {
+            this.scheduleNextFrame();
+        }
+    }
+    
+    skipToLiveIfNeeded() {
+        // If queue has grown large (tab was hidden), skip to near-live
+        const skipThreshold = 10;
+        const keepFrames = 3;
+        
+        if (this.frameQueue.length > skipThreshold) {
+            const dropped = this.frameQueue.length - keepFrames;
+            this.frameQueue = this.frameQueue.slice(-keepFrames);
+            console.log(`Skipped to live: dropped ${dropped} frames, keeping ${keepFrames}`);
+        }
+    }
+    
+    // ==================== Canvas Alpha Blending ====================
+    
+    startBlend(newImage) {
+        if (!this.ctx) return;
+        
+        // If no current image, just draw directly (first frame)
+        if (!this.currentImage) {
+            this.currentImage = newImage;
+            this.ctx.drawImage(newImage, 0, 0, this.canvas.width, this.canvas.height);
+            return;
+        }
+        
+        // Start crossfade blend
+        this.blendingImage = newImage;
+        this.blendStartTime = performance.now();
+        
+        // Cancel any existing blend animation
+        if (this.blendAnimationId) {
+            cancelAnimationFrame(this.blendAnimationId);
+        }
+        
+        this.blendLoop();
+    }
+    
+    blendLoop() {
+        if (!this.blendingImage || !this.ctx) return;
+        
+        const elapsed = performance.now() - this.blendStartTime;
+        const progress = Math.min(1.0, elapsed / this.blendDuration);
+        
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Draw current image at full opacity (base layer)
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.drawImage(this.currentImage, 0, 0, w, h);
+        
+        // Draw new image at blend progress (fading in on top)
+        this.ctx.globalAlpha = progress;
+        this.ctx.drawImage(this.blendingImage, 0, 0, w, h);
+        
+        // Reset alpha
+        this.ctx.globalAlpha = 1.0;
+        
+        if (progress < 1.0) {
+            // Continue blending
+            this.blendAnimationId = requestAnimationFrame(this.blendLoop);
+        } else {
+            // Blend complete - new becomes current
+            this.currentImage = this.blendingImage;
+            this.blendingImage = null;
+            this.blendAnimationId = null;
+        }
+    }
+    
+    // ==================== WebSocket Connection ====================
     
     connect() {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -121,6 +316,12 @@ class DreamViewer {
         this.reconnectAttempts = 0;
         this.setConnectionState('connected');
         
+        // Reset playback state for new session
+        this.frameQueue = [];
+        this.playbackStarted = false;
+        this.currentImage = null;
+        this.blendingImage = null;
+        
         // Start ping interval
         this.startPingInterval();
     }
@@ -138,9 +339,9 @@ class DreamViewer {
         const messageType = view[0];
         
         if (messageType === 0x01) {
-            // Frame data
+            // Frame data - queue it for smooth playback
             const frameData = data.slice(1);
-            this.displayFrame(frameData);
+            this.queueFrame(frameData);
         }
     }
     
@@ -151,6 +352,9 @@ class DreamViewer {
             switch (msg.type) {
                 case 'status':
                     this.handleStatusMessage(msg);
+                    break;
+                case 'config':
+                    this.handleConfigMessage(msg);
                     break;
                 case 'pong':
                     // Heartbeat response
@@ -171,9 +375,14 @@ class DreamViewer {
             this.viewerCountEl.textContent = msg.viewer_count;
         }
         
-        // Update frame count
+        // Update frame count from server
         if (msg.frame_count !== undefined && this.frameCountEl) {
-            this.frameCountEl.textContent = msg.frame_count.toLocaleString();
+            // Don't override local count - server count is total received
+        }
+        
+        // Check for target_fps in status (GPU config passthrough)
+        if (msg.target_fps !== undefined) {
+            this.updateTargetFps(msg.target_fps);
         }
         
         // Handle different statuses
@@ -192,13 +401,31 @@ class DreamViewer {
         }
     }
     
+    handleConfigMessage(msg) {
+        // Config from server (GPU settings)
+        if (msg.target_fps !== undefined) {
+            this.updateTargetFps(msg.target_fps);
+        }
+    }
+    
+    updateTargetFps(fps) {
+        if (fps > 0 && fps !== this.targetFps) {
+            console.log(`Target FPS updated: ${this.targetFps} → ${fps}`);
+            this.targetFps = fps;
+            // Adjust buffer thresholds based on FPS
+            this.minBufferFrames = Math.max(2, Math.ceil(fps));  // ~1s buffer
+            this.targetBufferFrames = Math.ceil(fps * 1.5);      // ~1.5s target
+        }
+    }
+    
     handleClose(event) {
         console.log('Dream WebSocket closed:', event.code, event.reason);
         this.connected = false;
         this.stopPingInterval();
+        this.pausePlayback();
         
         if (event.code === 1000) {
-            // Normal close (tab hidden, page unload)
+            // Normal close (page unload)
             this.setConnectionState('offline');
             return;
         }
@@ -232,49 +459,6 @@ class DreamViewer {
                 this.connect();
             }
         }, delay);
-    }
-    
-    displayFrame(frameData) {
-        // Dual-canvas crossfade: draw to back canvas, then swap
-        const isAActive = this.activeCanvas === 'a';
-        const backCanvas = isAActive ? this.canvasB : this.canvasA;
-        const backCtx = isAActive ? this.ctxB : this.ctxA;
-        const frontCanvas = isAActive ? this.canvasA : this.canvasB;
-        
-        if (!backCtx) return;
-        
-        const blob = new Blob([frameData], { type: 'image/webp' });
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        
-        img.onload = () => {
-            // Draw new frame to BACK canvas (currently hidden)
-            backCtx.drawImage(img, 0, 0, backCanvas.width, backCanvas.height);
-            URL.revokeObjectURL(url);
-            
-            // Swap: make back canvas active (fades in), front becomes inactive (fades out)
-            backCanvas.classList.add('active');
-            frontCanvas.classList.remove('active');
-            
-            // Update tracking
-            this.activeCanvas = isAActive ? 'b' : 'a';
-            this.frameCount++;
-            this.lastFrameTime = Date.now();
-            
-            if (this.frameCountEl) {
-                this.frameCountEl.textContent = this.frameCount.toLocaleString();
-            }
-            
-            // Hide loading on first frame
-            this.hideLoading();
-        };
-        
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            console.error('Failed to load frame');
-        };
-        
-        img.src = url;
     }
     
     // ==================== UI Helpers ====================
@@ -367,5 +551,3 @@ document.addEventListener('DOMContentLoaded', () => {
     window.dreamViewer = new DreamViewer();
     window.dreamViewer.connect();
 });
-
-

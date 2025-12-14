@@ -44,50 +44,11 @@
     background: var(--bg);
 }
 
-/* Dual-canvas for smooth crossfade between frames
-   Both canvases are stacked; new frame drawn to back canvas,
-   then faded in over the front. No black flicker! */
-.dream-canvas {
-    position: absolute;
-    inset: 0;
+#dream-canvas {
     width: 100%;
     height: 100%;
     display: block;
-    /* Crossfade transition - smooth 120ms blend between frames */
-    transition: opacity 0.12s ease-out;
-}
-
-/* Canvas A starts visible, B starts hidden */
-#dream-canvas-a {
-    opacity: 1;
-    z-index: 2;
-}
-
-#dream-canvas-b {
-    opacity: 0;
-    z-index: 1;
-}
-
-/* When A is active (B fading out) */
-#dream-canvas-a.active {
-    opacity: 1;
-    z-index: 2;
-}
-
-#dream-canvas-a:not(.active) {
-    opacity: 0;
-    z-index: 1;
-}
-
-/* When B is active (A fading out) */
-#dream-canvas-b.active {
-    opacity: 1;
-    z-index: 2;
-}
-
-#dream-canvas-b:not(.active) {
-    opacity: 0;
-    z-index: 1;
+    background: var(--bg);
 }
 
 /* ============================================
