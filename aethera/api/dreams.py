@@ -225,13 +225,17 @@ async def dreams_api_docs(request: Request):
     from aethera.utils.markdown import render_markdown
     
     # Read the markdown documentation
-    docs_path = Path(__file__).parent.parent.parent / "docs" / "DREAMS_API.md"
+    # Use resolve() to get absolute path, then traverse up from api/ to aethera/aethera/ to aethera/ to find docs/
+    docs_path = Path(__file__).resolve().parent.parent.parent / "docs" / "DREAMS_API.md"
+    
+    logger.info(f"Looking for docs at: {docs_path}")
     
     if docs_path.exists():
         content = docs_path.read_text(encoding="utf-8")
         content_html = render_markdown(content)
     else:
-        content_html = "<p>Documentation not found.</p>"
+        logger.warning(f"Documentation not found at {docs_path}")
+        content_html = f"<p>Documentation not found at {docs_path}</p>"
     
     return templates.TemplateResponse(
         request=request,
