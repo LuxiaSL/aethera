@@ -123,7 +123,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="bg-bg text-text">
+<body class="bg-bg text-text" hx-boost="true">
     <video class="video-bg" autoplay muted loop playsinline>
         <source src="/static/uploads/background_web.mp4" type="video/mp4">
     </video>
@@ -139,11 +139,11 @@
     </header>
     <script src="/static/js/caustics.js"></script>
 
-    <main>
+    <main id="main-content">
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="mt-16 py-8 text-center text-sm">
+    <footer class="mt-auto py-8 text-center text-sm">
         <p>
             <a href="/feed.xml">RSS</a>
             ·
@@ -154,6 +154,18 @@
     </footer>
 
     {% block scripts %}{% endblock %}
+    <script>
+        function updateOverflow() {
+            const isHomepage = document.querySelector('.homepage-content');
+            if (isHomepage) {
+                document.documentElement.style.overflow = 'hidden';
+            } else {
+                document.documentElement.style.overflow = '';
+            }
+        }
+        updateOverflow();
+        document.body.addEventListener('htmx:afterSwap', updateOverflow);
+    </script>
 </body>
 
 </html>

@@ -67,10 +67,6 @@
     <div class="post-content e-content">
         {{ post.content_html | safe }}
     </div>
-
-    <footer class="post-footer">
-        <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">{{ post.license }}</a>
-    </footer>
 </article>
 
 <section class="comments-section">
@@ -88,14 +84,14 @@
                 </div>
                 <div class="form-field">
                     <label for="password">Tripcode</label>
-                    <input type="text" name="password" id="password" autocomplete="off" placeholder="Optional">
+                    <input type="text" name="password" id="password" autocomplete="off" placeholder="optional">
                 </div>
             </div>
 
             <div class="form-field">
                 <label for="content">Comment</label>
                 <textarea name="content" id="content" rows="3" required
-                    placeholder="Write your comment... (Markdown supported, >>123 to reference)"></textarea>
+                    placeholder="write your comment... (markdown supported, >>123 to reference)"></textarea>
             </div>
 
             <button type="submit">Post Comment</button>

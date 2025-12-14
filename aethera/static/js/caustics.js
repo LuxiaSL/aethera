@@ -5,6 +5,15 @@
     const canvas = document.getElementById('caustics-canvas');
     if (!canvas) return;
 
+    // Use global start time so shader continues smoothly across page navigations
+    if (!window._causticsStartTime) {
+        window._causticsStartTime = performance.now();
+    }
+
+    // Check if this is the same canvas we already initialized
+    if (window._causticsCanvas === canvas) return;
+    window._causticsCanvas = canvas;
+
     const gl = canvas.getContext('webgl', { antialias: true });
     if (!gl) {
         console.warn('WebGL not supported');
@@ -180,10 +189,8 @@
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    let startTime = performance.now();
-
     function render() {
-        const time = (performance.now() - startTime) / 1000;
+        const time = (performance.now() - window._causticsStartTime) / 1000;
 
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);

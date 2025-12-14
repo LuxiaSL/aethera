@@ -68,12 +68,19 @@ html {
     scroll-behavior: smooth;
     background-color: transparent;
     overflow-x: hidden;
-    /* Prevent layout shift from scrollbar appearing/disappearing */
-    scrollbar-gutter: stable;
+    scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
 }
 
 header {
     overflow: visible;
+}
+
+html {
+    height: 100%;
 }
 
 body {
@@ -85,8 +92,7 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
-    /* Sticky footer setup */
-    min-height: 100vh;
+    min-height: 100%;
     display: flex;
     flex-direction: column;
 }
@@ -273,6 +279,23 @@ article {
     margin-bottom: 0.5rem;
 }
 
+article.post-body .post-content ul,
+article.post-body .post-content ol {
+    color: #000;
+}
+
+article.post-body .post-content ul {
+    list-style-type: disc;
+}
+
+article.post-body .post-content ol {
+    list-style-type: decimal;
+}
+
+article.post-body .post-content li::marker {
+    color: #000;
+}
+
 .post-content blockquote, .prose blockquote {
     border-left: 3px solid var(--accent);
     padding-left: 1.25rem;
@@ -281,7 +304,7 @@ article {
     font-style: italic;
     background: var(--bg-soft);
     padding: 1rem 1.25rem;
-    border-radius: 0 4px 4px 0;
+    border-radius: 0;
 }
 
 .post-content hr, .prose hr {
@@ -302,18 +325,18 @@ code {
     background-color: var(--code-bg);
     color: #dcdcff;
     padding: 0.15em 0.4em;
-    border-radius: 3px;
+    border-radius: 0;
     word-break: break-word;
 }
 
 pre {
     background-color: var(--code-bg);
     color: #dcdcff;
-    padding: 1.25rem;
+    padding: 0.75rem 1rem;
     overflow-x: auto;
-    border-radius: 6px;
+    border-radius: 0;
     border: 1px solid var(--border-color);
-    margin: 1.5rem 0;
+    margin: 1rem 0;
     max-width: 100%;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -629,16 +652,76 @@ article header span[class*="bg-accent"] {
     min-width: 280px;
     max-width: calc(100vw - 20px);
     min-height: 280px;
-    background-color: var(--bg-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-    resize: both;
-    overflow: hidden;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+.reply-modal-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: se-resize;
+    z-index: 10;
+}
+
+.reply-modal-resize-handle::before,
+.reply-modal-resize-handle::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid rgba(255,255,255,0.7);
+    border-bottom: 2px solid rgba(255,255,255,0.7);
+}
+
+.reply-modal-resize-handle::after {
+    bottom: 3px;
+    right: 3px;
+    border-color: rgba(0,0,0,0.5);
+}
+
+.reply-modal-bg-canvas {
+    position: absolute;
+    top: -30px;
+    left: -30px;
+    width: calc(100% + 60px);
+    height: calc(100% + 60px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.reply-modal-header,
+.reply-modal-body {
+    position: relative;
+    z-index: 1;
+}
+
+.reply-modal::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: -30px;
+    right: -30px;
+    bottom: -30px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 0;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent),
+                        linear-gradient(to bottom, transparent, black 40px, black calc(100% - 40px), transparent);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent),
+                linear-gradient(to bottom, transparent, black 40px, black calc(100% - 40px), transparent);
+    mask-composite: intersect;
 }
 
 .reply-modal.dragging {
-    opacity: 0.9;
     cursor: grabbing;
 }
 
@@ -646,10 +729,9 @@ article header span[class*="bg-accent"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.6rem 1rem;
-    background-color: var(--bg-soft);
-    border-bottom: 1px solid var(--border-color);
-    border-radius: 6px 6px 0 0;
+    padding: 1rem 2rem 0 2rem;
+    background: transparent;
+    border: none;
     cursor: grab;
     user-select: none;
 }
@@ -659,32 +741,39 @@ article header span[class*="bg-accent"] {
 }
 
 .reply-modal-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text);
+    font-weight: normal;
+    font-size: 1rem;
+    color: #fff;
+    text-transform: lowercase;
 }
+
+.reply-modal-body .form-field label {
+    text-transform: lowercase;
+}
+
 
 .reply-modal-close {
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: 1.4rem;
-    line-height: 1;
+    color: #fff;
+    font-size: 1.8rem;
+    line-height: 0;
     cursor: pointer;
-    padding: 0 0.25rem;
-    transition: color 0.15s ease;
+    padding: 0;
+    transition: opacity 0.15s ease;
+    transform: translateY(-3px);
 }
 
 .reply-modal-close:hover {
-    color: var(--accent);
+    opacity: 0.7;
 }
 
 .reply-modal-body {
-    padding: 1rem;
+    padding: 1rem 2rem 1rem 2rem;
     display: flex;
     flex-direction: column;
     height: calc(100% - 42px); /* Account for header height */
-    overflow: hidden;
+    overflow: visible;
 }
 
 .reply-modal-body form {
@@ -694,6 +783,7 @@ article header span[class*="bg-accent"] {
     display: flex;
     flex-direction: column;
     height: 100%;
+    overflow: visible;
 }
 
 .reply-modal-body .form-row {
@@ -714,6 +804,10 @@ article header span[class*="bg-accent"] {
 .reply-modal-body .form-field {
     margin-bottom: 0.5rem;
     flex-shrink: 0;
+}
+
+.reply-modal-body .form-field label {
+    color: #fff;
 }
 
 /* Keep name/tripcode inputs compact */
@@ -738,54 +832,64 @@ article header span[class*="bg-accent"] {
 .reply-modal-body textarea {
     min-height: 80px;
     flex: 1;
-    resize: none; /* Modal resize handles this */
+    resize: none;
 }
 
 /* Modal form inputs - ensure proper text color */
 .reply-modal-body input,
 .reply-modal-body textarea {
-    background-color: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border-color);
+    background-color: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    border: 1px solid #444;
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border-radius: 4px;
+    border-radius: 0;
     font-size: 0.9rem;
 }
 
 .reply-modal-body input::placeholder,
 .reply-modal-body textarea::placeholder {
-    color: var(--text-muted);
-    opacity: 0.5;
+    color: #888;
 }
 
 .reply-modal-body input:focus,
 .reply-modal-body textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-color: #888;
+    box-shadow: none;
     outline: none;
 }
 
-/* Post Comment button in modal */
+/* Post Comment button in modal - ellipse style like reply button */
 .reply-modal-body button[type="submit"] {
-    background-color: var(--accent);
-    color: var(--text);
-    font-weight: 700;
-    padding: 0.6rem 1.25rem;
-    border-radius: 4px;
+    position: relative;
+    background: transparent;
+    color: #000;
+    font-weight: normal;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0;
     border: none;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 0.8rem;
+    transition: color 0.2s ease;
+    text-transform: lowercase;
+    font-size: 0.9rem;
     margin-top: 0.75rem;
     flex-shrink: 0;
-    align-self: flex-start; /* Left align */
+    align-self: center;
+}
+
+.reply-modal-body button[type="submit"]::before {
+    content: '';
+    position: absolute;
+    top: -0.4rem;
+    left: -0.75rem;
+    right: -0.75rem;
+    bottom: -0.4rem;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 35%, rgba(255,255,255,0.3) 55%, transparent 75%);
+    z-index: -1;
 }
 
 .reply-modal-body button[type="submit"]:hover {
-    background-color: var(--accent-hover);
+    color: #444;
 }
 
 .reply-modal-body button[type="submit"]:active {
@@ -989,7 +1093,6 @@ article.post,
 article.post-body {
     border-bottom: none;
     padding: 4rem 2.5rem;
-    padding-bottom: 0.5rem;
     margin-bottom: 0;
     position: relative;
     color: #000;
@@ -1047,9 +1150,12 @@ article.post-body .post-content .content-section {
 }
 
 article.post-body .post-content > *:last-child,
-article.post-body .prose > *:last-child,
-article.post-body .post-content > p:last-child,
-article.post-body .prose > p:last-child {
+article.post-body .prose > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+article.post-body .post-content > *:last-child *:last-child,
+article.post-body .prose > *:last-child *:last-child {
     margin-bottom: 0 !important;
 }
 
@@ -1067,6 +1173,12 @@ article.post-body .prose blockquote {
     color: #444;
     border-left-color: #888;
     background: rgba(0,0,0,0.05);
+    padding: 0.5rem 0 0.5rem 1.25rem;
+}
+
+article.post-body .post-content blockquote p,
+article.post-body .prose blockquote p {
+    margin: 0;
 }
 
 /* Standalone post header with ellipse glow */
@@ -1145,6 +1257,8 @@ article.post-body .prose blockquote {
     margin-left: 1rem;
     display: inline-block;
     border: none !important;
+    font-weight: normal;
+    text-transform: lowercase;
 }
 
 .comments-section .open-reply-btn::before {
@@ -1234,7 +1348,7 @@ article.post-body .prose blockquote {
 }
 
 .comments-section .comment-header {
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: #555;
     margin-bottom: 0.5rem;
 }
@@ -1297,44 +1411,18 @@ article.post-body .post-footer a:hover {
     color: #333;
 }
 
-/* ============================================
-   Scrollbar Styling (Webkit)
-   ============================================ */
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-soft);
-}
-
-/* Firefox scrollbar */
-* {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) var(--bg);
-}
 
 /* ============================================
    Selection
    ============================================ */
 ::selection {
-    background-color: var(--accent);
-    color: var(--text);
+    background-color: #333;
+    color: #fff;
 }
 
 ::-moz-selection {
-    background-color: var(--accent);
-    color: var(--text);
+    background-color: #333;
+    color: #fff;
 }
 
 /* ============================================

@@ -27,6 +27,8 @@
     let replyModal = null;
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
+    let isResizing = false;
+    let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
 
     // ============================================
     // Hover Preview System
@@ -284,7 +286,12 @@
         modal.id = 'reply-modal';
         modal.className = 'reply-modal';
         modal.style.display = 'none';
-        
+
+        // Create WebGL canvas for frosted glass effect
+        const canvas = document.createElement('canvas');
+        canvas.className = 'reply-modal-bg-canvas';
+        modal.appendChild(canvas);
+
         // Create header with drag handle and close button
         const header = document.createElement('div');
         header.className = 'reply-modal-header';
@@ -311,20 +318,127 @@
         `);
         
         body.appendChild(formClone);
-        
+
+        // Create resize handle
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'reply-modal-resize-handle';
+
         modal.appendChild(header);
         modal.appendChild(body);
-        
+        modal.appendChild(resizeHandle);
+
         document.body.appendChild(modal);
-        
+
         // Process HTMX for the new form
         if (window.htmx) {
             htmx.process(formClone);
         }
-        
+
+        // Initialize WebGL for frosted glass background
+        initReplyModalCanvas(canvas, modal);
+
         return modal;
     }
-    
+
+    function initReplyModalCanvas(canvas, modal) {
+        const gl = canvas.getContext('webgl', { antialias: true });
+        if (!gl) return;
+
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            varying vec2 v_uv;
+            void main() {
+                v_uv = a_position * 0.5 + 0.5;
+                gl_Position = vec4(a_position, 0.0, 1.0);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision highp float;
+            varying vec2 v_uv;
+            uniform vec2 u_resolution;
+
+            void main() {
+                vec2 uv = v_uv;
+                // Soft fade at edges - 40px fade (absolute)
+                float fadePixels = 40.0;
+                float horizFade = smoothstep(0.0, fadePixels / u_resolution.x, uv.x) * smoothstep(1.0, 1.0 - fadePixels / u_resolution.x, uv.x);
+                float vertFade = smoothstep(0.0, fadePixels / u_resolution.y, uv.y) * smoothstep(1.0, 1.0 - fadePixels / u_resolution.y, uv.y);
+                float alpha = horizFade * vertFade * 0.7;
+                gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(gl, vs, fs) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
+
+        const vs = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fs = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        if (!vs || !fs) return;
+
+        const program = createProgram(gl, vs, fs);
+        if (!program) return;
+
+        const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, 'a_position');
+        const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+
+        function resize() {
+            const rect = modal.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            // Canvas extends 30px beyond modal on each side
+            canvas.width = (rect.width + 60) * dpr;
+            canvas.height = (rect.height + 60) * dpr;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        function render() {
+            if (modal.style.display === 'none') {
+                requestAnimationFrame(render);
+                return;
+            }
+            resize();
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.useProgram(program);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            requestAnimationFrame(render);
+        }
+
+        render();
+    }
+
     function getReplyModal() {
         if (!replyModal) {
             replyModal = document.getElementById('reply-modal') || createReplyModal();
@@ -444,6 +558,42 @@
             }
         });
         
+        // Resize handle
+        document.addEventListener('mousedown', function(e) {
+            if (!e.target.closest) return;
+            const handle = e.target.closest('.reply-modal-resize-handle');
+            if (!handle) return;
+
+            const modal = handle.closest('.reply-modal');
+            if (!modal) return;
+
+            isResizing = true;
+            resizeStart.x = e.clientX;
+            resizeStart.y = e.clientY;
+            resizeStart.width = modal.offsetWidth;
+            resizeStart.height = modal.offsetHeight;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!isResizing) return;
+
+            const modal = getReplyModal();
+            if (!modal) return;
+
+            const newWidth = Math.max(400, resizeStart.width + (e.clientX - resizeStart.x));
+            const newHeight = Math.max(320, resizeStart.height + (e.clientY - resizeStart.y));
+
+            modal.style.width = `${newWidth}px`;
+            modal.style.height = `${newHeight}px`;
+        });
+
+        document.addEventListener('mouseup', function(e) {
+            if (isResizing) {
+                isResizing = false;
+            }
+        });
+
         // Escape key closes modal
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
