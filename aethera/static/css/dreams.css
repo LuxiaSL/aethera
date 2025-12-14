@@ -388,4 +388,54 @@
     border-radius: 0;
 }
 
+/* ============================================
+   API Links Section
+   ============================================ */
+.dreams-api-links {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+}
+
+.dreams-api-links li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+}
+
+.dreams-api-links li:last-child {
+    border-bottom: none;
+}
+
+.dreams-api-links strong {
+    color: var(--text);
+    min-width: 80px;
+}
+
+.dreams-api-links code {
+    color: var(--accent);
+    font-size: 0.9em;
+}
+
+.dreams-docs-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    transition: all 0.2s ease;
+}
+
+.dreams-docs-link:hover {
+    background: var(--accent);
+    color: var(--text);
+}
+
 

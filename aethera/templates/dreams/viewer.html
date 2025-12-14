@@ -108,7 +108,7 @@
         </p>
     </div>
     
-    <!-- Embed section -->
+    <!-- Embed & Docs section -->
     <details class="dreams-embed-section">
         <summary>embed this</summary>
         <div class="dreams-embed-content">
@@ -122,6 +122,22 @@
             <p class="dreams-embed-note">
                 Or fetch the current frame directly: 
                 <a href="/api/dreams/current"><code>/api/dreams/current</code></a>
+            </p>
+        </div>
+    </details>
+    
+    <details class="dreams-embed-section">
+        <summary>api documentation</summary>
+        <div class="dreams-embed-content">
+            <p>Build your own Dream Window client with our API:</p>
+            <ul class="dreams-api-links">
+                <li><strong>WebSocket:</strong> <code>/ws/dreams</code> — Real-time binary frame stream</li>
+                <li><strong>SSE:</strong> <code>/api/dreams/sse</code> — Server-Sent Events alternative</li>
+                <li><strong>REST:</strong> <code>/api/dreams/current</code> — Current frame (WebP)</li>
+                <li><strong>Status:</strong> <code>/api/dreams/status</code> — System status (JSON)</li>
+            </ul>
+            <p class="dreams-embed-note">
+                <a href="/dreams/api" class="dreams-docs-link">View full API documentation →</a>
             </p>
         </div>
     </details>

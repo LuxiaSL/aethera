@@ -9,6 +9,8 @@ Provides endpoints for:
 - Embed code
 """
 
+import asyncio
+import json
 import logging
 import os
 import secrets
@@ -212,6 +214,36 @@ async def dreams_viewer(request: Request, embed: int = 0):
     return templates.TemplateResponse(request=request, name=template_name, context=context)
 
 
+@router.get("/dreams/api", response_class=HTMLResponse)
+async def dreams_api_docs(request: Request):
+    """
+    Dreams API documentation page
+    
+    Renders the API documentation in the same style as blog posts.
+    """
+    from pathlib import Path
+    from aethera.utils.markdown import render_markdown
+    
+    # Read the markdown documentation
+    docs_path = Path(__file__).parent.parent.parent / "docs" / "DREAMS_API.md"
+    
+    if docs_path.exists():
+        content = docs_path.read_text(encoding="utf-8")
+        content_html = render_markdown(content)
+    else:
+        content_html = "<p>Documentation not found.</p>"
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="dreams/api_docs.html",
+        context={
+            "request": request,
+            "title": "Dreams API Documentation | æthera",
+            "content_html": content_html,
+        }
+    )
+
+
 # ==================== API Endpoints ====================
 
 @router.get("/api/dreams/status")
@@ -294,9 +326,9 @@ async def dreams_current_frame(request: Request):
 @router.get("/api/dreams/embed")
 async def dreams_embed_code(request: Request):
     """
-    Get embeddable code snippets for Dream Window
+    Get embeddable code snippets and API endpoints for Dream Window
     
-    Returns iframe code, image URL, and streaming endpoints.
+    Returns iframe code, all available endpoints, and documentation.
     """
     base_url = str(request.base_url).rstrip("/")
     ws_protocol = "wss" if request.url.scheme == "https" else "ws"
@@ -304,6 +336,16 @@ async def dreams_embed_code(request: Request):
     
     return JSONResponse({
         "iframe": f'<iframe src="{base_url}/dreams?embed=1" width="1024" height="512" frameborder="0" allow="autoplay" loading="lazy"></iframe>',
+        "endpoints": {
+            "viewer_page": f"{base_url}/dreams",
+            "current_frame": f"{base_url}/api/dreams/current",
+            "status": f"{base_url}/api/dreams/status",
+            "health": f"{base_url}/api/dreams/health",
+            "recent_frames": f"{base_url}/api/dreams/frames/recent",
+            "websocket": f"{ws_base}/ws/dreams",
+            "sse": f"{base_url}/api/dreams/sse",
+        },
+        # Backwards compatibility
         "image_url": f"{base_url}/api/dreams/current",
         "stream_url": f"{ws_base}/ws/dreams",
         "status_url": f"{base_url}/api/dreams/status",
@@ -312,6 +354,216 @@ async def dreams_embed_code(request: Request):
             "height": 512,
         },
     })
+
+
+# ==================== Health & Streaming Endpoints ====================
+
+@router.get("/api/dreams/health")
+async def dreams_health():
+    """
+    Health check endpoint for monitoring and load balancers
+    
+    Returns basic health status - does not trigger GPU lifecycle.
+    Suitable for Kubernetes liveness/readiness probes.
+    
+    Response:
+        200: Service is healthy
+        503: Service unavailable (hub failed to initialize)
+    """
+    try:
+        hub = get_hub()
+        return JSONResponse({
+            "status": "healthy",
+            "gpu_connected": hub.gpu_connected,
+            "viewer_count": hub.viewer_count,
+            "frames_cached": hub.frame_cache.total_frames_received > 0,
+        })
+    except Exception as e:
+        return JSONResponse(
+            {"status": "unhealthy", "error": str(e)},
+            status_code=503
+        )
+
+
+@router.get("/api/dreams/frames/recent")
+async def dreams_recent_frames(request: Request, count: int = 5, format: str = "metadata"):
+    """
+    Get recent frames from the cache
+    
+    Args:
+        count: Number of frames to retrieve (1-30, default 5)
+        format: "metadata" returns frame info, "urls" includes data URLs
+    
+    Returns:
+        List of recent frames with metadata
+    
+    Rate limited to 60 requests per minute per IP.
+    """
+    check_rate_limit(request)
+    hub = get_hub()
+    hub.presence.on_api_access()
+    
+    # Clamp count to valid range
+    count = max(1, min(30, count))
+    
+    frames = await hub.frame_cache.get_recent_frames(count)
+    
+    if format == "urls":
+        # Include base64 data URLs (larger response, but useful for clients)
+        import base64
+        return JSONResponse({
+            "frames": [
+                {
+                    "frame_number": f.frame_number,
+                    "keyframe_number": f.keyframe_number,
+                    "timestamp": f.timestamp,
+                    "generation_time_ms": f.generation_time_ms,
+                    "size_bytes": len(f.data),
+                    "data_url": f"data:image/webp;base64,{base64.b64encode(f.data).decode('ascii')}",
+                }
+                for f in frames
+            ],
+            "count": len(frames),
+        })
+    else:
+        # Metadata only (lightweight)
+        return JSONResponse({
+            "frames": [
+                {
+                    "frame_number": f.frame_number,
+                    "keyframe_number": f.keyframe_number,
+                    "timestamp": f.timestamp,
+                    "generation_time_ms": f.generation_time_ms,
+                    "size_bytes": len(f.data),
+                }
+                for f in frames
+            ],
+            "count": len(frames),
+        })
+
+
+@router.get("/api/dreams/frame/{frame_number}")
+async def dreams_frame_by_number(request: Request, frame_number: int):
+    """
+    Get a specific frame by number from the cache
+    
+    Args:
+        frame_number: The frame number to retrieve
+    
+    Returns:
+        The frame as a WebP image, or 404 if not in cache
+    
+    Rate limited to 60 requests per minute per IP.
+    """
+    check_rate_limit(request)
+    hub = get_hub()
+    hub.presence.on_api_access()
+    
+    frames = await hub.frame_cache.get_recent_frames(hub.frame_cache.max_frames)
+    
+    for frame in frames:
+        if frame.frame_number == frame_number:
+            return Response(
+                content=frame.data,
+                media_type="image/webp",
+                headers={
+                    "X-Frame-Number": str(frame.frame_number),
+                    "X-Keyframe-Number": str(frame.keyframe_number),
+                    "X-Generation-Time-Ms": str(frame.generation_time_ms),
+                    "Cache-Control": "public, max-age=3600",  # Can cache historical frames
+                }
+            )
+    
+    raise HTTPException(status_code=404, detail=f"Frame {frame_number} not in cache")
+
+
+@router.get("/api/dreams/sse")
+async def dreams_sse_stream(request: Request):
+    """
+    Server-Sent Events stream for frame updates
+    
+    Alternative to WebSocket for simpler clients. Sends:
+    - status: JSON status updates
+    - frame: Base64-encoded frame data
+    
+    Note: WebSocket is more efficient for high-frequency frame data.
+    SSE is useful for status-only monitoring or constrained environments.
+    
+    Rate limited: Initial connection counts against rate limit.
+    """
+    from sse_starlette.sse import EventSourceResponse
+    import base64
+    
+    check_rate_limit(request)
+    hub = get_hub()
+    
+    async def event_generator():
+        # Track this as API activity (keeps GPU warm)
+        hub.presence.on_api_access()
+        
+        # Send initial status
+        stats = hub.get_stats()
+        yield {
+            "event": "status",
+            "data": json.dumps({
+                "status": stats["status"],
+                "gpu_connected": stats["gpu_connected"],
+                "viewer_count": stats["viewer_count"],
+                "frame_count": stats["total_frames_received"],
+            })
+        }
+        
+        # Send current frame if available
+        current = await hub.frame_cache.get_current_frame()
+        if current:
+            yield {
+                "event": "frame",
+                "data": json.dumps({
+                    "frame_number": current.frame_number,
+                    "data": base64.b64encode(current.data).decode('ascii'),
+                })
+            }
+        
+        # Poll for new frames (SSE doesn't have push like WS)
+        # This is less efficient but works for simple clients
+        last_frame_number = current.frame_number if current else 0
+        last_status_time = time.time()
+        
+        while True:
+            # Check if client disconnected
+            if await request.is_disconnected():
+                break
+            
+            # Check for new frame
+            current = await hub.frame_cache.get_current_frame()
+            if current and current.frame_number > last_frame_number:
+                last_frame_number = current.frame_number
+                yield {
+                    "event": "frame",
+                    "data": json.dumps({
+                        "frame_number": current.frame_number,
+                        "data": base64.b64encode(current.data).decode('ascii'),
+                    })
+                }
+                hub.presence.on_api_access()  # Keep GPU warm
+            
+            # Send status update every 5 seconds
+            if time.time() - last_status_time > 5:
+                last_status_time = time.time()
+                stats = hub.get_stats()
+                yield {
+                    "event": "status", 
+                    "data": json.dumps({
+                        "status": stats["status"],
+                        "gpu_connected": stats["gpu_connected"],
+                        "viewer_count": stats["viewer_count"],
+                        "frame_count": stats["total_frames_received"],
+                    })
+                }
+            
+            await asyncio.sleep(0.1)  # 10 Hz poll rate
+    
+    return EventSourceResponse(event_generator())
 
 
 # ==================== WebSocket Endpoints ====================
