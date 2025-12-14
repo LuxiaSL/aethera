@@ -4,7 +4,7 @@ The Dreams API provides access to a live AI-generated art stream. Frames are gen
 
 ## Overview
 
-**Base URL:** `https://your-domain.com`
+**Base URL:** `https://aetherawi.red`
 
 The Dreams system consists of:
 - **VPS Server (aethera)** - Hosts the API, manages viewer connections, controls GPU lifecycle
