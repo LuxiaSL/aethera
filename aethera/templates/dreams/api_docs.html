@@ -34,30 +34,27 @@
 {% endblock %}
 
 {% block content %}
-<article class="post h-entry">
-    <header class="mb-8">
-        <h1 class="text-3xl font-bold mb-3 p-name">Dreams API Documentation</h1>
-        <div class="text-text-muted">
-            <a href="/dreams" class="text-accent hover:underline">← Back to Dreams</a>
-        </div>
-        
-        <div class="mt-4">
-            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">api</span>
-            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">websocket</span>
-            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">streaming</span>
-            <span class="inline-block bg-accent-soft text-text-muted text-xs px-3 py-1 rounded-sm mr-2 opacity-80">documentation</span>
-        </div>
-    </header>
+<!-- Post title/meta with ellipse background -->
+<header class="post-header-standalone h-entry">
+    <h1 class="p-name">Dreams API Documentation</h1>
+    <div class="post-meta">
+        <a href="/dreams">← Back to Dreams</a> ·
+        <span class="tag p-category">api</span>,
+        <span class="tag p-category">websocket</span>,
+        <span class="tag p-category">streaming</span>
+    </div>
+</header>
 
-    <div class="post-content prose lg:prose-lg max-w-none text-text e-content">
+<!-- Post body with soft fade background -->
+<article class="post-body">
+    <canvas id="post-caustics-canvas"></canvas>
+    <div class="post-content e-content">
         {{ content_html | safe }}
     </div>
-
-    <footer class="post-footer">
-        <span><a href="/dreams">Dreams</a></span>
-        <span class="separator">·</span>
-        <span><a href="https://creativecommons.org/licenses/by/4.0/" rel="license">CC BY 4.0</a></span>
-    </footer>
 </article>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/post-caustics.js"></script>
 {% endblock %}
 
