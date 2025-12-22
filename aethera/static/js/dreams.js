@@ -1,9 +1,9 @@
 /**
  * Dream Window WebSocket Client
- * 
+ *
  * Connects to the dreams WebSocket endpoint and displays
  * live AI-generated frames on a canvas element.
- * 
+ *
  * Features:
  * - Client-side frame queue for smooth playback
  * - Canvas alpha blending for seamless transitions
@@ -50,7 +50,7 @@ class DreamViewer {
         this.currentImage = null;       // Currently displayed image
         this.blendingImage = null;      // Image being blended in
         this.blendStartTime = null;
-        this.blendDuration = 80;        // 80ms crossfade
+        this.blendDuration = 500;       // 500ms crossfade
         this.blendAnimationId = null;
         
         // Stats elements
@@ -117,15 +117,15 @@ class DreamViewer {
         const blob = new Blob([frameData], { type: 'image/webp' });
         const url = URL.createObjectURL(blob);
         const img = new Image();
-        
+
         img.onload = () => {
             URL.revokeObjectURL(url);
-            
+
             // Add to queue
             this.frameQueue.push(img);
-            
+
             // Start playback if we have enough buffer
-            if (!this.playbackStarted && !this.playbackPaused && 
+            if (!this.playbackStarted && !this.playbackPaused &&
                 this.frameQueue.length >= this.minBufferFrames) {
                 this.startPlayback();
             }
@@ -141,10 +141,9 @@ class DreamViewer {
     
     startPlayback() {
         if (this.playbackInterval) return;
-        
+
         this.playbackStarted = true;
         this.scheduleNextFrame();
-        console.log(`Playback started: ${this.frameQueue.length} frames buffered, target ${this.targetFps} FPS`);
     }
     
     scheduleNextFrame() {
@@ -183,9 +182,9 @@ class DreamViewer {
             // Underrun - hold current frame (nothing to do)
             return;
         }
-        
+
         const nextImage = this.frameQueue.shift();
-        
+
         // Start alpha blend to new frame
         this.startBlend(nextImage);
         
@@ -232,29 +231,32 @@ class DreamViewer {
     
     startBlend(newImage) {
         if (!this.ctx) return;
-        
+
         // If no current image, just draw directly (first frame)
         if (!this.currentImage) {
             this.currentImage = newImage;
             this.ctx.drawImage(newImage, 0, 0, this.canvas.width, this.canvas.height);
             return;
         }
-        
-        // Start crossfade blend
-        this.blendingImage = newImage;
-        this.blendStartTime = performance.now();
-        
-        // Cancel any existing blend animation
+
+        // If mid-blend, complete it first (promote blending to current)
+        if (this.blendingImage) {
+            this.currentImage = this.blendingImage;
+        }
         if (this.blendAnimationId) {
             cancelAnimationFrame(this.blendAnimationId);
         }
-        
+
+        // Start crossfade blend
+        this.blendingImage = newImage;
+        this.blendStartTime = performance.now();
+
         this.blendLoop();
     }
-    
+
     blendLoop() {
         if (!this.blendingImage || !this.ctx) return;
-        
+
         const elapsed = performance.now() - this.blendStartTime;
         const progress = Math.min(1.0, elapsed / this.blendDuration);
         
@@ -333,22 +335,22 @@ class DreamViewer {
             this.handleJsonMessage(event.data);
         }
     }
-    
+
     handleBinaryMessage(data) {
         const view = new Uint8Array(data);
         const messageType = view[0];
-        
+
         if (messageType === 0x01) {
             // Frame data - queue it for smooth playback
             const frameData = data.slice(1);
             this.queueFrame(frameData);
         }
     }
-    
+
     handleJsonMessage(data) {
         try {
             const msg = JSON.parse(data);
-            
+
             switch (msg.type) {
                 case 'status':
                     this.handleStatusMessage(msg);

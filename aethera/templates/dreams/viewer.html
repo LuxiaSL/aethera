@@ -44,6 +44,10 @@
 {% endblock %}
 
 {% block content %}
+<video id="dreams-video-src" autoplay muted loop playsinline style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px">
+    <source src="/static/uploads/dreams_bg.mp4" type="video/mp4">
+</video>
+<canvas id="dreams-video-canvas" class="dreams-video-bg"></canvas>
 <div class="dreams-page">
     <!-- Page header -->
     <header class="dreams-header">
@@ -52,8 +56,6 @@
 
     <!-- Main viewer container -->
     <div class="dream-container">
-        <!-- Soft fade background -->
-        <canvas id="dream-bg-canvas" class="dream-bg-canvas"></canvas>
         <!-- Canvas for frame display -->
         <canvas id="dream-canvas" width="1024" height="512"></canvas>
         
@@ -136,102 +138,55 @@
 {% block scripts %}
 <script src="/static/js/dreams.js"></script>
 <script>
-// Soft fade background for dream container
+// Frame-blended background video for smooth slow-motion
 (function() {
-    const canvas = document.getElementById('dream-bg-canvas');
-    if (!canvas) return;
+    const video = document.getElementById('dreams-video-src');
+    const canvas = document.getElementById('dreams-video-canvas');
+    if (!video || !canvas) return;
 
-    const gl = canvas.getContext('webgl', { antialias: true });
-    if (!gl) return;
+    const ctx = canvas.getContext('2d');
+    const blendRate = 0.02; // How fast to blend toward current frame
 
-    const vertexShaderSource = `
-        attribute vec2 a_position;
-        varying vec2 v_uv;
-        void main() {
-            v_uv = a_position * 0.5 + 0.5;
-            gl_Position = vec4(a_position, 0.0, 1.0);
-        }
-    `;
+    video.playbackRate = 0.125;
+    video.play().catch(() => {});
 
-    const fragmentShaderSource = `
-        precision highp float;
-        varying vec2 v_uv;
-        uniform vec2 u_resolution;
-
-        void main() {
-            vec2 uv = v_uv;
-            float fadePixels = 40.0;
-            float horizFade = smoothstep(0.0, fadePixels / u_resolution.x, uv.x) * smoothstep(1.0, 1.0 - fadePixels / u_resolution.x, uv.x);
-            float vertFade = smoothstep(0.0, fadePixels / u_resolution.y, uv.y) * smoothstep(1.0, 1.0 - fadePixels / u_resolution.y, uv.y);
-            float alpha = horizFade * vertFade;
-            gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
-        }
-    `;
-
-    function createShader(gl, type, source) {
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            gl.deleteShader(shader);
-            return null;
-        }
-        return shader;
-    }
-
-    function createProgram(gl, vs, fs) {
-        const program = gl.createProgram();
-        gl.attachShader(program, vs);
-        gl.attachShader(program, fs);
-        gl.linkProgram(program);
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            gl.deleteProgram(program);
-            return null;
-        }
-        return program;
-    }
-
-    const vs = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    const fs = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-    if (!vs || !fs) return;
-
-    const program = createProgram(gl, vs, fs);
-    if (!program) return;
-
-    const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-
-    const positionLocation = gl.getAttribLocation(program, 'a_position');
-    const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+    // Accumulator canvas - holds the blended result
+    let accum = null;
+    let accumCtx = null;
 
     function resize() {
-        const container = canvas.parentElement;
-        const rect = container.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = (rect.width + 80) * dpr;
-        canvas.height = (rect.height + 80) * dpr;
-        gl.viewport(0, 0, canvas.width, canvas.height);
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function initAccum() {
+        accum = document.createElement('canvas');
+        accum.width = video.videoWidth || 1920;
+        accum.height = video.videoHeight || 1080;
+        accumCtx = accum.getContext('2d');
+        // Initialize with first frame
+        accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
     }
 
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
     function render() {
-        resize();
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.useProgram(program);
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        if (video.readyState >= 2) {
+            if (!accum) initAccum();
+
+            // Blend current video frame into accumulator
+            accumCtx.globalAlpha = blendRate;
+            accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
+            accumCtx.globalAlpha = 1.0;
+
+            // Draw accumulator to display canvas
+            ctx.drawImage(accum, 0, 0, canvas.width, canvas.height);
+        }
         requestAnimationFrame(render);
     }
 
-    render();
+    video.addEventListener('loadeddata', render);
+    if (video.readyState >= 2) render();
 })();
 </script>
 {% endblock %}
