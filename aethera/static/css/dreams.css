@@ -3,6 +3,18 @@
  */
 
 /* ============================================
+   Override: Solid black background (no video)
+   ============================================ */
+.dreams-page ~ .video-bg,
+body:has(.dreams-page) .video-bg {
+    display: none;
+}
+
+body:has(.dreams-page) {
+    background: #000;
+}
+
+/* ============================================
    Page Layout
    ============================================ */
 .dreams-page {
@@ -12,7 +24,7 @@
 
 .dreams-header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 3.5rem;
 }
 
 .dreams-title {
@@ -223,7 +235,7 @@
     display: flex;
     justify-content: center;
     gap: 2rem;
-    padding: 1rem 0;
+    padding: 3rem 0 1rem 0;
     font-size: 0.8rem;
     color: var(--text-muted);
 }
@@ -238,10 +250,11 @@
     text-transform: lowercase;
     letter-spacing: 0.05em;
     opacity: 0.7;
+    color: #fff;
 }
 
 .dream-stat-value {
-    color: var(--text);
+    color: #fff;
     font-weight: 600;
 }
 
