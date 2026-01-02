@@ -1,20 +1,33 @@
 // WebGL Background Effect for Post Content and Comments
-// Simple rectangular fade at edges
+// Uses single WebGL context to avoid browser limits
 
 (function() {
     // Check if post content has segments (split by <hr>)
     const postSegments = document.querySelectorAll('.post-content .post-segment');
     const mainCanvas = document.getElementById('post-caustics-canvas');
 
+    // Collect all canvas targets (will be 2D canvases that receive rendered frames)
+    const canvasTargets = [];
+
     // If we have segments, hide the main canvas and create one per segment
     if (postSegments.length > 0 && mainCanvas) {
         mainCanvas.style.display = 'none';
         postSegments.forEach(function(segment) {
-            // Ensure segment has relative positioning for absolute canvas
             segment.style.position = 'relative';
             const canvas = document.createElement('canvas');
             canvas.className = 'segment-bg-canvas';
             segment.insertBefore(canvas, segment.firstChild);
+            canvasTargets.push({
+                canvas: canvas,
+                parent: segment,
+                type: 'segment'
+            });
+        });
+    } else if (mainCanvas) {
+        canvasTargets.push({
+            canvas: mainCanvas,
+            parent: null,
+            type: 'main'
         });
     }
 
@@ -22,183 +35,191 @@
     const commentElements = document.querySelectorAll('.comments-section .comment');
     const commentForm = document.querySelector('.comments-section .comment-form');
 
-    // Create canvas for comment form
     if (commentForm) {
         const canvas = document.createElement('canvas');
         canvas.className = 'comment-bg-canvas';
         commentForm.style.position = 'relative';
         commentForm.insertBefore(canvas, commentForm.firstChild);
+        canvasTargets.push({
+            canvas: canvas,
+            parent: commentForm,
+            type: 'comment'
+        });
     }
 
-    // Create canvas for each comment
     commentElements.forEach(function(comment) {
         const canvas = document.createElement('canvas');
         canvas.className = 'comment-bg-canvas';
         comment.style.position = 'relative';
         comment.insertBefore(canvas, comment.firstChild);
+        canvasTargets.push({
+            canvas: canvas,
+            parent: comment,
+            type: 'comment'
+        });
     });
 
-    // Collect all canvases to initialize
-    const allCanvases = [
-        // Only include main canvas if no segments
-        ...(postSegments.length === 0 ? [mainCanvas].filter(Boolean) : []),
-        ...document.querySelectorAll('.segment-bg-canvas'),
-        ...document.querySelectorAll('.comment-bg-canvas')
-    ];
+    if (canvasTargets.length === 0) return;
 
-    allCanvases.forEach(function(canvas) {
-        if (!canvas) return;
+    // Create single offscreen WebGL canvas
+    const glCanvas = document.createElement('canvas');
+    const gl = glCanvas.getContext('webgl', { antialias: true, preserveDrawingBuffer: true });
+    if (!gl) {
+        console.warn('WebGL not supported');
+        return;
+    }
 
-        // Determine canvas type for fade amount
-        const isComment = canvas.classList.contains('comment-bg-canvas');
-        const isSegment = canvas.classList.contains('segment-bg-canvas');
-        const vertFadeAmount = isComment ? 0.08 : (isSegment ? 0.04 : 0.02);
-
-        const gl = canvas.getContext('webgl', { antialias: true });
-        if (!gl) {
-            console.warn('WebGL not supported');
-            return;
+    const vertexShaderSource = `
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+        void main() {
+            v_uv = a_position * 0.5 + 0.5;
+            gl_Position = vec4(a_position, 0.0, 1.0);
         }
+    `;
 
-        const vertexShaderSource = `
-            attribute vec2 a_position;
-            varying vec2 v_uv;
-            void main() {
-                v_uv = a_position * 0.5 + 0.5;
-                gl_Position = vec4(a_position, 0.0, 1.0);
-            }
-        `;
+    const fragmentShaderSource = `
+        precision highp float;
+        varying vec2 v_uv;
+        uniform vec2 u_resolution;
+        uniform float u_horizFadePx;
+        uniform float u_vertFadePx;
 
-        const fragmentShaderSource = `
-            precision highp float;
-            varying vec2 v_uv;
-            uniform vec2 u_resolution;
-            uniform float u_horizFadePx;
-            uniform float u_vertFadePx;
+        void main() {
+            vec2 uv = v_uv;
+            vec2 pixelPos = uv * u_resolution;
 
-            void main() {
-                vec2 uv = v_uv;
-                vec2 pixelPos = uv * u_resolution;
+            // Fade edges using absolute pixel values
+            float horizFade = smoothstep(0.0, u_horizFadePx, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx, pixelPos.x);
+            float vertFade = smoothstep(0.0, u_vertFadePx, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx, pixelPos.y);
 
-                // Fade edges using absolute pixel values
-                float horizFade = smoothstep(0.0, u_horizFadePx, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx, pixelPos.x);
-                float vertFade = smoothstep(0.0, u_vertFadePx, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx, pixelPos.y);
+            float alpha = horizFade * vertFade;
 
-                float alpha = horizFade * vertFade;
-
-                gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
-            }
-        `;
-
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
-            return shader;
+            gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
         }
+    `;
 
-        function createProgram(gl, vertexShader, fragmentShader) {
-            const program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            gl.linkProgram(program);
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.error('Program link error:', gl.getProgramInfoLog(program));
-                gl.deleteProgram(program);
-                return null;
-            }
-            return program;
+    function createShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
         }
+        return shader;
+    }
 
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-        if (!vertexShader || !fragmentShader) return;
+    function createProgram(gl, vertexShader, fragmentShader) {
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error('Program link error:', gl.getProgramInfoLog(program));
+            gl.deleteProgram(program);
+            return null;
+        }
+        return program;
+    }
 
-        const program = createProgram(gl, vertexShader, fragmentShader);
-        if (!program) return;
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    if (!vertexShader || !fragmentShader) return;
 
-        const positions = new Float32Array([
-            -1, -1,
-             1, -1,
-            -1,  1,
-             1,  1,
-        ]);
+    const program = createProgram(gl, vertexShader, fragmentShader);
+    if (!program) return;
 
-        const positionBuffer = gl.createBuffer();
+    const positions = new Float32Array([
+        -1, -1,
+         1, -1,
+        -1,  1,
+         1,  1,
+    ]);
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+    const positionLocation = gl.getAttribLocation(program, 'a_position');
+    const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+    const horizFadePxLocation = gl.getUniformLocation(program, 'u_horizFadePx');
+    const vertFadePxLocation = gl.getUniformLocation(program, 'u_vertFadePx');
+
+    // Absolute pixel values for fade edges
+    const horizFadePx = 48.0;
+    const vertFadePx = 48.0;
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Get 2D contexts for all target canvases
+    canvasTargets.forEach(function(target) {
+        target.ctx2d = target.canvas.getContext('2d');
+    });
+
+    function renderToTarget(target) {
+        const needsParentMeasure = target.type === 'segment' || target.type === 'comment';
+        const measureEl = needsParentMeasure ? target.parent : target.canvas;
+        const rect = measureEl.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        // Add padding for canvas overflow
+        const extraWidth = needsParentMeasure ? 192 : 0;
+        const extraHeight = needsParentMeasure ? 32 : 0;
+
+        const width = rect.width + extraWidth;
+        const height = rect.height + extraHeight;
+
+        if (width <= 0 || height <= 0) return;
+
+        // Set target canvas size
+        if (needsParentMeasure) {
+            target.canvas.style.width = width + 'px';
+            target.canvas.style.height = height + 'px';
+        }
+        target.canvas.width = width * dpr;
+        target.canvas.height = height * dpr;
+
+        // Resize WebGL canvas to match
+        glCanvas.width = width * dpr;
+        glCanvas.height = height * dpr;
+        gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+
+        // Render to WebGL canvas
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-        const positionLocation = gl.getAttribLocation(program, 'a_position');
-        const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
-        const horizFadePxLocation = gl.getUniformLocation(program, 'u_horizFadePx');
-        const vertFadePxLocation = gl.getUniformLocation(program, 'u_vertFadePx');
+        gl.uniform2f(resolutionLocation, glCanvas.width, glCanvas.height);
+        gl.uniform1f(horizFadePxLocation, horizFadePx * dpr);
+        gl.uniform1f(vertFadePxLocation, vertFadePx * dpr);
 
-        // Absolute pixel values for fade edges
-        const horizFadePx = 48.0;
-        const vertFadePx = 48.0;
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-        function resize() {
-            // For dynamically created canvases, measure the parent element
-            const needsParentMeasure = isSegment || isComment;
-            const measureEl = needsParentMeasure ? canvas.parentElement : canvas;
-            const rect = measureEl.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
+        // Copy to target 2D canvas
+        target.ctx2d.clearRect(0, 0, target.canvas.width, target.canvas.height);
+        target.ctx2d.drawImage(glCanvas, 0, 0);
+    }
 
-            // Add padding for canvas overflow (matches CSS positioning)
-            // Segments/comments: left/right -6rem, top/bottom -1rem
-            const extraWidth = needsParentMeasure ? 192 : 0;  // 6rem * 2 ≈ 192px
-            const extraHeight = needsParentMeasure ? 32 : 0;  // 1rem * 2 ≈ 32px
+    function render() {
+        canvasTargets.forEach(renderToTarget);
+        requestAnimationFrame(render);
+    }
 
-            const width = rect.width + extraWidth;
-            const height = rect.height + extraHeight;
-
-            // Set CSS size explicitly for dynamically created canvases
-            if (needsParentMeasure) {
-                canvas.style.width = width + 'px';
-                canvas.style.height = height + 'px';
-            }
-
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            gl.viewport(0, 0, canvas.width, canvas.height);
-        }
-
-        window.addEventListener('resize', resize);
-
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-        function render() {
-            gl.clearColor(0, 0, 0, 0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-
-            gl.useProgram(program);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.enableVertexAttribArray(positionLocation);
-            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-            const dpr = window.devicePixelRatio || 1;
-            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-            gl.uniform1f(horizFadePxLocation, horizFadePx * dpr);
-            gl.uniform1f(vertFadePxLocation, vertFadePx * dpr);
-
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-            requestAnimationFrame(render);
-        }
-
-        // Delay initial resize and render start to ensure layout is complete
+    // Delay start to ensure layout is complete
+    requestAnimationFrame(function() {
         requestAnimationFrame(function() {
-            requestAnimationFrame(function() {
-                resize();
-                render();
-            });
+            render();
         });
+    });
+
+    window.addEventListener('resize', function() {
+        // Resize is handled in renderToTarget
     });
 })();
