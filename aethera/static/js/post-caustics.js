@@ -100,7 +100,7 @@
             float mainAlpha = horizFade * vertFade;
 
             // Glow layer - extends further out with softer falloff
-            float glowExtend = 60.0;
+            float glowExtend = 25.0;
             float horizGlow = smoothstep(0.0, u_horizFadePx + glowExtend, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx - glowExtend, pixelPos.x);
             float vertGlow = smoothstep(0.0, u_vertFadePx + glowExtend, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx - glowExtend, pixelPos.y);
             float glowAlpha = horizGlow * vertGlow;
@@ -174,7 +174,7 @@
     const fadeColor = isInverted ? [0.0, 0.0, 0.0] : [1.0, 1.0, 1.0];
 
     // Glow amount: only for inverted mode
-    const glowAmount = isInverted ? 0.4 : 0.0;
+    const glowAmount = isInverted ? 0.8 : 0.0;
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
