@@ -99,14 +99,14 @@
             float vertFade = smoothstep(0.0, u_vertFadePx, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx, pixelPos.y);
             float mainAlpha = horizFade * vertFade;
 
-            // Glow layer - extends further out, use min instead of multiply to avoid corner fadeout
+            // Glow layer - same shape as main but extended, use multiply like main
             float glowExtend = 12.0;
             float horizGlow = smoothstep(0.0, u_horizFadePx + glowExtend, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx - glowExtend, pixelPos.x);
             float vertGlow = smoothstep(0.0, u_vertFadePx + glowExtend, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx - glowExtend, pixelPos.y);
-            float glowAlpha = min(horizGlow, vertGlow);
+            float glowAlpha = horizGlow * vertGlow;
 
-            // Glow is visible where main isn't (edge region)
-            float edgeGlow = glowAlpha * (1.0 - mainAlpha) * u_glowAmount;
+            // Edge glow is the difference between extended and main shape
+            float edgeGlow = max(0.0, glowAlpha - mainAlpha) * u_glowAmount;
 
             // Composite: white glow behind, main color on top
             vec3 finalColor = mix(vec3(1.0), u_color, mainAlpha / max(mainAlpha + edgeGlow, 0.001));
