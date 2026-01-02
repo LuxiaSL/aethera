@@ -99,11 +99,11 @@
             float vertFade = smoothstep(0.0, u_vertFadePx, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx, pixelPos.y);
             float mainAlpha = horizFade * vertFade;
 
-            // Glow layer - extends further out with softer falloff
-            float glowExtend = 25.0;
+            // Glow layer - extends further out, use min instead of multiply to avoid corner fadeout
+            float glowExtend = 12.0;
             float horizGlow = smoothstep(0.0, u_horizFadePx + glowExtend, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx - glowExtend, pixelPos.x);
             float vertGlow = smoothstep(0.0, u_vertFadePx + glowExtend, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx - glowExtend, pixelPos.y);
-            float glowAlpha = horizGlow * vertGlow;
+            float glowAlpha = min(horizGlow, vertGlow);
 
             // Glow is visible where main isn't (edge region)
             float edgeGlow = glowAlpha * (1.0 - mainAlpha) * u_glowAmount;
