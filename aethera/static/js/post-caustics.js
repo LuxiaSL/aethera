@@ -157,10 +157,6 @@
             gl.viewport(0, 0, canvas.width, canvas.height);
         }
 
-        // Delay initial resize to ensure layout is complete
-        requestAnimationFrame(function() {
-            resize();
-        });
         window.addEventListener('resize', resize);
 
         gl.enable(gl.BLEND);
@@ -186,6 +182,12 @@
             requestAnimationFrame(render);
         }
 
-        render();
+        // Delay initial resize and render start to ensure layout is complete
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                resize();
+                render();
+            });
+        });
     });
 })();
