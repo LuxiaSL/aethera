@@ -556,16 +556,8 @@ body:has(.dreams-page) footer {
     color: #fff;
 }
 
-.dreams-api-docs .post-segment::after {
-    content: '';
-    position: absolute;
-    top: -20%;
-    left: -10%;
-    right: -10%;
-    bottom: -20%;
-    background: radial-gradient(ellipse at center, rgba(255,255,255,0.15) 0%, transparent 60%);
-    z-index: 0;
-    pointer-events: none;
+.dreams-api-docs .segment-bg-canvas {
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
 }
 
 
