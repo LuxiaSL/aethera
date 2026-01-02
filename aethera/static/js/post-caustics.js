@@ -2,8 +2,19 @@
 // Simple rectangular fade at edges
 
 (function() {
-    // Static canvases by ID
-    const canvasIds = ['post-caustics-canvas'];
+    // Check if post content has segments (split by <hr>)
+    const postSegments = document.querySelectorAll('.post-content .post-segment');
+    const mainCanvas = document.getElementById('post-caustics-canvas');
+
+    // If we have segments, hide the main canvas and create one per segment
+    if (postSegments.length > 0 && mainCanvas) {
+        mainCanvas.style.display = 'none';
+        postSegments.forEach(function(segment) {
+            const canvas = document.createElement('canvas');
+            canvas.className = 'segment-bg-canvas';
+            segment.insertBefore(canvas, segment.firstChild);
+        });
+    }
 
     // Also create canvases for comments and comment form
     const commentElements = document.querySelectorAll('.comments-section .comment');
@@ -27,7 +38,9 @@
 
     // Collect all canvases to initialize
     const allCanvases = [
-        ...canvasIds.map(id => document.getElementById(id)).filter(Boolean),
+        // Only include main canvas if no segments
+        ...(postSegments.length === 0 ? [mainCanvas].filter(Boolean) : []),
+        ...document.querySelectorAll('.segment-bg-canvas'),
         ...document.querySelectorAll('.comment-bg-canvas')
     ];
 

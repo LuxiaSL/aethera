@@ -81,6 +81,16 @@ def render_markdown(content: str) -> str:
 
     html = md.render(content)
 
+    # Split content at <hr> elements into separate segments
+    # Each segment gets its own soft fade background
+    segments = re.split(r'<hr\s*/?>', html)
+    if len(segments) > 1:
+        html = ''.join(
+            f'<div class="post-segment">{segment.strip()}</div>'
+            for segment in segments
+            if segment.strip()
+        )
+
     # Don't wrap in article tag - this is already done by the template
     return html
 

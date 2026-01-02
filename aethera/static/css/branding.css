@@ -1152,6 +1152,42 @@ article.post-body {
     pointer-events: none;
 }
 
+/* Post segments (content split by <hr>) */
+article.post-body:has(.post-segment) {
+    padding: 0;
+    background: transparent;
+}
+
+article.post-body .post-content:has(.post-segment) {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+}
+
+.post-segment {
+    position: relative;
+    padding: 4rem 2.5rem;
+}
+
+.post-segment > *:first-child:not(.segment-bg-canvas) {
+    margin-top: 0 !important;
+}
+
+.post-segment > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.segment-bg-canvas {
+    position: absolute;
+    top: -1rem;
+    left: -6rem;
+    right: -6rem;
+    width: calc(100% + 12rem);
+    height: calc(100% + 2rem);
+    z-index: -1;
+    pointer-events: none;
+}
+
 article.post a,
 article.post-body a {
     color: #333;
