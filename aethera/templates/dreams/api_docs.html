@@ -33,7 +33,16 @@
 </script>
 {% endblock %}
 
+{% block extra_head %}
+<link href="/static/css/dreams.css" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
+<video id="dreams-video-src" autoplay muted loop playsinline style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px">
+    <source src="/static/uploads/dreams_bg.mp4?v=2" type="video/mp4">
+</video>
+<canvas id="dreams-video-canvas" class="dreams-video-bg"></canvas>
+<div class="dreams-page dreams-api-docs">
 <!-- Post title/meta with ellipse background -->
 <header class="post-header-standalone h-entry">
     <h1 class="p-name">API Documentation</h1>
@@ -48,15 +57,62 @@
 </header>
 
 <!-- Post body with soft fade background -->
-<article class="post-body">
+<article class="post-body dreams-inverted">
     <canvas id="post-caustics-canvas"></canvas>
     <div class="post-content e-content">
         {{ content_html | safe }}
     </div>
 </article>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="/static/js/post-caustics.js"></script>
+<script>
+// Frame-blended background video for smooth slow-motion
+(function() {
+    const video = document.getElementById('dreams-video-src');
+    const canvas = document.getElementById('dreams-video-canvas');
+    if (!video || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const blendRate = 0.08;
+
+    video.playbackRate = 0.25;
+    video.play().catch(() => {});
+
+    let accum = null;
+    let accumCtx = null;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function initAccum() {
+        accum = document.createElement('canvas');
+        accum.width = video.videoWidth || 1920;
+        accum.height = video.videoHeight || 1080;
+        accumCtx = accum.getContext('2d');
+        accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
+    }
+
+    function render() {
+        if (video.readyState >= 2) {
+            if (!accum) initAccum();
+            accumCtx.globalAlpha = blendRate;
+            accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
+            accumCtx.globalAlpha = 1.0;
+            ctx.drawImage(accum, 0, 0, canvas.width, canvas.height);
+        }
+        requestAnimationFrame(render);
+    }
+
+    video.addEventListener('loadeddata', render);
+    if (video.readyState >= 2) render();
+})();
+</script>
 {% endblock %}
 

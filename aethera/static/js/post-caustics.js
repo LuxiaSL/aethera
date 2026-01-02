@@ -61,6 +61,9 @@
 
     if (canvasTargets.length === 0) return;
 
+    // Check if we're in inverted/dark mode (dreams pages)
+    const isInverted = document.querySelector('.dreams-inverted') !== null;
+
     // Create single offscreen WebGL canvas
     const glCanvas = document.createElement('canvas');
     const gl = glCanvas.getContext('webgl', { antialias: true, preserveDrawingBuffer: true });
@@ -84,6 +87,7 @@
         uniform vec2 u_resolution;
         uniform float u_horizFadePx;
         uniform float u_vertFadePx;
+        uniform vec3 u_color;
 
         void main() {
             vec2 uv = v_uv;
@@ -95,7 +99,7 @@
 
             float alpha = horizFade * vertFade;
 
-            gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
+            gl_FragColor = vec4(u_color, alpha);
         }
     `;
 
@@ -146,10 +150,14 @@
     const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
     const horizFadePxLocation = gl.getUniformLocation(program, 'u_horizFadePx');
     const vertFadePxLocation = gl.getUniformLocation(program, 'u_vertFadePx');
+    const colorLocation = gl.getUniformLocation(program, 'u_color');
 
     // Absolute pixel values for fade edges
     const horizFadePx = 48.0;
     const vertFadePx = 48.0;
+
+    // Color: white for normal, black for inverted
+    const fadeColor = isInverted ? [0.0, 0.0, 0.0] : [1.0, 1.0, 1.0];
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -199,6 +207,7 @@
         gl.uniform2f(resolutionLocation, glCanvas.width, glCanvas.height);
         gl.uniform1f(horizFadePxLocation, horizFadePx * dpr);
         gl.uniform1f(vertFadePxLocation, vertFadePx * dpr);
+        gl.uniform3fv(colorLocation, fadeColor);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 

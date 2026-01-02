@@ -465,4 +465,95 @@ body:has(.dreams-page) footer {
     color: var(--text);
 }
 
+/* ============================================
+   Dreams API Docs - Inverted Post Styling
+   ============================================ */
+.dreams-api-docs .post-header-standalone {
+    color: #fff;
+}
+
+.dreams-api-docs .post-header-standalone::before {
+    background: radial-gradient(ellipse 65% 60% at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0.3) 60%, transparent 80%);
+}
+
+.dreams-api-docs .post-header-standalone h1 {
+    color: #fff;
+}
+
+.dreams-api-docs .post-header-standalone .post-meta {
+    color: #aaa;
+}
+
+.dreams-api-docs .post-header-standalone .post-meta a {
+    color: #aaa;
+}
+
+.dreams-api-docs .post-header-standalone .post-meta a:hover {
+    color: #fff;
+}
+
+/* Inverted post body - black fade, white text */
+.dreams-api-docs article.post-body.dreams-inverted {
+    color: #fff;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted .post-content,
+.dreams-api-docs article.post-body.dreams-inverted .post-content p,
+.dreams-api-docs article.post-body.dreams-inverted .post-content li,
+.dreams-api-docs article.post-body.dreams-inverted .post-content h1,
+.dreams-api-docs article.post-body.dreams-inverted .post-content h2,
+.dreams-api-docs article.post-body.dreams-inverted .post-content h3,
+.dreams-api-docs article.post-body.dreams-inverted .post-content h4,
+.dreams-api-docs article.post-body.dreams-inverted .post-content strong {
+    color: #fff;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted .post-content a {
+    color: #ccc;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted .post-content a:hover {
+    color: #fff;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted .post-content ul,
+.dreams-api-docs article.post-body.dreams-inverted .post-content ol {
+    color: #fff;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted .post-content li::marker {
+    color: #fff;
+}
+
+/* Inverted tables */
+.dreams-api-docs article.post-body.dreams-inverted table {
+    border-color: #444;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted th,
+.dreams-api-docs article.post-body.dreams-inverted td {
+    border-color: #444;
+    color: #fff;
+}
+
+.dreams-api-docs article.post-body.dreams-inverted th {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.dreams-api-docs article.post-body.dreams-inverted tr:nth-child(even) {
+    background-color: rgba(255,255,255,0.05);
+}
+
+/* Inverted blockquotes */
+.dreams-api-docs article.post-body.dreams-inverted blockquote {
+    color: #aaa;
+    border-left-color: #666;
+    background: rgba(255,255,255,0.05);
+}
+
+/* Inverted segments */
+.dreams-api-docs .post-segment {
+    color: #fff;
+}
+
 
