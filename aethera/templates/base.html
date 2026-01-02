@@ -117,6 +117,10 @@
     <!-- Custom CSS -->
     <link href="/static/css/branding.css" rel="stylesheet">
 
+    <!-- Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
     <!-- HTMX (Local) -->
     <script src="/static/vendor/js/htmx.min.js"></script>
 
@@ -165,6 +169,12 @@
         }
         updateOverflow();
         document.body.addEventListener('htmx:afterSwap', updateOverflow);
+
+        // Syntax highlighting
+        hljs.highlightAll();
+        document.body.addEventListener('htmx:afterSwap', function() {
+            hljs.highlightAll();
+        });
     </script>
 </body>
 
