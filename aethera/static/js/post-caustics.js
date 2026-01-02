@@ -47,8 +47,10 @@
     allCanvases.forEach(function(canvas) {
         if (!canvas) return;
 
-        // Determine if this is a comment canvas (needs larger vertical fade)
+        // Determine canvas type for fade amount
         const isComment = canvas.classList.contains('comment-bg-canvas');
+        const isSegment = canvas.classList.contains('segment-bg-canvas');
+        const vertFadeAmount = isComment ? 0.08 : (isSegment ? 0.04 : 0.02);
 
         const gl = canvas.getContext('webgl', { antialias: true });
         if (!gl) {
@@ -68,14 +70,17 @@
         const fragmentShaderSource = `
             precision highp float;
             varying vec2 v_uv;
-            uniform float u_vertFade;
+            uniform vec2 u_resolution;
+            uniform float u_horizFadePx;
+            uniform float u_vertFadePx;
 
             void main() {
                 vec2 uv = v_uv;
+                vec2 pixelPos = uv * u_resolution;
 
-                // Simple rectangular fade at edges
-                float horizFade = smoothstep(0.0, 0.075, uv.x) * smoothstep(1.0, 0.925, uv.x);
-                float vertFade = smoothstep(0.0, u_vertFade, uv.y) * smoothstep(1.0, 1.0 - u_vertFade, uv.y);
+                // Fade edges using absolute pixel values
+                float horizFade = smoothstep(0.0, u_horizFadePx, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx, pixelPos.x);
+                float vertFade = smoothstep(0.0, u_vertFadePx, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx, pixelPos.y);
 
                 float alpha = horizFade * vertFade;
 
@@ -127,11 +132,13 @@
         gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
 
         const positionLocation = gl.getAttribLocation(program, 'a_position');
-        const vertFadeLocation = gl.getUniformLocation(program, 'u_vertFade');
+        const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+        const horizFadePxLocation = gl.getUniformLocation(program, 'u_horizFadePx');
+        const vertFadePxLocation = gl.getUniformLocation(program, 'u_vertFadePx');
 
-        // Vertical fade amount (percentage) - smaller for segments, larger for comments
-        const isSegment = canvas.classList.contains('segment-bg-canvas');
-        const vertFadeAmount = isComment ? 0.08 : (isSegment ? 0.04 : 0.02);
+        // Absolute pixel values for fade edges
+        const horizFadePx = 48.0;
+        const vertFadePx = 48.0;
 
         function resize() {
             const rect = canvas.getBoundingClientRect();
@@ -141,7 +148,10 @@
             gl.viewport(0, 0, canvas.width, canvas.height);
         }
 
-        resize();
+        // Delay initial resize to ensure layout is complete
+        requestAnimationFrame(function() {
+            resize();
+        });
         window.addEventListener('resize', resize);
 
         gl.enable(gl.BLEND);
@@ -157,7 +167,10 @@
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-            gl.uniform1f(vertFadeLocation, vertFadeAmount);
+            const dpr = window.devicePixelRatio || 1;
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            gl.uniform1f(horizFadePxLocation, horizFadePx * dpr);
+            gl.uniform1f(vertFadePxLocation, vertFadePx * dpr);
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
