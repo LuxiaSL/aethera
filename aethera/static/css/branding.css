@@ -1166,7 +1166,7 @@ article.post-body .post-content:has(.post-segment) {
 
 .post-segment {
     position: relative;
-    padding: 4rem 2.5rem;
+    padding: 3rem 2.5rem 4rem;
 }
 
 /* Normalize spacing at segment edges - remove margins from first/last content */
@@ -1178,7 +1178,13 @@ article.post-body .post-content:has(.post-segment) {
 
 .post-segment > *:last-child,
 .post-segment > *:last-child > *:last-child,
-.post-segment > *:last-child > *:last-child > *:last-child {
+.post-segment > *:last-child > *:last-child > *:last-child,
+.post-segment p:last-child,
+.post-segment pre:last-child,
+.post-segment table:last-child,
+.post-segment ul:last-child,
+.post-segment ol:last-child,
+.post-segment blockquote:last-child {
     margin-bottom: 0 !important;
 }
 
