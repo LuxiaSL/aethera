@@ -1166,7 +1166,7 @@ article.post-body .post-content:has(.post-segment) {
 
 .post-segment {
     position: relative;
-    padding: 3rem 2.5rem 4rem;
+    padding: 4rem 2.5rem 5rem;
 }
 
 /* Normalize spacing at segment edges - remove margins from first/last content */
