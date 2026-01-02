@@ -1212,7 +1212,8 @@ article.post-body .post-content > *:first-child {
     margin-top: 0 !important;
 }
 
-article.post-body .post-content > h1:first-child {
+article.post-body .post-content > h1:first-child,
+article.post-body .post-content > .post-segment:first-child h1:first-of-type {
     display: none;
 }
 
