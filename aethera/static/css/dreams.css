@@ -554,6 +554,7 @@ body:has(.dreams-page) footer {
 /* Inverted segments */
 .dreams-api-docs .post-segment {
     color: #fff;
+    box-shadow: 0 0 80px 40px rgba(255, 255, 255, 0.15);
 }
 
 
