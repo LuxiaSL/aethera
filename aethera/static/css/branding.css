@@ -277,14 +277,7 @@ article {
 
 .post-content li, .prose li {
     margin-bottom: 0.5rem;
-}
-
-.post-content li > h1:first-child,
-.post-content li > h2:first-child,
-.post-content li > h3:first-child,
-.post-content li > h4:first-child,
-.post-content li > strong:first-child {
-    margin-top: 0;
+    margin-top: 1rem;
 }
 
 article.post-body .post-content ul,
