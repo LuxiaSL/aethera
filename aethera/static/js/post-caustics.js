@@ -141,10 +141,19 @@
         const vertFadePx = 48.0;
 
         function resize() {
-            const rect = canvas.getBoundingClientRect();
+            // For dynamically created canvases, measure the parent element
+            const needsParentMeasure = isSegment || isComment;
+            const measureEl = needsParentMeasure ? canvas.parentElement : canvas;
+            const rect = measureEl.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
+
+            // Add padding for canvas overflow (matches CSS positioning)
+            // Segments/comments: left/right -6rem, top/bottom -1rem
+            const extraWidth = needsParentMeasure ? 192 : 0;  // 6rem * 2 ≈ 192px
+            const extraHeight = needsParentMeasure ? 32 : 0;  // 1rem * 2 ≈ 32px
+
+            canvas.width = (rect.width + extraWidth) * dpr;
+            canvas.height = (rect.height + extraHeight) * dpr;
             gl.viewport(0, 0, canvas.width, canvas.height);
         }
 
