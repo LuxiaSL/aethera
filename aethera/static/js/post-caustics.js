@@ -10,6 +10,8 @@
     if (postSegments.length > 0 && mainCanvas) {
         mainCanvas.style.display = 'none';
         postSegments.forEach(function(segment) {
+            // Ensure segment has relative positioning for absolute canvas
+            segment.style.position = 'relative';
             const canvas = document.createElement('canvas');
             canvas.className = 'segment-bg-canvas';
             segment.insertBefore(canvas, segment.firstChild);
