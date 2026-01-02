@@ -88,18 +88,31 @@
         uniform float u_horizFadePx;
         uniform float u_vertFadePx;
         uniform vec3 u_color;
+        uniform float u_glowAmount;
 
         void main() {
             vec2 uv = v_uv;
             vec2 pixelPos = uv * u_resolution;
 
-            // Fade edges using absolute pixel values
+            // Main fade edges using absolute pixel values
             float horizFade = smoothstep(0.0, u_horizFadePx, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx, pixelPos.x);
             float vertFade = smoothstep(0.0, u_vertFadePx, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx, pixelPos.y);
+            float mainAlpha = horizFade * vertFade;
 
-            float alpha = horizFade * vertFade;
+            // Glow layer - extends further out with softer falloff
+            float glowExtend = 60.0;
+            float horizGlow = smoothstep(0.0, u_horizFadePx + glowExtend, pixelPos.x) * smoothstep(u_resolution.x, u_resolution.x - u_horizFadePx - glowExtend, pixelPos.x);
+            float vertGlow = smoothstep(0.0, u_vertFadePx + glowExtend, pixelPos.y) * smoothstep(u_resolution.y, u_resolution.y - u_vertFadePx - glowExtend, pixelPos.y);
+            float glowAlpha = horizGlow * vertGlow;
 
-            gl_FragColor = vec4(u_color, alpha);
+            // Glow is visible where main isn't (edge region)
+            float edgeGlow = glowAlpha * (1.0 - mainAlpha) * u_glowAmount;
+
+            // Composite: white glow behind, main color on top
+            vec3 finalColor = mix(vec3(1.0), u_color, mainAlpha / max(mainAlpha + edgeGlow, 0.001));
+            float finalAlpha = mainAlpha + edgeGlow;
+
+            gl_FragColor = vec4(finalColor, finalAlpha);
         }
     `;
 
@@ -151,6 +164,7 @@
     const horizFadePxLocation = gl.getUniformLocation(program, 'u_horizFadePx');
     const vertFadePxLocation = gl.getUniformLocation(program, 'u_vertFadePx');
     const colorLocation = gl.getUniformLocation(program, 'u_color');
+    const glowAmountLocation = gl.getUniformLocation(program, 'u_glowAmount');
 
     // Absolute pixel values for fade edges
     const horizFadePx = 48.0;
@@ -158,6 +172,9 @@
 
     // Color: white for normal, black for inverted
     const fadeColor = isInverted ? [0.0, 0.0, 0.0] : [1.0, 1.0, 1.0];
+
+    // Glow amount: only for inverted mode
+    const glowAmount = isInverted ? 0.4 : 0.0;
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -208,6 +225,7 @@
         gl.uniform1f(horizFadePxLocation, horizFadePx * dpr);
         gl.uniform1f(vertFadePxLocation, vertFadePx * dpr);
         gl.uniform3fv(colorLocation, fadeColor);
+        gl.uniform1f(glowAmountLocation, glowAmount);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 

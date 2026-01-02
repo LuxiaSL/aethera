@@ -554,19 +554,6 @@ body:has(.dreams-page) footer {
 /* Inverted segments */
 .dreams-api-docs .post-segment {
     color: #fff;
-    overflow: visible;
-}
-
-.dreams-api-docs article.post-body {
-    overflow: visible;
-}
-
-.dreams-api-docs .post-content {
-    overflow: visible;
-}
-
-.dreams-api-docs .segment-bg-canvas {
-    filter: drop-shadow(0 0 40px rgba(255, 255, 255, 0.6)) drop-shadow(0 0 80px rgba(255, 255, 255, 0.4));
 }
 
 
