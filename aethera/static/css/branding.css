@@ -313,6 +313,48 @@ article.post-body .post-content li::marker {
     margin: 2rem 0;
 }
 
+/* Tables */
+.post-content table, .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.9em;
+}
+
+.post-content th, .prose th,
+.post-content td, .prose td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.post-content th, .prose th {
+    font-weight: 700;
+    background-color: var(--bg-soft);
+}
+
+.post-content tr:nth-child(even), .prose tr:nth-child(even) {
+    background-color: var(--bg-soft);
+}
+
+/* Tables inside post body (light theme) */
+article.post-body table {
+    border-color: #ccc;
+}
+
+article.post-body th,
+article.post-body td {
+    border-color: #ccc;
+}
+
+article.post-body th {
+    background-color: rgba(0,0,0,0.05);
+}
+
+article.post-body tr:nth-child(even) {
+    background-color: rgba(0,0,0,0.02);
+}
+
 /* ============================================
    Code Blocks
    ============================================ */

@@ -52,7 +52,7 @@
 <header class="post-header-standalone h-entry">
     <h1 class="p-name">{{ post.title }}</h1>
     <div class="post-meta">
-        <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%Y-%m-%d') }}</time> · <span class="p-author h-card">{{ post.author }}</span>{% if post.tags %} · {% for tag in post.get_tags_list() %}<span class="tag p-category">{{ tag }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+        by <span class="p-author h-card">{{ post.author }}</span> · <time class="dt-published" datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime('%Y-%m-%d') }}</time>{% if post.tags %}<span class="hidden">{% for tag in post.get_tags_list() %}<span class="tag p-category">{{ tag }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
     </div>
     <!-- Hidden machine-readable metadata -->
     <data class="u-url hidden" value="{{ request.url }}"></data>

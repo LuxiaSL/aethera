@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Dreams API Documentation | æthera{% endblock %}
+{% block title %}API Documentation | æthera{% endblock %}
 
 {% block description %}API documentation for the Dreams live AI art streaming service. WebSocket, SSE, and REST endpoints for consuming real-time generated frames.{% endblock %}
 
 {% block meta %}
 {{ super() }}
-<meta property="og:title" content="Dreams API Documentation | æthera">
+<meta property="og:title" content="API Documentation | æthera">
 <meta property="og:description" content="API documentation for the Dreams live AI art streaming service.">
 <meta property="og:type" content="article">
 <link rel="canonical" href="{{ request.base_url }}dreams/api">
@@ -17,7 +17,7 @@
 {
     "@context": "https://schema.org",
     "@type": "TechArticle",
-    "headline": "Dreams API Documentation",
+    "headline": "API Documentation",
     "description": "API documentation for the Dreams live AI art streaming service. WebSocket, SSE, and REST endpoints.",
     "author": {
         "@type": "Person",
@@ -36,12 +36,14 @@
 {% block content %}
 <!-- Post title/meta with ellipse background -->
 <header class="post-header-standalone h-entry">
-    <h1 class="p-name">Dreams API Documentation</h1>
+    <h1 class="p-name">API Documentation</h1>
     <div class="post-meta">
-        <a href="/dreams">← Back to Dreams</a> ·
-        <span class="tag p-category">api</span>,
-        <span class="tag p-category">websocket</span>,
-        <span class="tag p-category">streaming</span>
+        <a href="/dreams" style="color: inherit;">← back to dreams</a>
+        <span class="hidden">
+            <span class="tag p-category">api</span>,
+            <span class="tag p-category">websocket</span>,
+            <span class="tag p-category">streaming</span>
+        </span>
     </div>
 </header>
 

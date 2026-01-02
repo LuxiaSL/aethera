@@ -72,6 +72,7 @@ class SemanticHTMLRenderer(RendererHTML):
 def render_markdown(content: str) -> str:
     """Convert markdown to semantic HTML."""
     md = markdown_it.MarkdownIt('commonmark', {'html': True})
+    md.enable('table')
     md.renderer = SemanticHTMLRenderer()
 
     # Ensure proper heading hierarchy if first heading isn't h1
