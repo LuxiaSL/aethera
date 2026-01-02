@@ -152,8 +152,17 @@
             const extraWidth = needsParentMeasure ? 192 : 0;  // 6rem * 2 ≈ 192px
             const extraHeight = needsParentMeasure ? 32 : 0;  // 1rem * 2 ≈ 32px
 
-            canvas.width = (rect.width + extraWidth) * dpr;
-            canvas.height = (rect.height + extraHeight) * dpr;
+            const width = rect.width + extraWidth;
+            const height = rect.height + extraHeight;
+
+            // Set CSS size explicitly for dynamically created canvases
+            if (needsParentMeasure) {
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+            }
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
             gl.viewport(0, 0, canvas.width, canvas.height);
         }
 
