@@ -372,7 +372,7 @@ code {
 }
 
 pre {
-    background-color: var(--code-bg);
+    background-color: var(--code-bg) !important;
     color: #dcdcff;
     padding: 0.75rem 1rem;
     overflow-x: auto;
@@ -382,6 +382,11 @@ pre {
     max-width: 100%;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+pre code.hljs {
+    background: transparent !important;
+    padding: 0;
 }
 
 @media (max-width: 640px) {
