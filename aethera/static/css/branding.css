@@ -1169,11 +1169,16 @@ article.post-body .post-content:has(.post-segment) {
     padding: 4rem 2.5rem;
 }
 
-.post-segment > *:first-child:not(.segment-bg-canvas) {
+/* Normalize spacing at segment edges - remove margins from first/last content */
+.post-segment > *:nth-child(2),
+.post-segment > *:nth-child(2) > *:first-child,
+.post-segment > *:nth-child(2) > *:first-child > *:first-child {
     margin-top: 0 !important;
 }
 
-.post-segment > *:last-child {
+.post-segment > *:last-child,
+.post-segment > *:last-child > *:last-child,
+.post-segment > *:last-child > *:last-child > *:last-child {
     margin-bottom: 0 !important;
 }
 
