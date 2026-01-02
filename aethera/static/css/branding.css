@@ -1172,7 +1172,11 @@ article.post-body .post-content:has(.post-segment) {
 /* Normalize spacing at segment edges - remove margins from first/last content */
 .post-segment > *:nth-child(2),
 .post-segment > *:nth-child(2) > *:first-child,
-.post-segment > *:nth-child(2) > *:first-child > *:first-child {
+.post-segment > *:nth-child(2) > *:first-child > *:first-child,
+.post-segment > h2:nth-child(2),
+.post-segment > h3:nth-child(2),
+.post-segment > section:nth-child(2) > h2:first-child,
+.post-segment > section:nth-child(2) > h3:first-child {
     margin-top: 0 !important;
 }
 
