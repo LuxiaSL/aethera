@@ -556,15 +556,15 @@ body:has(.dreams-page) footer {
     color: #fff;
 }
 
-.dreams-api-docs .post-segment::before {
+.dreams-api-docs .post-segment::after {
     content: '';
     position: absolute;
-    top: 10%;
-    left: 5%;
-    right: 5%;
-    bottom: 10%;
-    background: radial-gradient(ellipse at center, rgba(255,255,255,0.12) 0%, transparent 70%);
-    z-index: -2;
+    top: -20%;
+    left: -10%;
+    right: -10%;
+    bottom: -20%;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.15) 0%, transparent 60%);
+    z-index: 0;
     pointer-events: none;
 }
 
