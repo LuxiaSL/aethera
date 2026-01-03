@@ -48,6 +48,17 @@ jobs:
               -v /opt/aethera/data:/app/data \
               aethera:latest
             
+            echo "⏳ Waiting for container to be healthy..."
+            sleep 5
+            for i in {1..12}; do
+              if curl -sf http://localhost:8000/healthz > /dev/null 2>&1; then
+                echo "✅ Health check passed!"
+                break
+              fi
+              echo "   Waiting... ($i/12)"
+              sleep 5
+            done
+            
             echo "🧹 Cleaning up old images..."
             docker image prune -f
             

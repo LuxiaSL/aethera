@@ -123,8 +123,11 @@ class DreamWebSocketHub:
         current_frame = await self.frame_cache.get_current_frame()
         if current_frame:
             try:
-                await websocket.send_bytes(bytes([MSG_FRAME]) + current_frame.data)
-            except Exception as e:
+                await asyncio.wait_for(
+                    websocket.send_bytes(bytes([MSG_FRAME]) + current_frame.data),
+                    timeout=5.0
+                )
+            except (asyncio.TimeoutError, Exception) as e:
                 logger.warning(f"Failed to send initial frame: {e}")
     
     async def disconnect_viewer(self, websocket: WebSocket) -> None:
@@ -165,14 +168,17 @@ class DreamWebSocketHub:
     async def _send_status_to_viewer(self, websocket: WebSocket) -> None:
         """Send current status to a specific viewer"""
         try:
-            await websocket.send_json({
-                "type": "status",
-                "status": self._status,
-                "message": self._status_message,
-                "frame_count": self.frame_cache.total_frames_received,
-                "viewer_count": self.viewer_count,
-            })
-        except Exception as e:
+            await asyncio.wait_for(
+                websocket.send_json({
+                    "type": "status",
+                    "status": self._status,
+                    "message": self._status_message,
+                    "frame_count": self.frame_cache.total_frames_received,
+                    "viewer_count": self.viewer_count,
+                }),
+                timeout=5.0
+            )
+        except (asyncio.TimeoutError, Exception) as e:
             logger.warning(f"Failed to send status: {e}")
     
     async def broadcast_status(self, status: str, message: str) -> None:
@@ -346,8 +352,9 @@ class DreamWebSocketHub:
         
         for viewer in viewers:
             try:
-                await viewer.send_bytes(message)
-            except Exception:
+                # Timeout prevents blocking on half-open connections
+                await asyncio.wait_for(viewer.send_bytes(message), timeout=5.0)
+            except (asyncio.TimeoutError, Exception):
                 dead_viewers.add(viewer)
         
         # Clean up dead connections
@@ -370,8 +377,9 @@ class DreamWebSocketHub:
         
         for viewer in viewers:
             try:
-                await viewer.send_json(data)
-            except Exception:
+                # Timeout prevents blocking on half-open connections
+                await asyncio.wait_for(viewer.send_json(data), timeout=5.0)
+            except (asyncio.TimeoutError, Exception):
                 dead_viewers.add(viewer)
         
         # Clean up dead connections
@@ -396,8 +404,14 @@ class DreamWebSocketHub:
             return False
         
         try:
-            await self._gpu_websocket.send_bytes(bytes([msg_type]) + payload)
+            await asyncio.wait_for(
+                self._gpu_websocket.send_bytes(bytes([msg_type]) + payload),
+                timeout=10.0
+            )
             return True
+        except asyncio.TimeoutError:
+            logger.error("Timeout sending to GPU")
+            return False
         except Exception as e:
             logger.error(f"Failed to send to GPU: {e}")
             return False

@@ -27,8 +27,10 @@ GPU_AUTH_TOKEN = os.environ.get("DREAM_GEN_AUTH_TOKEN")
 # Simple rate limiting for API endpoints
 # Uses sliding window counter per IP
 _rate_limit_data: dict[str, list[float]] = defaultdict(list)
+_rate_limit_last_cleanup: float = 0  # Track last cleanup time
 RATE_LIMIT_REQUESTS = 60  # Max requests per window
 RATE_LIMIT_WINDOW = 60  # Window in seconds
+RATE_LIMIT_CLEANUP_INTERVAL = 300  # Cleanup stale IPs every 5 minutes
 
 
 def check_rate_limit(request: Request, limit: int = RATE_LIMIT_REQUESTS) -> bool:
@@ -45,9 +47,23 @@ def check_rate_limit(request: Request, limit: int = RATE_LIMIT_REQUESTS) -> bool
     Raises:
         HTTPException: If rate limit exceeded
     """
+    global _rate_limit_last_cleanup
+    
     client_ip = request.client.host if request.client else "unknown"
     now = time.time()
     window_start = now - RATE_LIMIT_WINDOW
+    
+    # Periodic cleanup of stale IPs to prevent unbounded memory growth
+    if now - _rate_limit_last_cleanup > RATE_LIMIT_CLEANUP_INTERVAL:
+        stale_ips = [
+            ip for ip, times in _rate_limit_data.items()
+            if not times or max(times) < window_start
+        ]
+        for ip in stale_ips:
+            del _rate_limit_data[ip]
+        if stale_ips:
+            logger.debug(f"Rate limit cleanup: removed {len(stale_ips)} stale IPs")
+        _rate_limit_last_cleanup = now
     
     # Clean old entries and add new
     _rate_limit_data[client_ip] = [
