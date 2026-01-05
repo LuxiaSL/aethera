@@ -174,7 +174,7 @@
 
         // Add padding for canvas overflow
         const extraWidth = needsParentMeasure ? 192 : 0;
-        const extraHeight = needsParentMeasure ? 32 : 0;
+        const extraHeight = needsParentMeasure ? 48 : 0;
 
         const width = rect.width + extraWidth;
         const height = rect.height + extraHeight;

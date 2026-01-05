@@ -1436,18 +1436,18 @@ article.post-body .prose blockquote p {
     position: relative;
     background: transparent !important;
     border: none !important;
-    padding: 1.5rem 2.5rem;
+    padding: 2.5rem 2.5rem;
     margin-top: 1rem;
-    margin-bottom: 4rem;
+    margin-bottom: 3rem;
 }
 
 .comments-section .comment .comment-bg-canvas {
     position: absolute;
-    top: -1rem;
+    top: -1.5rem;
     left: -6rem;
     right: -6rem;
     width: calc(100% + 12rem);
-    height: calc(100% + 2rem);
+    height: calc(100% + 3rem);
     z-index: -1;
     pointer-events: none;
 }
