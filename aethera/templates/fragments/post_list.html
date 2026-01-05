@@ -7,6 +7,28 @@
 </article>
 {% endfor %}
 
-{% if has_next_page %}
-<div class="scroll-sentinel" style="height: 1px; width: 100%;"></div>
+{% if has_prev_page or has_next_page %}
+<nav class="pagination-controls">
+    <div class="pagination-ellipse">
+        {% if has_prev_page %}
+        <button class="pagination-btn pagination-prev"
+                hx-get="/posts?page={{ page - 1 }}&per_page={{ per_page }}"
+                hx-target="#posts-container"
+                hx-swap="innerHTML">
+            <span class="pagination-arrow">&larr;</span>
+        </button>
+        {% endif %}
+
+        <span class="pagination-page">{{ page }}</span>
+
+        {% if has_next_page %}
+        <button class="pagination-btn pagination-next"
+                hx-get="/posts?page={{ page + 1 }}&per_page={{ per_page }}"
+                hx-target="#posts-container"
+                hx-swap="innerHTML">
+            <span class="pagination-arrow">&rarr;</span>
+        </button>
+        {% endif %}
+    </div>
+</nav>
 {% endif %}

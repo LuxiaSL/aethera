@@ -3,7 +3,7 @@
 {% block content %}
 <section class="posts-section homepage-content">
     <div id="posts-container"
-         hx-get="/posts?page=1"
+         hx-get="/posts?page=1&per_page=5"
          hx-trigger="load"
          hx-swap="innerHTML">
     </div>
@@ -13,29 +13,23 @@
 {% block scripts %}
 <script src="/static/js/hover-star.js"></script>
 <script>
+    // Calculate how many posts fit based on viewport height
+    function getPostsPerPage() {
+        const viewportHeight = window.innerHeight;
+        const headerHeight = 160; // approximate header + padding
+        const paginationHeight = 80; // pagination controls
+        const postHeight = 85; // approximate height per post
+        const availableHeight = viewportHeight - headerHeight - paginationHeight;
+        const count = Math.floor(availableHeight / postHeight);
+        return Math.max(3, Math.min(count, 10)); // between 3 and 10
+    }
+
+    // Update the initial load URL with calculated per_page
     document.addEventListener('DOMContentLoaded', function() {
-        const postsContainer = document.getElementById('posts-container');
-        let currentPage = 1;
-
-        let observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    currentPage++;
-                    entry.target.remove();
-                    observer.unobserve(entry.target);
-                    htmx.ajax('GET', `/posts?page=${currentPage}`, { target: '#posts-container', swap: 'beforeend' });
-                }
-            });
-        }, { threshold: 0.1 });
-
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id === 'posts-container') {
-                const sentinels = document.querySelectorAll('.scroll-sentinel');
-                if (sentinels && sentinels.length > 0) {
-                    observer.observe(sentinels[sentinels.length - 1]);
-                }
-            }
-        });
+        const container = document.getElementById('posts-container');
+        const perPage = getPostsPerPage();
+        container.setAttribute('hx-get', '/posts?page=1&per_page=' + perPage);
+        htmx.process(container);
     });
 </script>
 {% endblock %}
