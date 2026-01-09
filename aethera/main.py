@@ -13,15 +13,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from aethera.models.base import init_db, get_session
-from aethera.api import posts, comments, seo, dreams
+from aethera.api import posts, comments, seo, dreams, irc
+from aethera.irc.database import init_irc_db
 from aethera.utils.security import SecurityHeadersMiddleware
 from aethera.utils.templates import templates
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize the database on startup
-    init_db()
+    # Initialize databases on startup
+    init_db()      # Blog database (blog.sqlite)
+    init_irc_db()  # IRC database (irc.sqlite) - separate for clean isolation
     yield
     # Clean up resources on shutdown
     pass
@@ -42,6 +44,7 @@ app.include_router(posts.router)
 app.include_router(comments.router)
 app.include_router(seo.router)
 app.include_router(dreams.router)
+app.include_router(irc.router)
 
 
 # Custom 404 error handler

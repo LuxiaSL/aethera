@@ -1,0 +1,10 @@
+[LOG: #aethera | 2 users | 6 messages | philosophical | ENDS: ping_timeout]
+[00:00] <Guo_Si> Hey, you know what sucks?
+[00:04] <TheXPhial> vaccuums
+[00:10] <Guo_Si> Hey, you know what sucks in a metaphorical sense?
+[00:16] <TheXPhial> black holes
+[00:24] <Guo_Si> Hey, you know what just isn't cool?
+[00:30] <TheXPhial> lava?
+[00:44] *** Guo_Si has quit (Ping timeout: 240 seconds)
+[00:46] *** TheXPhial has quit (Ping timeout: 240 seconds)
+

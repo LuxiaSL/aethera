@@ -21,6 +21,10 @@ dependencies = [
     "websockets>=15.0.1",
     # Dreams module dependencies
     "httpx>=0.28.1",  # RunPod API calls
+    # IRC module dependencies
+    "anthropic>=0.40.0",  # Anthropic API
+    "openai>=1.55.0",  # OpenAI API
+    "tenacity>=8.2.0",  # Retry with backoff for rate limits
 ]
 readme = "README.md"
 requires-python = ">= 3.10"

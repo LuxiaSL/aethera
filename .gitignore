@@ -14,16 +14,17 @@ htmlcov/
 
 # Local SQLite DB
 blog.sqlite
+irc.sqlite
 *.db
 *.sqlite3
 
 # Static assets
-luxiblog/static/uploads/*
-!luxiblog/static/uploads/.gitkeep
+aethera/static/uploads/*
+!aethera/static/uploads/.gitkeep
 # luxiblog/static/css/*
-!luxiblog/static/css/.gitkeep
-# luxiblog/static/js/*
-!luxiblog/static/js/.gitkeep
+!aethera/static/css/.gitkeep
+# aethera/static/js/*
+!aethera/static/js/.gitkeep
 
 # Virtual envs
 .venv/
@@ -42,3 +43,6 @@ ENV/
 .vscode/
 *.swp
 *.swo
+
+exported_fragments/
+logs/

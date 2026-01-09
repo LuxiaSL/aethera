@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship, Session, select
 import hashlib
 import base64
+import json
 import re
 import os
 from slugify import slugify
@@ -172,3 +173,7 @@ class Comment(SQLModel, table=True):
         content = re.sub(r'(?<!&gt;)>>(\d+)', make_link, content)
         
         return content
+
+
+# Note: IRC Fragment model has been moved to aethera/irc/database.py
+# IRC uses its own separate database (irc.sqlite) for cleaner separation.
