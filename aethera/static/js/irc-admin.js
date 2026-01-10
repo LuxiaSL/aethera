@@ -43,11 +43,23 @@ class IRCAdminPanel {
         this.activeProfileName = null;
         this.PROFILES_STORAGE_KEY = 'ircAdminProfiles';
         
+        // Track last prompts/responses for I/O panel
+        this.lastIO = {
+            gen: { prompt: null, response: null },
+            judge: { prompt: null, response: null }
+        };
+        
+        // Current candidates for modal navigation
+        this.currentCandidates = [];
+        this.currentCandidateIndex = 0;
+        
         this.initElements();
         this.initEventListeners();
         this.loadProviders();
         this.loadDefaultPrompts();
         this.loadSavedProfiles();
+        this.initConfigBarToggles();
+        this.initExpandModals();
     }
     
     initElements() {
@@ -110,8 +122,6 @@ class IRCAdminPanel {
         this.btnImportProfile = document.getElementById('btn-import-profile');
         
         // Prompt customization
-        this.promptsToggle = document.getElementById('prompts-toggle');
-        this.promptsContent = document.getElementById('prompts-content');
         this.promptGenSystem = document.getElementById('prompt-gen-system');
         this.promptJudgeSystem = document.getElementById('prompt-judge-system');
         this.promptJudgeUser = document.getElementById('prompt-judge-user');
@@ -134,6 +144,28 @@ class IRCAdminPanel {
         this.statTokens = document.getElementById('stat-tokens');
         this.statCost = document.getElementById('stat-cost');
         this.statTime = document.getElementById('stat-time');
+        
+        // I/O Panel elements
+        this.genModelLabel = document.getElementById('gen-model-label');
+        this.judgeModelLabel = document.getElementById('judge-model-label');
+        this.genLastPrompt = document.getElementById('gen-last-prompt');
+        this.genLastResponse = document.getElementById('gen-last-response');
+        this.judgeLastPrompt = document.getElementById('judge-last-prompt');
+        this.judgeLastResponse = document.getElementById('judge-last-response');
+        
+        // Expand modal elements
+        this.expandModal = document.getElementById('expand-modal');
+        this.expandModalTitle = document.getElementById('expand-modal-title');
+        this.expandModalText = document.getElementById('expand-modal-text');
+        
+        // Candidate modal elements
+        this.candidateModal = document.getElementById('candidate-modal');
+        this.candidateModalTitle = document.getElementById('candidate-modal-title');
+        this.candidateModalText = document.getElementById('candidate-modal-text');
+        this.candidateModalPosition = document.getElementById('candidate-modal-position');
+        this.candidateModalPrev = document.getElementById('candidate-modal-prev');
+        this.candidateModalNext = document.getElementById('candidate-modal-next');
+        this.candidateModalSelect = document.getElementById('candidate-modal-select');
     }
     
     initEventListeners() {
@@ -175,21 +207,30 @@ class IRCAdminPanel {
             this.previousProvider.gen = this.genProvider.value;
             this.updateProviderUI('gen');
             this.restoreProviderValues('gen');
+            this.updateModelLabels();
         });
         this.judgeProvider.addEventListener('change', () => {
             this.saveProviderValues('judge', this.previousProvider.judge);
             this.previousProvider.judge = this.judgeProvider.value;
             this.updateProviderUI('judge');
             this.restoreProviderValues('judge');
+            this.updateModelLabels();
+        });
+        
+        // Model change - update labels
+        this.genModel.addEventListener('input', () => {
+            this.saveProviderValues('gen');
+            this.updateModelLabels();
+        });
+        this.judgeModel.addEventListener('input', () => {
+            this.saveProviderValues('judge');
+            this.updateModelLabels();
         });
         
         // Save values when fields change (so they persist across provider switches)
-        // These save to the current provider's storage
         this.genApiKey.addEventListener('input', () => this.saveProviderValues('gen'));
-        this.genModel.addEventListener('input', () => this.saveProviderValues('gen'));
         this.genBaseUrl.addEventListener('input', () => this.saveProviderValues('gen'));
         this.judgeApiKey.addEventListener('input', () => this.saveProviderValues('judge'));
-        this.judgeModel.addEventListener('input', () => this.saveProviderValues('judge'));
         this.judgeBaseUrl.addEventListener('input', () => this.saveProviderValues('judge'));
         
         // Profiles
@@ -200,9 +241,6 @@ class IRCAdminPanel {
             if (e.key === 'Enter') this.saveProfile();
         });
         
-        // Prompt customization
-        this.promptsToggle.addEventListener('click', () => this.togglePromptsSection());
-        
         // View default buttons
         document.querySelectorAll('.btn-view-default').forEach(btn => {
             btn.addEventListener('click', () => this.showDefaultPrompt(btn.dataset.view));
@@ -212,6 +250,129 @@ class IRCAdminPanel {
         document.querySelectorAll('.btn-reset').forEach(btn => {
             btn.addEventListener('click', () => this.resetPrompt(btn.dataset.reset));
         });
+        
+        // Candidate modal navigation
+        this.candidateModalPrev.addEventListener('click', () => this.navigateCandidate(-1));
+        this.candidateModalNext.addEventListener('click', () => this.navigateCandidate(1));
+        this.candidateModalSelect.addEventListener('click', () => this.selectCandidateFromModal());
+    }
+    
+    initConfigBarToggles() {
+        // Config bar sections are now always visible (no collapsing)
+        // This method is kept for backwards compatibility but does nothing
+    }
+    
+    initExpandModals() {
+        // Set up expand buttons
+        document.querySelectorAll('.btn-expand').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const targetId = btn.dataset.expand;
+                this.openExpandModal(targetId);
+            });
+        });
+        
+        // Close expand modal
+        this.expandModal.querySelector('.expand-modal-close').addEventListener('click', () => {
+            this.expandModal.classList.add('hidden');
+        });
+        
+        this.expandModal.addEventListener('click', (e) => {
+            if (e.target === this.expandModal) {
+                this.expandModal.classList.add('hidden');
+            }
+        });
+        
+        // Close candidate modal
+        this.candidateModal.querySelector('.expand-modal-close').addEventListener('click', () => {
+            this.candidateModal.classList.add('hidden');
+        });
+        
+        this.candidateModal.addEventListener('click', (e) => {
+            if (e.target === this.candidateModal) {
+                this.candidateModal.classList.add('hidden');
+            }
+        });
+        
+        // Keyboard navigation for modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.expandModal.classList.add('hidden');
+                this.candidateModal.classList.add('hidden');
+            }
+            
+            // Candidate modal navigation
+            if (!this.candidateModal.classList.contains('hidden')) {
+                if (e.key === 'ArrowLeft') {
+                    this.navigateCandidate(-1);
+                } else if (e.key === 'ArrowRight') {
+                    this.navigateCandidate(1);
+                } else if (e.key === 'Enter') {
+                    this.selectCandidateFromModal();
+                }
+            }
+        });
+    }
+    
+    openExpandModal(targetId) {
+        const targetElement = document.getElementById(targetId);
+        if (!targetElement) return;
+        
+        const titleMap = {
+            'log-stream': 'Log Stream',
+            'candidates-grid': 'Candidates',
+            'transcript': 'Accumulated Transcript',
+            'gen-last-prompt': 'Generator Prompt',
+            'gen-last-response': 'Generator Response (Selected)',
+            'judge-last-prompt': 'Judge Prompt',
+            'judge-last-response': 'Judge Response'
+        };
+        
+        this.expandModalTitle.textContent = titleMap[targetId] || 'Expanded View';
+        this.expandModalText.textContent = targetElement.textContent || 'No content yet';
+        this.expandModal.classList.remove('hidden');
+    }
+    
+    openCandidateModal(index) {
+        if (!this.currentCandidates || this.currentCandidates.length === 0) return;
+        
+        this.currentCandidateIndex = index;
+        this.updateCandidateModalContent();
+        this.candidateModal.classList.remove('hidden');
+    }
+    
+    updateCandidateModalContent() {
+        const candidate = this.currentCandidates[this.currentCandidateIndex];
+        if (!candidate) return;
+        
+        this.candidateModalTitle.textContent = `Candidate #${this.currentCandidateIndex + 1}`;
+        this.candidateModalText.textContent = candidate.content;
+        this.candidateModalPosition.textContent = `${this.currentCandidateIndex + 1} / ${this.currentCandidates.length}`;
+        
+        // Update nav button states
+        this.candidateModalPrev.disabled = this.currentCandidateIndex === 0;
+        this.candidateModalNext.disabled = this.currentCandidateIndex === this.currentCandidates.length - 1;
+    }
+    
+    navigateCandidate(direction) {
+        const newIndex = this.currentCandidateIndex + direction;
+        if (newIndex >= 0 && newIndex < this.currentCandidates.length) {
+            this.currentCandidateIndex = newIndex;
+            this.updateCandidateModalContent();
+        }
+    }
+    
+    selectCandidateFromModal() {
+        this.selectCandidate(this.currentCandidateIndex);
+        this.candidateModal.classList.add('hidden');
+    }
+    
+    updateModelLabels() {
+        const genModel = this.genModel.value || '-';
+        const judgeModel = this.judgeModel.value || '-';
+        
+        this.genModelLabel.textContent = genModel;
+        this.judgeModelLabel.textContent = judgeModel;
     }
     
     saveProviderValues(type, providerOverride = null) {
@@ -294,6 +455,7 @@ class IRCAdminPanel {
             
             this.updateProviderUI('gen');
             this.updateProviderUI('judge');
+            this.updateModelLabels();
         } catch (e) {
             console.error('Failed to load providers:', e);
         }
@@ -537,6 +699,12 @@ class IRCAdminPanel {
             case 'log':
                 this.log(msg.level, msg.message);
                 break;
+            case 'generator_io':
+                this.handleGeneratorIO(msg);
+                break;
+            case 'judge_io':
+                this.handleJudgeIO(msg);
+                break;
         }
     }
     
@@ -554,14 +722,33 @@ class IRCAdminPanel {
         this.btnStart.disabled = true;
         this.btnStop.disabled = false;
         this.log('info', 'Generation started');
+        
+        // Reset I/O panel
+        this.genLastPrompt.textContent = 'Generating...';
+        this.genLastResponse.textContent = 'Waiting for response...';
+        this.judgeLastPrompt.textContent = 'Waiting for candidates...';
+        this.judgeLastResponse.textContent = 'Waiting for response...';
     }
     
     handleCandidates(msg) {
         this.candidatesCount.textContent = `(${msg.candidates.length})`;
         this.candidatesGrid.innerHTML = '';
         
-        // Store candidates for later reference (e.g., scores)
+        // Store candidates for later reference (e.g., scores, modal navigation)
         this.currentCandidates = msg.candidates;
+        
+        // Update generator I/O panel with prompt info if available
+        if (msg.prompt) {
+            this.lastIO.gen.prompt = msg.prompt;
+            // Truncate very long prompts for display (keep full in lastIO)
+            const displayPrompt = msg.prompt.length > 5000 
+                ? msg.prompt.substring(0, 5000) + '\n\n... [truncated]'
+                : msg.prompt;
+            this.genLastPrompt.textContent = displayPrompt;
+        }
+        
+        // Reset generator response (will be updated when winner is selected)
+        this.genLastResponse.textContent = 'Awaiting judgment...';
         
         msg.candidates.forEach((c, listIndex) => {
             const card = document.createElement('div');
@@ -584,6 +771,13 @@ class IRCAdminPanel {
             
             // Use list position for selection, not the internal batch index
             card.addEventListener('click', () => this.selectCandidate(listIndex));
+            
+            // Double-click to expand
+            card.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this.openCandidateModal(listIndex);
+            });
+            
             this.candidatesGrid.appendChild(card);
         });
     }
@@ -600,11 +794,58 @@ class IRCAdminPanel {
             // selected_index is now a list position
             if (listIndex === msg.selected_index) {
                 card.classList.add('winner');
+                
+                // Update generator last response with selected candidate
+                const candidate = this.currentCandidates[listIndex];
+                if (candidate) {
+                    this.lastIO.gen.response = candidate.content;
+                    this.genLastResponse.textContent = candidate.content;
+                }
             }
         });
         
+        // Update judge I/O panel with prompt and response
+        if (msg.judge_prompt) {
+            this.lastIO.judge.prompt = msg.judge_prompt;
+            // Truncate very long prompts for display (keep full in lastIO)
+            const displayPrompt = msg.judge_prompt.length > 5000 
+                ? msg.judge_prompt.substring(0, 5000) + '\n\n... [truncated]'
+                : msg.judge_prompt;
+            this.judgeLastPrompt.textContent = displayPrompt;
+        }
+        
+        if (msg.reasoning) {
+            this.lastIO.judge.response = msg.reasoning;
+            this.judgeLastResponse.textContent = msg.reasoning;
+        }
+        
         const selectedDisplay = msg.selected_index !== null ? `#${msg.selected_index + 1}` : 'none';
-        this.log('info', `Judgment: selected ${selectedDisplay} - ${msg.reasoning.substring(0, 100)}...`);
+        const reasoningPreview = msg.reasoning ? msg.reasoning.substring(0, 100) : 'none';
+        this.log('info', `Judgment: selected ${selectedDisplay} - ${reasoningPreview}...`);
+    }
+    
+    handleGeneratorIO(msg) {
+        // Handle dedicated generator I/O event
+        if (msg.prompt) {
+            this.lastIO.gen.prompt = msg.prompt;
+            this.genLastPrompt.textContent = msg.prompt;
+        }
+        if (msg.response) {
+            this.lastIO.gen.response = msg.response;
+            this.genLastResponse.textContent = msg.response;
+        }
+    }
+    
+    handleJudgeIO(msg) {
+        // Handle dedicated judge I/O event
+        if (msg.prompt) {
+            this.lastIO.judge.prompt = msg.prompt;
+            this.judgeLastPrompt.textContent = msg.prompt;
+        }
+        if (msg.response) {
+            this.lastIO.judge.response = msg.response;
+            this.judgeLastResponse.textContent = msg.response;
+        }
     }
     
     handleProgress(msg) {
@@ -633,7 +874,7 @@ class IRCAdminPanel {
         this.waitingIndicator.classList.remove('hidden');
         
         if (msg.mode === 'select') {
-            this.waitingIndicator.querySelector('.waiting-text').textContent = 'Click a candidate to select...';
+            this.waitingIndicator.querySelector('.waiting-text').textContent = 'Click a candidate to select (double-click to expand)...';
             this.btnContinue.classList.add('hidden');
         } else if (msg.mode === 'confirm') {
             this.waitingIndicator.querySelector('.waiting-text').textContent = 'Review judgment and continue...';
@@ -647,7 +888,8 @@ class IRCAdminPanel {
     }
     
     handleComplete(msg) {
-        this.updateStatus('complete');
+        const wasStopped = msg.stopped || false;
+        this.updateStatus(wasStopped ? 'stopped' : 'complete');
         this.stopTimer();
         this.btnStart.disabled = false;
         this.btnStop.disabled = true;
@@ -655,9 +897,15 @@ class IRCAdminPanel {
         this.btnCopy.disabled = false;
         this.waitingIndicator.classList.add('hidden');
         
-        this.transcript.textContent = msg.transcript;
+        if (msg.transcript) {
+            this.transcript.textContent = msg.transcript;
+        }
         
-        this.log('info', `Generation complete: ${msg.stats.messages} messages, ${msg.stats.chunks} chunks`);
+        if (wasStopped) {
+            this.log('warning', `Generation stopped: ${msg.stats.messages} messages, ${msg.stats.chunks} chunks`);
+        } else {
+            this.log('info', `Generation complete: ${msg.stats.messages} messages, ${msg.stats.chunks} chunks`);
+        }
         this.log('info', `Total: ${msg.stats.tokens} tokens, $${msg.stats.cost.toFixed(4)}, ${(msg.stats.duration_ms / 1000).toFixed(1)}s`);
     }
     
@@ -681,6 +929,9 @@ class IRCAdminPanel {
     
     stopGeneration() {
         this.sendMessage({ type: 'stop' });
+        this.updateStatus('stopping');
+        this.btnStop.disabled = true;
+        this.log('warning', 'Stop requested - waiting for current operation to complete...');
     }
     
     continueGeneration() {
@@ -695,6 +946,13 @@ class IRCAdminPanel {
         cards.forEach(card => card.classList.remove('selected'));
         cards[listIndex]?.classList.add('selected');
         
+        // Update generator last response with selected candidate
+        const candidate = this.currentCandidates[listIndex];
+        if (candidate) {
+            this.lastIO.gen.response = candidate.content;
+            this.genLastResponse.textContent = candidate.content;
+        }
+        
         // Send list position as the selection index
         this.sendMessage({ type: 'select', candidate_index: listIndex });
         this.waitingIndicator.classList.add('hidden');
@@ -703,7 +961,7 @@ class IRCAdminPanel {
     
     updateStatus(status) {
         this.sessionStatus.className = `status-badge ${status}`;
-        this.sessionStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        this.sessionStatus.textContent = status === 'idle' ? 'no session' : status;
     }
     
     log(level, message) {
@@ -782,19 +1040,6 @@ class IRCAdminPanel {
             this.defaultPrompts = await response.json();
         } catch (e) {
             console.error('Failed to load default prompts:', e);
-        }
-    }
-    
-    togglePromptsSection() {
-        const icon = this.promptsToggle.querySelector('.toggle-icon');
-        const isExpanded = this.promptsContent.style.display !== 'none';
-        
-        if (isExpanded) {
-            this.promptsContent.style.display = 'none';
-            icon.classList.remove('expanded');
-        } else {
-            this.promptsContent.style.display = 'block';
-            icon.classList.add('expanded');
         }
     }
     
@@ -931,8 +1176,8 @@ class IRCAdminPanel {
             item.innerHTML = `
                 <span class="profile-name" title="${this.escapeAttr(name)}">${this.escapeHtml(name)}</span>
                 <span class="profile-date">${date}</span>
-                <button class="btn btn-small btn-load-profile" data-name="${this.escapeAttr(name)}">load</button>
-                <button class="btn btn-small btn-delete-profile" data-name="${this.escapeAttr(name)}">×</button>
+                <button class="btn btn-tiny btn-load-profile" data-name="${this.escapeAttr(name)}">load</button>
+                <button class="btn btn-tiny btn-delete-profile" data-name="${this.escapeAttr(name)}">×</button>
             `;
             
             // Event listeners
@@ -1006,6 +1251,7 @@ class IRCAdminPanel {
         this.applyConfig(profile.config);
         this.activeProfileName = name;
         this.renderProfilesList();
+        this.updateModelLabels();
         this.log('info', `Loaded profile: ${name}`);
     }
     
@@ -1168,6 +1414,7 @@ class IRCAdminPanel {
                 
                 // Apply the imported config
                 this.applyConfig(data.config);
+                this.updateModelLabels();
                 
                 // Optionally save to profiles
                 const profileName = data.name || 'imported';

@@ -73,6 +73,7 @@ class JudgmentResult:
     selected_content: Optional[str]
     scores: list[float]  # Score for each candidate
     reasoning: str       # Judge's explanation
+    judge_prompt: Optional[str] = None  # The prompt sent to the judge (for debugging/display)
 
 
 # Batch judge system prompt - emphasizes that winner continues the story
@@ -225,6 +226,7 @@ class Autoloom:
                 selected_content=None,
                 scores=[],
                 reasoning="No candidates provided",
+                judge_prompt=None,
             )
         
         # Build candidates text with collapse markers
@@ -274,12 +276,15 @@ class Autoloom:
             max_tokens = self.judge_params.max_tokens if self.judge_params else 800
             top_p = self.judge_params.top_p if self.judge_params else 1.0
         
+        # Build full judge prompt for logging/display
+        full_judge_prompt = f"{self.system_prompt}\n\n{user_prompt}"
+        
         # Get judgment from model
         for attempt in range(self.max_retries + 1):
             try:
                 if self.provider.mode == CompletionMode.CHAT:
                     result = await self.provider.complete(
-                        prompt=f"{self.system_prompt}\n\n{user_prompt}",
+                        prompt=full_judge_prompt,
                         max_tokens=max_tokens,
                         temperature=temperature,
                         top_p=top_p,
@@ -287,13 +292,14 @@ class Autoloom:
                 else:
                     # For completion mode, include system in prompt
                     result = await self.provider.complete(
-                        prompt=f"{self.system_prompt}\n\n{user_prompt}\n\nSCORES:",
+                        prompt=f"{full_judge_prompt}\n\nSCORES:",
                         max_tokens=max_tokens,
                         temperature=temperature,
                         top_p=top_p,
                     )
                 
                 judgment = self._parse_judgment(result.text, candidates)
+                judgment.judge_prompt = full_judge_prompt
                 
                 logger.info(
                     f"Autoloom batch judgment: best={judgment.selected_index}, "
@@ -313,6 +319,7 @@ class Autoloom:
                         selected_content=None,
                         scores=[0.0] * len(candidates),
                         reasoning=f"Parse failure after {self.max_retries + 1} attempts",
+                        judge_prompt=full_judge_prompt,
                     )
         
         # Should not reach here
@@ -321,6 +328,7 @@ class Autoloom:
             selected_content=None,
             scores=[0.0] * len(candidates),
             reasoning="Unexpected error",
+            judge_prompt=full_judge_prompt,
         )
     
     def _parse_judgment(

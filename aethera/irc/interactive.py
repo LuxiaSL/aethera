@@ -396,7 +396,24 @@ class InteractiveGenerator:
         try:
             content = await self._run_generation_loop()
             
-            if content and not self.state.should_stop:
+            # Handle early stop
+            if self.state.should_stop:
+                duration_ms = (time.time() - self.state.start_time) * 1000
+                await self._log("info", f"Generation stopped by user after {self.state.chunk_count} chunks, {self.state.message_count} messages")
+                await self._emit(EventType.COMPLETE, {
+                    "transcript": content or self.state.accumulated_content,
+                    "stopped": True,
+                    "stats": {
+                        "chunks": self.state.chunk_count,
+                        "messages": self.state.message_count,
+                        "tokens": self.state.total_tokens,
+                        "cost": self.state.total_cost,
+                        "duration_ms": duration_ms,
+                    }
+                })
+                return None
+            
+            if content:
                 # Normalize the fragment
                 raw = RawFragment(
                     content=content,
@@ -446,7 +463,7 @@ class InteractiveGenerator:
             )
             
             # Generate candidates
-            candidates = await self._generate_candidates()
+            candidates, gen_prompt = await self._generate_candidates()
             
             if not candidates:
                 self.state.chunk_failures += 1
@@ -459,10 +476,11 @@ class InteractiveGenerator:
             
             self.state.pending_candidates = candidates
             
-            # Emit candidates event
+            # Emit candidates event with generator prompt for I/O panel
             # Use list position as index for selection, store batch_index for reference
             await self._emit(EventType.CANDIDATES, {
                 "chunk": self.state.chunk_count,
+                "prompt": gen_prompt,
                 "candidates": [
                     {
                         "index": list_idx,  # List position for selection
@@ -508,11 +526,12 @@ class InteractiveGenerator:
                 
                 self.state.pending_judgment = judgment
                 
-                # Emit judgment event
+                # Emit judgment event with judge prompt for I/O panel
                 await self._emit(EventType.JUDGMENT, {
                     "selected_index": judgment.selected_index,
                     "scores": judgment.scores,
                     "reasoning": judgment.reasoning,
+                    "judge_prompt": judgment.judge_prompt,
                 })
                 
                 if self.config.control_mode == ControlMode.CONFIRM_STEP:
@@ -600,8 +619,12 @@ class InteractiveGenerator:
         
         return self.state.accumulated_content if self.state.transcript_lines else None
     
-    async def _generate_candidates(self) -> list[ChunkCandidate]:
-        """Generate a batch of candidates."""
+    async def _generate_candidates(self) -> tuple[list[ChunkCandidate], Optional[str]]:
+        """Generate a batch of candidates.
+        
+        Returns:
+            Tuple of (candidates list, generator prompt string for display)
+        """
         n = self.config.candidates_per_batch
         stop = ["\n---", "$ cat", "[LOG:"]
         
@@ -617,6 +640,9 @@ class InteractiveGenerator:
         if self.config.use_instruct_mode:
             system_prompt = self.config.prompts.generation_system_prompt or build_system_prompt()
         
+        # Build display prompt (for I/O panel)
+        display_prompt = None
+        
         try:
             if self.state.transcript_lines:
                 # Continuation
@@ -629,6 +655,9 @@ class InteractiveGenerator:
                     prompt = self.state.stable_prefix + variable_prompt
                 
                 prefill_text = self.state.transcript_lines[-1] if self.state.transcript_lines else ""
+                
+                # Build display prompt
+                display_prompt = f"[SYSTEM]\n{system_prompt or '(default)'}\n\n[CONTEXT]\n{prompt}\n\n[PREFILL]\n{prefill_text}"
                 
                 batch_result = await self.generation_provider.complete_batch_with_prefill(
                     prompt=prompt,
@@ -649,6 +678,9 @@ class InteractiveGenerator:
                     prompt = variable_prompt
                 else:
                     prompt = self.state.stable_prefix + variable_prompt
+                
+                # Build display prompt
+                display_prompt = f"[SYSTEM]\n{system_prompt or '(default)'}\n\n[PROMPT]\n{prompt}\n\n[PREFILL]\n{self.state.prefill}"
                 
                 batch_result = await self.generation_provider.complete_batch_with_prefill(
                     prompt=prompt,
@@ -677,11 +709,11 @@ class InteractiveGenerator:
                         index=i,
                     ))
             
-            return candidates
+            return candidates, display_prompt
             
         except Exception as e:
             await self._log("error", f"Batch generation failed: {e}")
-            return []
+            return [], None
     
     def _extract_chunk(self, generated: str) -> str:
         """Extract valid IRC lines from generation."""
@@ -773,6 +805,9 @@ class InteractiveGenerator:
         """Stop the generation."""
         if self.state:
             self.state.should_stop = True
+            # Emit a log message to let the user know
+            if self.event_callback:
+                asyncio.create_task(self._log("warning", "Stop requested - will halt after current chunk"))
         self._user_input_event.set()
     
     def get_state(self) -> Optional[SessionState]:

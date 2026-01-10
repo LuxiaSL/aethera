@@ -303,6 +303,11 @@ async def session_websocket(websocket: WebSocket, session_id: str):
                 
                 elif msg_type == "stop":
                     session.stop()
+                    await websocket.send_json({
+                        "type": "log",
+                        "level": "warning",
+                        "message": "Stop requested - will stop after current operation completes"
+                    })
                 
                 elif msg_type == "continue":
                     session.provide_confirmation()
