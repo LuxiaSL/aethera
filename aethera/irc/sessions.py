@@ -97,12 +97,46 @@ class Session:
         self.last_activity = datetime.now(timezone.utc)
     
     def update_config(self, changes: dict):
-        """Update configuration (only when paused)."""
-        # For now, just update the config object
-        # In a more robust implementation, we'd validate and merge
+        """Update configuration (only when paused or before starting)."""
+        from .run_config import ControlMode, ProviderConfig, PromptConfig
+        
+        # Fields that can be safely updated directly (simple types)
+        safe_fields = {
+            'style', 'collapse_type', 'target_messages', 'target_users',
+            'channel', 'candidates_per_batch', 'max_chunks',
+            'min_collapse_percentage', 'autoloom_threshold', 'max_chunk_failures',
+            'use_instruct_mode', 'dry_run'
+        }
+        
         for key, value in changes.items():
-            if hasattr(self.config, key):
+            if not hasattr(self.config, key):
+                continue
+            
+            # Handle control_mode specially (string -> enum)
+            if key == "control_mode" and isinstance(value, str):
+                try:
+                    setattr(self.config, key, ControlMode(value))
+                except ValueError:
+                    logger.warning(f"Invalid control_mode value: {value}")
+                continue
+            
+            # Handle nested objects with their from_dict methods
+            if key == "generation" and isinstance(value, dict):
+                setattr(self.config, key, ProviderConfig.from_dict(value))
+                continue
+            
+            if key == "judge" and isinstance(value, dict):
+                setattr(self.config, key, ProviderConfig.from_dict(value))
+                continue
+            
+            if key == "prompts" and isinstance(value, dict):
+                setattr(self.config, key, PromptConfig.from_dict(value))
+                continue
+            
+            # Only update simple fields directly
+            if key in safe_fields:
                 setattr(self.config, key, value)
+        
         self.last_activity = datetime.now(timezone.utc)
     
     def get_state(self) -> SessionState:

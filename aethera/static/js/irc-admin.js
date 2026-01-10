@@ -329,7 +329,26 @@ class IRCAdminPanel {
         };
         
         this.expandModalTitle.textContent = titleMap[targetId] || 'Expanded View';
-        this.expandModalText.textContent = targetElement.textContent || 'No content yet';
+        
+        // Special handling for candidates grid - render properly formatted candidates
+        if (targetId === 'candidates-grid') {
+            if (this.currentCandidates && this.currentCandidates.length > 0) {
+                // Format candidates nicely for the expand view
+                const formattedCandidates = this.currentCandidates.map((c, idx) => {
+                    const header = `═══════════════════════════════════════════════════════════════════════════════
+#${idx + 1}  │  ${c.line_count} lines${c.has_collapse ? '  │  [COLLAPSE]' : ''}
+═══════════════════════════════════════════════════════════════════════════════`;
+                    return `${header}\n\n${c.content}\n`;
+                }).join('\n\n');
+                
+                this.expandModalText.textContent = formattedCandidates;
+            } else {
+                this.expandModalText.textContent = 'No candidates yet';
+            }
+        } else {
+            this.expandModalText.textContent = targetElement.textContent || 'No content yet';
+        }
+        
         this.expandModal.classList.remove('hidden');
     }
     
@@ -921,6 +940,11 @@ class IRCAdminPanel {
     }
     
     startGeneration() {
+        // Send current config to update session before starting
+        // This ensures control_mode, dry_run, etc. reflect current UI state
+        const config = this.getConfig();
+        this.sendMessage({ type: 'update_config', changes: config });
+        
         this.sendMessage({ type: 'start' });
         this.transcript.textContent = '';
         this.candidatesGrid.innerHTML = '';
