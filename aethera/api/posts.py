@@ -94,10 +94,12 @@ def get_posts(
         next_query = select(Post).where(Post.published == True).order_by(Post.created_at.desc()).offset(offset + per_page).limit(1)
         has_next_page = len(session.exec(next_query).all()) > 0
 
-    # Return HTML fragments for infinite scroll
+    has_prev_page = page > 1
+
+    # Return HTML fragments for pagination
     return templates.TemplateResponse(
         "fragments/post_list.html",
-        {"request": request, "posts": posts, "page": page, "has_next_page": has_next_page, "comment_counts": comment_counts}
+        {"request": request, "posts": posts, "page": page, "per_page": per_page, "has_next_page": has_next_page, "has_prev_page": has_prev_page, "comment_counts": comment_counts}
     )
 
 
