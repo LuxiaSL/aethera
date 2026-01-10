@@ -83,6 +83,7 @@ class OpenAICompatibleProvider(InferenceProvider):
         prompt: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """Generate completion using OpenAI-compatible API."""
@@ -96,6 +97,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    top_p=top_p,
                     stop=stop,
                 )
                 
@@ -109,6 +111,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                     prompt=prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    top_p=top_p,
                     stop=stop,
                 )
                 
@@ -136,6 +139,7 @@ class OpenAICompatibleProvider(InferenceProvider):
         prefill: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """
@@ -161,6 +165,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                         messages=messages,
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        top_p=top_p,
                         stop=stop,
                     )
                     text = response.choices[0].message.content or ""
@@ -176,6 +181,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                         }],
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        top_p=top_p,
                         stop=stop,
                     )
                     text = response.choices[0].message.content or ""
@@ -190,6 +196,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                     prompt=full_prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    top_p=top_p,
                     stop=stop,
                 )
                 

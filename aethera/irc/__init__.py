@@ -34,6 +34,18 @@ from .normalizer import IRCNormalizer, RawFragment, NormalizationError, normaliz
 from .storage import FragmentStorage
 from .autoloom import Autoloom, ChunkCandidate, JudgmentResult, detect_collapse_in_text, is_reasoning_model
 from .generator import IRCGenerator, GenerationConfig, GenerationState, generate_batch
+from .run_config import (
+    GenerationRunConfig,
+    ControlMode,
+    InferenceParams,
+    ProviderConfig,
+    PromptConfig,
+    SessionState,
+    ProviderInfo,
+    get_available_providers,
+)
+from .interactive import InteractiveGenerator, EventType, GenerationEvent, MockProvider
+from .sessions import Session, SessionManager, get_session_manager
 
 __all__ = [
     # Models
@@ -65,5 +77,22 @@ __all__ = [
     "normalize_lines",
     "detect_collapse_in_text",
     "is_reasoning_model",
+    "get_available_providers",
+    "get_session_manager",
+    # Runtime config
+    "GenerationRunConfig",
+    "ControlMode",
+    "InferenceParams",
+    "ProviderConfig",
+    "PromptConfig",
+    "SessionState",
+    "ProviderInfo",
+    # Interactive generation
+    "InteractiveGenerator",
+    "EventType",
+    "GenerationEvent",
+    "MockProvider",
+    "Session",
+    "SessionManager",
 ]
 

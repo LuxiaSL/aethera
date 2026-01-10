@@ -135,6 +135,7 @@ class AnthropicProvider(InferenceProvider):
         prompt: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -146,6 +147,7 @@ class AnthropicProvider(InferenceProvider):
             prompt: The prompt (or variable suffix if stable_prefix provided)
             max_tokens: Max tokens to generate
             temperature: Sampling temperature
+            top_p: Nucleus sampling threshold
             stop: Stop sequences
             system: Optional system prompt
             stable_prefix: Optional stable prefix to cache separately
@@ -188,6 +190,7 @@ class AnthropicProvider(InferenceProvider):
                 model=self._model,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop_sequences=stop or [],
                 messages=messages,
                 betas=[self.PROMPT_CACHING_BETA],
@@ -198,6 +201,7 @@ class AnthropicProvider(InferenceProvider):
                 model=self._model,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop_sequences=stop or [],
                 messages=messages,
                 **kwargs,
@@ -237,6 +241,7 @@ class AnthropicProvider(InferenceProvider):
         prefill: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -251,6 +256,7 @@ class AnthropicProvider(InferenceProvider):
             prefill: Assistant message to continue from
             max_tokens: Max tokens to generate
             temperature: Sampling temperature
+            top_p: Nucleus sampling threshold
             stop: Stop sequences
             system: Optional system prompt
             stable_prefix: Optional stable prefix to cache separately
@@ -296,6 +302,7 @@ class AnthropicProvider(InferenceProvider):
                 model=self._model,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop_sequences=stop or [],
                 messages=messages,
                 betas=[self.PROMPT_CACHING_BETA],
@@ -306,6 +313,7 @@ class AnthropicProvider(InferenceProvider):
                 model=self._model,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop_sequences=stop or [],
                 messages=messages,
                 **kwargs,
@@ -334,6 +342,7 @@ class AnthropicProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -352,7 +361,7 @@ class AnthropicProvider(InferenceProvider):
         # Run all completions in parallel
         # First one writes cache, rest read from cache
         tasks = [
-            self.complete(prompt, max_tokens, temperature, stop, system, stable_prefix)
+            self.complete(prompt, max_tokens, temperature, top_p, stop, system, stable_prefix)
             for _ in range(n)
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -394,6 +403,7 @@ class AnthropicProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -406,7 +416,7 @@ class AnthropicProvider(InferenceProvider):
         start_time = time.time()
         
         tasks = [
-            self.complete_with_prefill(prompt, prefill, max_tokens, temperature, stop, system, stable_prefix)
+            self.complete_with_prefill(prompt, prefill, max_tokens, temperature, top_p, stop, system, stable_prefix)
             for _ in range(n)
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)

@@ -99,6 +99,7 @@ class OpenAIProvider(InferenceProvider):
         prompt: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """Generate completion using OpenAI API."""
@@ -113,10 +114,11 @@ class OpenAIProvider(InferenceProvider):
                 "max_completion_tokens": max_tokens,
             }
             
-            # o3/o1 models only support temperature=1.0 and don't support stop
+            # o3/o1 models only support temperature=1.0 and don't support stop/top_p
             is_reasoning_model = any(x in self._model for x in ["o3", "o1"])
             if not is_reasoning_model:
                 kwargs["temperature"] = temperature
+                kwargs["top_p"] = top_p
                 if stop:
                     kwargs["stop"] = stop
             
@@ -132,6 +134,7 @@ class OpenAIProvider(InferenceProvider):
                 prompt=prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop=stop,
             )
             
@@ -164,6 +167,7 @@ class OpenAIProvider(InferenceProvider):
         prefill: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """
@@ -182,13 +186,22 @@ class OpenAIProvider(InferenceProvider):
                 {"role": "assistant", "content": prefill},
             ]
             
-            response = await client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                max_completion_tokens=max_tokens,
-                temperature=temperature,
-                stop=stop,
-            )
+            # Build kwargs, handling o3/o1 model restrictions
+            kwargs = {
+                "model": self._model,
+                "messages": messages,
+                "max_completion_tokens": max_tokens,
+            }
+            
+            # o3/o1 models only support temperature=1.0 and don't support stop/top_p
+            is_reasoning_model = any(x in self._model for x in ["o3", "o1"])
+            if not is_reasoning_model:
+                kwargs["temperature"] = temperature
+                kwargs["top_p"] = top_p
+                if stop:
+                    kwargs["stop"] = stop
+            
+            response = await client.chat.completions.create(**kwargs)
             
             # The response continues from the prefill
             continuation = response.choices[0].message.content or ""
@@ -204,6 +217,7 @@ class OpenAIProvider(InferenceProvider):
                 prompt=full_prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop=stop,
             )
             
@@ -235,6 +249,7 @@ class OpenAIProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> BatchCompletionResult:
         """
@@ -249,14 +264,23 @@ class OpenAIProvider(InferenceProvider):
         start_time = time.time()
         
         if self._mode == CompletionMode.CHAT:
-            response = await client.chat.completions.create(
-                model=self._model,
-                messages=[{"role": "user", "content": prompt}],
-                max_completion_tokens=max_tokens,
-                temperature=temperature,
-                stop=stop,
-                n=n,  # Native batch parameter!
-            )
+            # Build kwargs, handling o3/o1 model restrictions
+            kwargs = {
+                "model": self._model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_completion_tokens": max_tokens,
+                "n": n,  # Native batch parameter!
+            }
+            
+            # o3/o1 models only support temperature=1.0 and don't support stop/top_p
+            is_reasoning_model = any(x in self._model for x in ["o3", "o1"])
+            if not is_reasoning_model:
+                kwargs["temperature"] = temperature
+                kwargs["top_p"] = top_p
+                if stop:
+                    kwargs["stop"] = stop
+            
+            response = await client.chat.completions.create(**kwargs)
             
             texts = [
                 choice.message.content or ""
@@ -270,6 +294,7 @@ class OpenAIProvider(InferenceProvider):
                 prompt=prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop=stop,
                 n=n,
             )
@@ -309,6 +334,7 @@ class OpenAIProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -329,14 +355,23 @@ class OpenAIProvider(InferenceProvider):
                 {"role": "assistant", "content": prefill},
             ])
             
-            response = await client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                max_completion_tokens=max_tokens,
-                temperature=temperature,
-                stop=stop,
-                n=n,
-            )
+            # Build kwargs, handling o3/o1 model restrictions
+            kwargs = {
+                "model": self._model,
+                "messages": messages,
+                "max_completion_tokens": max_tokens,
+                "n": n,
+            }
+            
+            # o3/o1 models only support temperature=1.0 and don't support stop/top_p
+            is_reasoning_model = any(x in self._model for x in ["o3", "o1"])
+            if not is_reasoning_model:
+                kwargs["temperature"] = temperature
+                kwargs["top_p"] = top_p
+                if stop:
+                    kwargs["stop"] = stop
+            
+            response = await client.chat.completions.create(**kwargs)
             
             texts = [
                 choice.message.content or ""
@@ -352,6 +387,7 @@ class OpenAIProvider(InferenceProvider):
                 prompt=full_prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 stop=stop,
                 n=n,
             )

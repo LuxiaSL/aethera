@@ -1,0 +1,1019 @@
+/**
+ * IRC Admin Control Panel Styles
+ * 
+ * Follows æthera branding - inverted dark theme (like Dreams API docs).
+ * Uses soft fade backgrounds with white text on dark gradients.
+ */
+
+/* ============================================
+   Disable video background for this page
+   ============================================ */
+.irc-admin-page ~ .video-bg,
+body:has(.irc-admin-page) .video-bg {
+    display: none;
+}
+
+body:has(.irc-admin-page) {
+    background: radial-gradient(ellipse 80% 50% at 50% 20%, 
+        rgba(25, 25, 35, 1) 0%, 
+        rgba(8, 8, 12, 1) 50%,
+        rgba(0, 0, 0, 1) 100%);
+    background-attachment: fixed;
+}
+
+/* Invert header/footer for admin page (like dreams) */
+body:has(.irc-admin-page) .logo-container {
+    filter: invert(1);
+}
+
+body:has(.irc-admin-page) footer {
+    filter: invert(1);
+}
+
+/* ============================================
+   Admin Page Container
+   ============================================ */
+.irc-admin-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* ============================================
+   Page Header with ellipse glow
+   ============================================ */
+.admin-page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+    padding: 0.5rem 1.5rem;
+}
+
+.admin-page-header::before {
+    content: '';
+    position: absolute;
+    top: -1.5rem;
+    left: -3rem;
+    right: -3rem;
+    bottom: -1.5rem;
+    background: radial-gradient(ellipse 70% 70% at center, 
+        rgba(30, 30, 40, 0.9) 0%, 
+        rgba(15, 15, 20, 0.7) 40%, 
+        rgba(10, 10, 15, 0.3) 60%, 
+        transparent 80%);
+    z-index: -1;
+}
+
+.admin-page-header h1 {
+    font-size: 1.75rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+    color: #fff;
+    margin: 0 0 0.5rem 0;
+}
+
+.admin-page-header .session-info {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+#session-id {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.85rem;
+}
+
+/* ============================================
+   Status Badge
+   ============================================ */
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    background: rgba(255,255,255,0.1);
+    color: #888;
+}
+
+.status-badge.idle {
+    background: rgba(255,255,255,0.05);
+    color: #666;
+}
+
+.status-badge.running {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+.status-badge.paused {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+}
+
+.status-badge.complete {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+}
+
+.status-badge.error {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+}
+
+/* ============================================
+   Layout - Two Column
+   ============================================ */
+.admin-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   Config Panel (Left Sidebar)
+   ============================================ */
+.config-panel {
+    position: relative;
+    padding: 2rem;
+    background: linear-gradient(135deg, 
+        rgba(20, 20, 25, 0.95) 0%, 
+        rgba(10, 10, 12, 0.98) 50%,
+        rgba(15, 15, 18, 0.95) 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 
+        inset 0 0 60px rgba(0, 0, 0, 0.5),
+        4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.config-panel-bg {
+    display: none; /* Using CSS instead of canvas */
+}
+
+.config-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.config-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.config-section h2 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: lowercase;
+    color: #888;
+    margin: 0 0 0.75rem 0;
+    letter-spacing: 0.1em;
+}
+
+/* ============================================
+   Form Elements
+   ============================================ */
+.form-group {
+    margin-bottom: 0.75rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-bottom: 0.25rem;
+}
+
+.form-group select,
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 0.875rem;
+    font-family: 'Libertinus Mono', monospace;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+    border-color: rgba(255,255,255,0.3);
+    outline: none;
+}
+
+.form-group input[type="range"] {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    appearance: none;
+    cursor: pointer;
+    margin-top: 0.25rem;
+}
+
+.form-group input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.form-group input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+    accent-color: #fff;
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.7rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+/* API Key Status */
+.api-key-status {
+    font-size: 0.7rem;
+    font-weight: normal;
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.5rem;
+}
+
+.api-key-status.configured {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+.api-key-status.missing {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+}
+
+.api-key-status.not-required {
+    background: rgba(255,255,255,0.05);
+    color: #666;
+}
+
+/* ============================================
+   Radio Group
+   ============================================ */
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.radio-group label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.radio-group label:hover {
+    border-color: rgba(255,255,255,0.25);
+}
+
+.radio-group label input[type="radio"] {
+    margin-top: 0.2rem;
+    accent-color: #fff;
+}
+
+.radio-group label span {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fff;
+}
+
+.radio-group label small {
+    display: block;
+    font-size: 0.75rem;
+    color: #666;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.btn {
+    position: relative;
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 0.875rem;
+    font-family: 'Libertinus Mono', monospace;
+    text-transform: lowercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.05);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: rgba(255,255,255,0.15);
+}
+
+.btn-success {
+    background: rgba(74, 222, 128, 0.15);
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.25);
+}
+
+.btn-warning {
+    background: rgba(250, 204, 21, 0.15);
+    border-color: rgba(250, 204, 21, 0.4);
+    color: #facc15;
+}
+
+.btn-danger {
+    background: rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #f87171;
+}
+
+.btn-large {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.button-group .btn {
+    flex: 1;
+}
+
+.config-section.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* ============================================
+   Live Panel (Right Side)
+   ============================================ */
+.live-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.live-panel section {
+    position: relative;
+    padding: 1.5rem 2rem;
+    overflow: visible;
+    background: linear-gradient(180deg, 
+        rgba(18, 18, 22, 0.9) 0%, 
+        rgba(12, 12, 15, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.live-panel section .panel-bg {
+    display: none; /* Using CSS instead of canvas */
+}
+
+.live-panel h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: lowercase;
+    color: #888;
+    letter-spacing: 0.05em;
+}
+
+/* ============================================
+   Progress Section
+   ============================================ */
+.progress-section {
+    padding: 1rem 2rem !important;
+}
+
+.progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80, #60a5fa);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+/* ============================================
+   Log Stream
+   ============================================ */
+.log-section {
+    flex: 0 0 auto;
+}
+
+.log-stream {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.75rem;
+    max-height: 180px;
+    overflow-y: auto;
+    color: #aaa;
+}
+
+.log-stream .log-entry {
+    padding: 0.125rem 0;
+}
+
+.log-stream .log-entry.debug {
+    color: #666;
+}
+
+.log-stream .log-entry.info {
+    color: #aaa;
+}
+
+.log-stream .log-entry.warning {
+    color: #facc15;
+}
+
+.log-stream .log-entry.error {
+    color: #f87171;
+}
+
+/* ============================================
+   Candidates Section
+   ============================================ */
+.candidates-section {
+    flex: 0 0 auto;
+}
+
+.candidates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.candidate-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.candidate-card:hover {
+    border-color: rgba(255,255,255,0.3);
+}
+
+.candidate-card.selected {
+    border-color: rgba(74, 222, 128, 0.5);
+    background: rgba(74, 222, 128, 0.1);
+}
+
+.candidate-card.winner {
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(167, 139, 250, 0.1);
+}
+
+.candidate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.candidate-number {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #fff;
+}
+
+.candidate-badges {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.candidate-badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+    background: rgba(255,255,255,0.05);
+    color: #888;
+}
+
+.candidate-badge.collapse {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+}
+
+.candidate-content {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: #888;
+    max-height: 100px;
+    overflow: hidden;
+    white-space: pre-wrap;
+}
+
+.candidate-score {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #666;
+}
+
+/* ============================================
+   Waiting Indicator
+   ============================================ */
+.waiting-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(250, 204, 21, 0.1);
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    margin-top: 0.75rem;
+}
+
+.waiting-indicator.hidden {
+    display: none;
+}
+
+.waiting-text {
+    color: #facc15;
+    font-weight: 500;
+}
+
+/* ============================================
+   Transcript Section
+   ============================================ */
+.transcript-section {
+    flex: 1;
+    min-height: 200px;
+}
+
+.transcript {
+    margin: 0;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.4);
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    color: #ccc;
+    max-height: 400px;
+}
+
+.transcript .new-line {
+    background: rgba(74, 222, 128, 0.1);
+}
+
+/* ============================================
+   Stats Section
+   ============================================ */
+.stats-section {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem 2rem !important;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    text-transform: lowercase;
+    color: #666;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* ============================================
+   Export Section
+   ============================================ */
+.export-section {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem 2rem !important;
+}
+
+/* ============================================
+   Utility
+   ============================================ */
+.hidden {
+    display: none !important;
+}
+
+/* ============================================
+   Scrollbar styling
+   ============================================ */
+.irc-admin-page ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.irc-admin-page ::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+}
+
+.irc-admin-page ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+}
+
+.irc-admin-page ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.25);
+}
+
+/* ============================================
+   Prompt Customization Section
+   ============================================ */
+.prompts-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 1rem;
+}
+
+.collapsible-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 0.2s;
+}
+
+.collapsible-header:hover {
+    color: #aaa;
+}
+
+.toggle-icon {
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+
+.toggle-icon.expanded {
+    transform: rotate(90deg);
+}
+
+.collapsible-content {
+    margin-top: 1rem;
+}
+
+.section-hint {
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 1rem;
+    font-style: italic;
+}
+
+.prompt-group {
+    margin-bottom: 1.5rem;
+}
+
+.prompt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.prompt-header label {
+    font-size: 0.8rem;
+    color: #aaa;
+    text-transform: lowercase;
+}
+
+.prompt-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.75rem;
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ddd;
+    resize: vertical;
+    border-radius: 2px;
+}
+
+.prompt-textarea:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.prompt-textarea::placeholder {
+    color: #555;
+    font-style: italic;
+}
+
+.btn-small {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.65rem;
+}
+
+.btn-reset {
+    color: #888;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-reset:hover {
+    color: #aaa;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-view-default {
+    margin-top: 0.5rem;
+    color: #666;
+    border-color: rgba(255, 255, 255, 0.08);
+    font-size: 0.65rem;
+}
+
+.btn-view-default:hover {
+    color: #888;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal for viewing default prompts */
+.prompt-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+}
+
+.prompt-modal-content {
+    background: linear-gradient(135deg, 
+        rgba(20, 20, 25, 0.98) 0%, 
+        rgba(12, 12, 15, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 900px;
+    max-height: 80vh;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.prompt-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prompt-modal-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 400;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    color: #aaa;
+}
+
+.prompt-modal-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.prompt-modal-close:hover {
+    color: #aaa;
+}
+
+.prompt-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.prompt-modal-body pre {
+    margin: 0;
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #ccc;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.prompt-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.btn-copy-prompt {
+    color: #4a9eff;
+    border-color: rgba(74, 158, 255, 0.3);
+}
+
+.btn-copy-prompt:hover {
+    background: rgba(74, 158, 255, 0.1);
+}
+
+/* ============================================
+   Settings Profiles Section
+   ============================================ */
+.profiles-section {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 1rem;
+}
+
+.profiles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.profiles-list:empty::before {
+    content: 'no saved profiles';
+    font-size: 0.7rem;
+    color: #555;
+    font-style: italic;
+    padding: 0.5rem 0;
+}
+
+.profile-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    font-size: 0.75rem;
+}
+
+.profile-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.profile-item .profile-name {
+    flex: 1;
+    color: #aaa;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-item .profile-date {
+    font-size: 0.65rem;
+    color: #555;
+}
+
+.profile-item .btn-load-profile {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.6rem;
+    color: #4a9eff;
+    border-color: rgba(74, 158, 255, 0.3);
+}
+
+.profile-item .btn-load-profile:hover {
+    background: rgba(74, 158, 255, 0.15);
+}
+
+.profile-item .btn-delete-profile {
+    padding: 0.15rem 0.3rem;
+    font-size: 0.6rem;
+    color: #888;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.profile-item .btn-delete-profile:hover {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+.profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.profile-save-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.profile-save-row input {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+.profile-io-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.profile-io-row .btn {
+    flex: 1;
+    text-align: center;
+}
+
+.btn-import {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Profile active indicator */
+.profile-item.active {
+    border-color: rgba(74, 158, 255, 0.4);
+    background: rgba(74, 158, 255, 0.08);
+}
+
+.profile-item.active .profile-name {
+    color: #4a9eff;
+}
+
+.profile-item.active .profile-name::after {
+    content: ' ●';
+    font-size: 0.5rem;
+    vertical-align: middle;
+}

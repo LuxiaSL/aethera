@@ -111,6 +111,7 @@ class InferenceProvider(ABC):
         prompt: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """
@@ -120,6 +121,7 @@ class InferenceProvider(ABC):
             prompt: The prompt text
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature (default 1.0)
+            top_p: Nucleus sampling threshold (default 1.0)
             stop: Optional stop sequences
             
         Returns:
@@ -134,6 +136,7 @@ class InferenceProvider(ABC):
         prefill: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """
@@ -144,6 +147,7 @@ class InferenceProvider(ABC):
             prefill: Text to prefill the response with
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature
+            top_p: Nucleus sampling threshold (default 1.0)
             stop: Optional stop sequences
             
         Returns:
@@ -157,6 +161,7 @@ class InferenceProvider(ABC):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> BatchCompletionResult:
         """
@@ -170,6 +175,7 @@ class InferenceProvider(ABC):
             n: Number of completions to generate
             max_tokens: Maximum tokens per completion
             temperature: Sampling temperature
+            top_p: Nucleus sampling threshold (default 1.0)
             stop: Optional stop sequences
             
         Returns:
@@ -180,7 +186,7 @@ class InferenceProvider(ABC):
         
         # Default: parallel API calls
         tasks = [
-            self.complete(prompt, max_tokens, temperature, stop)
+            self.complete(prompt, max_tokens, temperature, top_p, stop)
             for _ in range(n)
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -219,6 +225,7 @@ class InferenceProvider(ABC):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -234,6 +241,7 @@ class InferenceProvider(ABC):
             n: Number of completions to generate
             max_tokens: Maximum tokens per completion
             temperature: Sampling temperature
+            top_p: Nucleus sampling threshold (default 1.0)
             stop: Optional stop sequences
             
         Returns:
@@ -243,7 +251,7 @@ class InferenceProvider(ABC):
         start_time = time.time()
         
         tasks = [
-            self.complete_with_prefill(prompt, prefill, max_tokens, temperature, stop)
+            self.complete_with_prefill(prompt, prefill, max_tokens, temperature, top_p, stop)
             for _ in range(n)
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)

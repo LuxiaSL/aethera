@@ -157,6 +157,7 @@ class OpenRouterProvider(InferenceProvider):
         prompt: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """Generate completion."""
@@ -165,6 +166,7 @@ class OpenRouterProvider(InferenceProvider):
             prefill=None,
             max_tokens=max_tokens,
             temperature=temperature,
+            top_p=top_p,
             stop=stop,
         )
     
@@ -174,6 +176,7 @@ class OpenRouterProvider(InferenceProvider):
         prefill: str,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> CompletionResult:
         """Generate completion with prefill."""
@@ -182,6 +185,7 @@ class OpenRouterProvider(InferenceProvider):
             prefill=prefill,
             max_tokens=max_tokens,
             temperature=temperature,
+            top_p=top_p,
             stop=stop,
         )
     
@@ -191,6 +195,7 @@ class OpenRouterProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
     ) -> BatchCompletionResult:
         """Generate multiple completions."""
@@ -202,13 +207,14 @@ class OpenRouterProvider(InferenceProvider):
                     n=n,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    top_p=top_p,
                     stop=stop,
                 )
             except Exception as e:
                 logger.warning(f"Native n failed for {self._model}, falling back: {e}")
                 self._n_supported = False
         
-        return await super().complete_batch(prompt, n, max_tokens, temperature, stop)
+        return await super().complete_batch(prompt, n, max_tokens, temperature, top_p, stop)
     
     def _is_anthropic_model(self) -> bool:
         """Check if current model is an Anthropic model (supports stable_prefix caching)."""
@@ -222,6 +228,7 @@ class OpenRouterProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float = 1.0,
+        top_p: float = 1.0,
         stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
@@ -241,6 +248,7 @@ class OpenRouterProvider(InferenceProvider):
                     n=n,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    top_p=top_p,
                     stop=stop,
                     system=system,
                     stable_prefix=stable_prefix,  # Pass for cache_control marking
@@ -250,7 +258,7 @@ class OpenRouterProvider(InferenceProvider):
                 self._n_supported = False
         
         return await super().complete_batch_with_prefill(
-            effective_prompt, prefill, n, max_tokens, temperature, stop
+            effective_prompt, prefill, n, max_tokens, temperature, top_p, stop
         )
     
     @rate_limit_retry
@@ -260,7 +268,8 @@ class OpenRouterProvider(InferenceProvider):
         prefill: Optional[str],
         max_tokens: int,
         temperature: float,
-        stop: Optional[list[str]],
+        top_p: float = 1.0,
+        stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
     ) -> CompletionResult:
@@ -278,6 +287,7 @@ class OpenRouterProvider(InferenceProvider):
                 "prompt": full_prompt,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "top_p": top_p,
             }
             if stop:
                 payload["stop"] = stop
@@ -321,6 +331,7 @@ class OpenRouterProvider(InferenceProvider):
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "top_p": top_p,
             }
             if stop:
                 payload["stop"] = stop
@@ -365,7 +376,8 @@ class OpenRouterProvider(InferenceProvider):
         n: int,
         max_tokens: int,
         temperature: float,
-        stop: Optional[list[str]],
+        top_p: float = 1.0,
+        stop: Optional[list[str]] = None,
         system: Optional[str] = None,
         stable_prefix: Optional[str] = None,
     ) -> BatchCompletionResult:
@@ -383,6 +395,7 @@ class OpenRouterProvider(InferenceProvider):
                 "prompt": full_prompt,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "top_p": top_p,
                 "n": n,
             }
             if stop:
@@ -429,6 +442,7 @@ class OpenRouterProvider(InferenceProvider):
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "top_p": top_p,
                 "n": n,
                 "usage": {"include": True},
             }

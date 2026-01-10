@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}IRC Generation Control Panel | æthera{% endblock %}
+
+{% block extra_head %}
+<link href="/static/css/irc-admin.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="irc-admin-page">
+    <!-- Page Header -->
+    <header class="admin-page-header">
+        <h1>irc generation control panel</h1>
+        <div class="session-info">
+            <span id="session-status" class="status-badge idle">no session</span>
+            <span id="session-id"></span>
+        </div>
+    </header>
+
+    <div class="admin-layout">
+        <!-- Left Panel: Configuration -->
+        <aside class="config-panel">
+            
+            <section class="config-section">
+                <h2>session</h2>
+                <div class="button-group">
+                    <button id="btn-new-session" class="btn btn-primary">new session</button>
+                    <button id="btn-delete-session" class="btn btn-danger" disabled>delete</button>
+                </div>
+            </section>
+
+            <!-- Settings Profiles -->
+            <section class="config-section profiles-section">
+                <h2>settings profiles</h2>
+                <div class="profiles-list" id="profiles-list">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="profile-actions">
+                    <div class="profile-save-row">
+                        <input type="text" id="profile-name" placeholder="profile name" maxlength="32">
+                        <button id="btn-save-profile" class="btn btn-small btn-primary">save</button>
+                    </div>
+                    <div class="profile-io-row">
+                        <button id="btn-export-profile" class="btn btn-small">export json</button>
+                        <label class="btn btn-small btn-import">
+                            import
+                            <input type="file" id="btn-import-profile" accept=".json" hidden>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>generation provider</h2>
+                <div class="form-group">
+                    <label for="gen-provider">provider</label>
+                    <select id="gen-provider">
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="local">Local / Custom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="gen-model">model</label>
+                    <input type="text" id="gen-model" placeholder="e.g., claude-3-5-sonnet-20241022">
+                    <small class="form-hint">enter exact model slug (e.g., gpt-4o, claude-3-opus)</small>
+                </div>
+                <div class="form-group api-key-group" id="gen-api-key-group">
+                    <label for="gen-api-key">
+                        api key 
+                        <span id="gen-api-key-status" class="api-key-status"></span>
+                    </label>
+                    <input type="password" id="gen-api-key" placeholder="Leave blank to use env var">
+                    <small class="form-hint">uses environment variable if blank</small>
+                </div>
+                <div class="form-group" id="gen-base-url-group" style="display: none;">
+                    <label for="gen-base-url">base url</label>
+                    <input type="text" id="gen-base-url" placeholder="http://localhost:8000/v1">
+                </div>
+                <div class="form-group">
+                    <label for="gen-temp">temperature: <span id="gen-temp-val">0.9</span></label>
+                    <input type="range" id="gen-temp" min="0" max="2" step="0.1" value="0.9">
+                </div>
+                <div class="form-group">
+                    <label for="gen-top-p">top-p: <span id="gen-top-p-val">1.0</span></label>
+                    <input type="range" id="gen-top-p" min="0" max="1" step="0.05" value="1.0">
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>judge provider</h2>
+                <div class="form-group">
+                    <label for="judge-provider">provider</label>
+                    <select id="judge-provider">
+                        <option value="openai" selected>OpenAI</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="local">Local / Custom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="judge-model">model</label>
+                    <input type="text" id="judge-model" placeholder="e.g., gpt-4o, o3, o3-mini">
+                    <small class="form-hint">enter exact model slug</small>
+                </div>
+                <div class="form-group api-key-group" id="judge-api-key-group">
+                    <label for="judge-api-key">
+                        api key 
+                        <span id="judge-api-key-status" class="api-key-status"></span>
+                    </label>
+                    <input type="password" id="judge-api-key" placeholder="Leave blank to use env var">
+                    <small class="form-hint">uses environment variable if blank</small>
+                </div>
+                <div class="form-group" id="judge-base-url-group" style="display: none;">
+                    <label for="judge-base-url">base url</label>
+                    <input type="text" id="judge-base-url" placeholder="http://localhost:8000/v1">
+                </div>
+                <div class="form-group">
+                    <label for="judge-temp">temperature: <span id="judge-temp-val">0.3</span></label>
+                    <input type="range" id="judge-temp" min="0" max="2" step="0.1" value="0.3">
+                </div>
+                <div class="form-group">
+                    <label for="judge-top-p">top-p: <span id="judge-top-p-val">1.0</span></label>
+                    <input type="range" id="judge-top-p" min="0" max="1" step="0.05" value="1.0">
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>fragment parameters</h2>
+                <div class="form-group">
+                    <label for="frag-style">style</label>
+                    <select id="frag-style">
+                        <option value="">Random</option>
+                        <option value="technical">Technical</option>
+                        <option value="philosophical">Philosophical</option>
+                        <option value="chaotic">Chaotic</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="frag-collapse">collapse type</label>
+                    <select id="frag-collapse">
+                        <option value="">Random</option>
+                        <option value="netsplit">Netsplit</option>
+                        <option value="gline">G-Line</option>
+                        <option value="mass_kick">Mass Kick</option>
+                        <option value="ping_timeout">Ping Timeout</option>
+                        <option value="sendq_exceeded">SendQ Exceeded</option>
+                        <option value="corruption">Corruption</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="frag-target">target messages: <span id="frag-target-val">25</span></label>
+                    <input type="range" id="frag-target" min="10" max="60" step="5" value="25">
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>loop settings</h2>
+                <div class="form-group">
+                    <label for="loop-batch">candidates per batch: <span id="loop-batch-val">10</span></label>
+                    <input type="range" id="loop-batch" min="1" max="20" step="1" value="10">
+                </div>
+                <div class="form-group">
+                    <label for="loop-threshold">autoloom threshold: <span id="loop-threshold-val">0.4</span></label>
+                    <input type="range" id="loop-threshold" min="0" max="1" step="0.05" value="0.4">
+                </div>
+            </section>
+
+            <!-- Prompt Customization (Collapsible) -->
+            <section class="config-section prompts-section">
+                <h2 class="collapsible-header" id="prompts-toggle">
+                    <span class="toggle-icon">▶</span> prompt customization
+                </h2>
+                <div class="collapsible-content" id="prompts-content" style="display: none;">
+                    <p class="section-hint">customize prompts for generation and judging. leave blank to use defaults.</p>
+                    
+                    <!-- Generation System Prompt -->
+                    <div class="prompt-group">
+                        <div class="prompt-header">
+                            <label for="prompt-gen-system">generation system prompt</label>
+                            <button type="button" class="btn btn-small btn-reset" data-reset="prompt-gen-system">reset</button>
+                        </div>
+                        <textarea id="prompt-gen-system" class="prompt-textarea" rows="4" 
+                            placeholder="Leave blank for default. Sets the CLI simulation mode for generation."></textarea>
+                        <button type="button" class="btn btn-small btn-view-default" data-view="generation.system_prompt">view default</button>
+                    </div>
+                    
+                    <!-- Judge System Prompt -->
+                    <div class="prompt-group">
+                        <div class="prompt-header">
+                            <label for="prompt-judge-system">judge system prompt</label>
+                            <button type="button" class="btn btn-small btn-reset" data-reset="prompt-judge-system">reset</button>
+                        </div>
+                        <textarea id="prompt-judge-system" class="prompt-textarea" rows="6" 
+                            placeholder="Leave blank for default. Defines evaluation criteria for the judge."></textarea>
+                        <button type="button" class="btn btn-small btn-view-default" data-view="judge.system_prompt">view default</button>
+                    </div>
+                    
+                    <!-- Judge User Template -->
+                    <div class="prompt-group">
+                        <div class="prompt-header">
+                            <label for="prompt-judge-user">judge user template (continuation)</label>
+                            <button type="button" class="btn btn-small btn-reset" data-reset="prompt-judge-user">reset</button>
+                        </div>
+                        <textarea id="prompt-judge-user" class="prompt-textarea" rows="8" 
+                            placeholder="Leave blank for default. Template variables: {current_messages}, {target_messages}, {progress_pct}, {pacing_guidance}, {context}, {num_candidates}, {candidates}"></textarea>
+                        <button type="button" class="btn btn-small btn-view-default" data-view="judge.user_template">view default</button>
+                    </div>
+                    
+                    <!-- Judge User Template First -->
+                    <div class="prompt-group">
+                        <div class="prompt-header">
+                            <label for="prompt-judge-user-first">judge user template (first chunk)</label>
+                            <button type="button" class="btn btn-small btn-reset" data-reset="prompt-judge-user-first">reset</button>
+                        </div>
+                        <textarea id="prompt-judge-user-first" class="prompt-textarea" rows="6" 
+                            placeholder="Leave blank for default. Template variables: {target_messages}, {num_candidates}, {candidates}"></textarea>
+                        <button type="button" class="btn btn-small btn-view-default" data-view="judge.user_template_first">view default</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>control mode</h2>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="control-mode" value="autonomous" checked>
+                        <div>
+                            <span>autonomous</span>
+                            <small>runs to completion</small>
+                        </div>
+                    </label>
+                    <label>
+                        <input type="radio" name="control-mode" value="confirm_step">
+                        <div>
+                            <span>confirm step</span>
+                            <small>pause after each judgment</small>
+                        </div>
+                    </label>
+                    <label>
+                        <input type="radio" name="control-mode" value="manual_select">
+                        <div>
+                            <span>manual select</span>
+                            <small>you pick the winner</small>
+                        </div>
+                    </label>
+                </div>
+                <div class="form-group" style="margin-top: 0.75rem;">
+                    <label>
+                        <input type="checkbox" id="dry-run">
+                        dry run (mock providers)
+                    </label>
+                </div>
+            </section>
+
+            <section class="config-section actions">
+                <button id="btn-start" class="btn btn-success btn-large" disabled>start generation</button>
+                <button id="btn-stop" class="btn btn-warning" disabled>stop</button>
+            </section>
+        </aside>
+
+        <!-- Main Panel: Live View -->
+        <main class="live-panel">
+            <!-- Progress -->
+            <section class="progress-section">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progress-messages">0/25 messages</span>
+                    <span id="progress-chunks">chunk 0</span>
+                    <span id="progress-phase">idle</span>
+                </div>
+            </section>
+
+            <!-- Log Stream -->
+            <section class="log-section">
+                <h3>log stream</h3>
+                <div id="log-stream" class="log-stream"></div>
+            </section>
+
+            <!-- Candidates -->
+            <section class="candidates-section">
+                <h3>candidates <span id="candidates-count"></span></h3>
+                <div id="candidates-grid" class="candidates-grid"></div>
+                <div id="waiting-indicator" class="waiting-indicator hidden">
+                    <span class="waiting-text">waiting for selection...</span>
+                    <button id="btn-continue" class="btn btn-primary hidden">continue</button>
+                </div>
+            </section>
+
+            <!-- Transcript -->
+            <section class="transcript-section">
+                <h3>accumulated transcript</h3>
+                <pre id="transcript" class="transcript"></pre>
+            </section>
+
+            <!-- Stats -->
+            <section class="stats-section">
+                <div class="stat">
+                    <span class="stat-label">tokens</span>
+                    <span id="stat-tokens" class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">cost</span>
+                    <span id="stat-cost" class="stat-value">$0.0000</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">time</span>
+                    <span id="stat-time" class="stat-value">0s</span>
+                </div>
+            </section>
+
+            <!-- Export -->
+            <section class="export-section">
+                <button id="btn-export" class="btn" disabled>export txt</button>
+                <button id="btn-copy" class="btn" disabled>copy to clipboard</button>
+            </section>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/irc-admin.js"></script>
+{% endblock %}

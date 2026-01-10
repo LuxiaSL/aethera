@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .providers.base import InferenceProvider, CompletionMode
+from .run_config import InferenceParams
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,10 @@ class Autoloom:
         judge_provider: InferenceProvider,
         threshold: float = 0.4,  # Lower threshold since we're picking the best
         max_retries: int = 2,
+        custom_system_prompt: Optional[str] = None,
+        custom_user_template: Optional[str] = None,
+        custom_user_template_first: Optional[str] = None,
+        judge_params: Optional[InferenceParams] = None,
     ):
         """
         Initialize autoloom.
@@ -171,10 +176,22 @@ class Autoloom:
             judge_provider: LLM provider for judging (should be instruct model)
             threshold: Minimum score to accept ANY candidate
             max_retries: Retries on parse failure
+            custom_system_prompt: Override for JUDGE_SYSTEM_PROMPT
+            custom_user_template: Override for JUDGE_USER_TEMPLATE_CONTINUATION
+            custom_user_template_first: Override for JUDGE_USER_TEMPLATE_FIRST
+            judge_params: Inference parameters (temperature, top_p, max_tokens) for judging
         """
         self.provider = judge_provider
         self.threshold = threshold
         self.max_retries = max_retries
+        
+        # Custom prompts (None = use defaults)
+        self.system_prompt = custom_system_prompt or JUDGE_SYSTEM_PROMPT
+        self.user_template = custom_user_template or JUDGE_USER_TEMPLATE_CONTINUATION
+        self.user_template_first = custom_user_template_first or JUDGE_USER_TEMPLATE_FIRST
+        
+        # Judge inference params (None = use defaults)
+        self.judge_params = judge_params
         
         # Validate provider mode
         if self.provider.mode != CompletionMode.CHAT:
@@ -224,7 +241,7 @@ class Autoloom:
             progress_pct = (current_messages / target_messages * 100) if target_messages > 0 else 0
             pacing_guidance = get_pacing_guidance(current_messages, target_messages)
             
-            user_prompt = JUDGE_USER_TEMPLATE_CONTINUATION.format(
+            user_prompt = self.user_template.format(
                 current_messages=current_messages,
                 target_messages=target_messages,
                 progress_pct=progress_pct,
@@ -234,39 +251,46 @@ class Autoloom:
                 candidates=candidates_text,
             )
         else:
-            user_prompt = JUDGE_USER_TEMPLATE_FIRST.format(
+            user_prompt = self.user_template_first.format(
                 target_messages=target_messages,
                 num_candidates=len(candidates),
                 candidates=candidates_text,
             )
         
-        # Determine temperature and max_tokens based on model type
+        # Determine temperature, top_p, and max_tokens
+        # Use user-configured params if provided, with defaults as fallback
         # Reasoning models (o3, o1) require temp=1.0 and need much more tokens
-        # because reasoning tokens count against the limit
         use_reasoning_mode = is_reasoning_model(self.provider.model)
+        
         if use_reasoning_mode:
+            # Reasoning models MUST use temp=1.0 (API requirement)
             temperature = 1.0
             max_tokens = 16000  # Reasoning models need headroom for thinking
-            logger.debug(f"Using reasoning model settings for {self.provider.model}")
+            top_p = self.judge_params.top_p if self.judge_params else 1.0
+            logger.debug(f"Using reasoning model settings for {self.provider.model} (temp forced to 1.0)")
         else:
-            temperature = 0.3  # Slightly higher than 0.2 for more nuanced judging
-            max_tokens = 800
+            # Use user-configured params or defaults
+            temperature = self.judge_params.temperature if self.judge_params else 0.3
+            max_tokens = self.judge_params.max_tokens if self.judge_params else 800
+            top_p = self.judge_params.top_p if self.judge_params else 1.0
         
         # Get judgment from model
         for attempt in range(self.max_retries + 1):
             try:
                 if self.provider.mode == CompletionMode.CHAT:
                     result = await self.provider.complete(
-                        prompt=f"{JUDGE_SYSTEM_PROMPT}\n\n{user_prompt}",
+                        prompt=f"{self.system_prompt}\n\n{user_prompt}",
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        top_p=top_p,
                     )
                 else:
                     # For completion mode, include system in prompt
                     result = await self.provider.complete(
-                        prompt=f"{JUDGE_SYSTEM_PROMPT}\n\n{user_prompt}\n\nSCORES:",
+                        prompt=f"{self.system_prompt}\n\n{user_prompt}\n\nSCORES:",
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        top_p=top_p,
                     )
                 
                 judgment = self._parse_judgment(result.text, candidates)
