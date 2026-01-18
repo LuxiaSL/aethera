@@ -116,11 +116,13 @@ def get_hub() -> DreamWebSocketHub:
         
         # Initialize presence tracker with GPU callbacks
         # Longer shutdown delay to prevent premature GPU shutdown when tabbing away
+        # Pass gpu_manager reference so presence tracker can check STARTING state
         _presence_tracker = ViewerPresenceTracker(
             shutdown_delay=300.0,  # 5 minutes - match API timeout
             api_timeout=300.0,
             on_should_start=_on_gpu_should_start,
             on_should_stop=_on_gpu_should_stop,
+            gpu_manager=_gpu_manager,
         )
         
         # Initialize WebSocket hub with all components
@@ -272,12 +274,17 @@ async def dreams_status(request: Request):
     
     Returns system status, viewer count, GPU state, and generation stats.
     Rate limited to 60 requests per minute per IP.
+    
+    NOTE: This is a monitoring endpoint - it does NOT trigger GPU start.
+    Admin panels and monitoring tools can poll this without causing GPU spin-up.
     """
     check_rate_limit(request)
     global _gpu_manager
     
     hub = get_hub()
-    hub.presence.on_api_access()  # Track API activity
+    # Status is a monitoring endpoint - don't trigger GPU start
+    # This prevents the admin panel from causing infinite job submissions
+    hub.presence.on_api_access(trigger_gpu_start=False)
     
     stats = hub.get_stats()
     gpu_stats = _gpu_manager.get_status() if _gpu_manager else {}

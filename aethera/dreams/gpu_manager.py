@@ -128,6 +128,7 @@ class RunPodManager:
         
         Thread-safe with lock to prevent duplicate job submissions.
         Also includes debounce to prevent rapid-fire submissions.
+        Additionally checks the RunPod queue to prevent submitting if jobs already exist.
         
         Returns:
             True if start was initiated successfully (or already running)
@@ -157,6 +158,21 @@ class RunPodManager:
                 logger.error("Cannot start GPU: RunPod not configured")
                 await self._set_state(GPUState.ERROR, "RunPod not configured")
                 return False
+            
+            # QUEUE LIMITER: Check if there are already jobs in the queue
+            # This prevents piling up jobs when something goes wrong
+            queue_status = await self._check_queue_status()
+            if queue_status:
+                in_queue = queue_status.get("jobs", {}).get("inQueue", 0)
+                in_progress = queue_status.get("jobs", {}).get("inProgress", 0)
+                if in_queue > 0 or in_progress > 0:
+                    logger.warning(
+                        f"Refusing to submit: {in_queue} jobs in queue, {in_progress} in progress. "
+                        "Queue limiter active - not submitting new job."
+                    )
+                    # Set to STARTING state since there's already a job in queue
+                    await self._set_state(GPUState.STARTING)
+                    return True  # Return True since there's already a job handling this
             
             self.stats.start_attempts += 1
             await self._set_state(GPUState.STARTING)
@@ -343,6 +359,39 @@ class RunPodManager:
         except Exception as e:
             logger.error(f"Failed to get job status: {e}")
             return None
+    
+    async def _check_queue_status(self) -> Optional[dict]:
+        """
+        Check RunPod endpoint health/queue status.
+        
+        Used as a queue limiter to prevent submitting jobs when
+        there are already jobs in queue or in progress.
+        
+        Returns:
+            Health status dict with workers and jobs info, or None on error
+        """
+        if not self.is_configured:
+            return None
+        
+        url = f"{self.RUNPOD_API_BASE}/{self.endpoint_id}/health"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        
+        try:
+            if HAS_HTTPX:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url, headers=headers, timeout=10.0)
+                    if response.status_code == 200:
+                        return response.json()
+            elif HAS_AIOHTTP:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, timeout=10) as response:
+                        if response.status == 200:
+                            return await response.json()
+            return None
+        
+        except Exception as e:
+            logger.warning(f"Failed to check queue status (will allow job submission): {e}")
+            return None  # On error, allow job submission (fail open)
     
     async def _health_check_loop(self) -> None:
         """Periodically check GPU health"""
