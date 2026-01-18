@@ -9,7 +9,7 @@ on:
 # Required VPS Setup:
 # 1. Caddy reverse proxy configured for aetherawi.red
 #    (WebSocket support is automatic with Caddy)
-# 2. /opt/aethera/.env file with:
+# 2. /opt/aethera-server/core/.env file with:
 #    - AETHERA_TRIPCODE_SALT=<your-salt>
 #    - DREAM_GEN_AUTH_TOKEN=<shared-secret-with-runpod>
 #    - RUNPOD_API_KEY=<your-runpod-api-key>
@@ -31,7 +31,7 @@ jobs:
             set -e
             
             echo "📦 Pulling latest changes..."
-            cd /opt/aethera
+            cd /opt/aethera-server/core
             git pull origin main
             
             echo "🔨 Building Docker image..."
@@ -44,8 +44,8 @@ jobs:
               --name aethera \
               --restart unless-stopped \
               -p 127.0.0.1:8000:8000 \
-              --env-file /opt/aethera/.env \
-              -v /opt/aethera/data:/app/data \
+              --env-file /opt/aethera-server/core/.env \
+              -v /opt/aethera-server/core/data:/app/data \
               aethera:latest
             
             echo "⏳ Waiting for container to be healthy..."

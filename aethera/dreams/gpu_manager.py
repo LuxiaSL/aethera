@@ -409,6 +409,8 @@ class RunPodManager:
             "start_attempts": self.stats.start_attempts,
             "error_message": self.stats.error_message,
             "last_frame_age": round(time.time() - self.stats.last_frame_time, 1) if self.stats.last_frame_time else None,
+            # Expose running job ID so admin panel can cancel it
+            "running_job_id": self._running_job_id,
         }
 
 

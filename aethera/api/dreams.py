@@ -292,6 +292,8 @@ async def dreams_status(request: Request):
             "uptime_seconds": gpu_stats.get("uptime_seconds", 0),
             "frames_received": gpu_stats.get("frames_received", 0),
             "error_message": gpu_stats.get("error_message"),
+            # Expose running job ID so admin panel can cancel it
+            "running_job_id": gpu_stats.get("running_job_id"),
         },
         "generation": {
             "frame_count": stats["total_frames_received"],
