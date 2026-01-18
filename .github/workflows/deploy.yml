@@ -38,11 +38,17 @@ jobs:
             docker build -t aethera:latest .
             
             echo "🔄 Restarting container..."
-            docker stop aethera || true
-            docker rm aethera || true
+            # Stop and remove with force flag to handle race conditions
+            docker stop aethera 2>/dev/null || true
+            sleep 2  # Give container time to fully stop
+            docker rm -f aethera 2>/dev/null || true
             docker run -d \
               --name aethera \
               --restart unless-stopped \
+              --health-cmd "curl -f http://localhost:8000/healthz || exit 1" \
+              --health-interval 30s \
+              --health-timeout 10s \
+              --health-retries 3 \
               -p 127.0.0.1:8000:8000 \
               --env-file /opt/aethera-server/core/.env \
               -v /opt/aethera-server/core/data:/app/data \
