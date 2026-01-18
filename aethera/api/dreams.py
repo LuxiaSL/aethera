@@ -413,6 +413,54 @@ async def dreams_health():
         )
 
 
+@router.post("/api/dreams/stop")
+async def dreams_stop_gpu(request: Request):
+    """
+    Force stop the GPU / abort startup
+    
+    Used by admin panel to abort GPU startup when user clicks "Stop GPU"
+    during the STARTING phase. This immediately stops the health check loop
+    and resets the GPU state to IDLE.
+    
+    This is an admin-only endpoint - no rate limiting since it's called
+    programmatically by the admin panel.
+    
+    Returns:
+        200: GPU stopped successfully
+        500: Error stopping GPU
+    """
+    global _gpu_manager
+    
+    try:
+        hub = get_hub()
+        
+        if _gpu_manager is None:
+            return JSONResponse({
+                "success": False,
+                "error": "GPU manager not initialized",
+            }, status_code=500)
+        
+        current_state = _gpu_manager.stats.state.value
+        logger.info(f"Admin requested GPU stop (current state: {current_state})")
+        
+        # Stop the GPU (this cancels health check loop and resets state)
+        result = await _gpu_manager.stop_gpu()
+        
+        return JSONResponse({
+            "success": result,
+            "previous_state": current_state,
+            "new_state": _gpu_manager.stats.state.value,
+            "message": "GPU stopped" if result else "GPU stop failed",
+        })
+    
+    except Exception as e:
+        logger.error(f"Error stopping GPU: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+        }, status_code=500)
+
+
 @router.get("/api/dreams/frames/recent")
 async def dreams_recent_frames(request: Request, count: int = 5, format: str = "metadata"):
     """
