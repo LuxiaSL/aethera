@@ -14,6 +14,7 @@ from fastapi import WebSocket
 
 if TYPE_CHECKING:
     from aethera.dreams.gpu_manager import RunPodManager
+    from aethera.dreams.admin_pod_manager import AdminPanelPodManager
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class ViewerPresenceTracker:
         on_should_start: Optional[Callable[[], Awaitable[None]]] = None,
         on_should_stop: Optional[Callable[[], Awaitable[None]]] = None,
         gpu_manager: Optional["RunPodManager"] = None,
+        pod_manager: Optional["AdminPanelPodManager"] = None,
     ):
         """
         Initialize presence tracker
@@ -47,13 +49,15 @@ class ViewerPresenceTracker:
             api_timeout: Seconds of API inactivity before considering inactive
             on_should_start: Async callback when GPU should start
             on_should_stop: Async callback when GPU should stop
-            gpu_manager: Reference to GPU manager for state checking
+            gpu_manager: Reference to GPU manager for state checking (serverless)
+            pod_manager: Reference to pod manager for state checking (two-pod)
         """
         self.shutdown_delay = shutdown_delay
         self.api_timeout = api_timeout
         self.on_should_start = on_should_start
         self.on_should_stop = on_should_stop
         self._gpu_manager = gpu_manager
+        self._pod_manager = pod_manager
         
         self._viewers: Set[WebSocket] = set()
         self._last_api_access: float = 0
@@ -89,22 +93,33 @@ class ViewerPresenceTracker:
         """Set GPU manager reference (for state checking)"""
         self._gpu_manager = gpu_manager
     
+    def set_pod_manager(self, pod_manager: "AdminPanelPodManager") -> None:
+        """Set pod manager reference (for state checking in two-pod mode)"""
+        self._pod_manager = pod_manager
+    
     @property
     def gpu_active_or_starting(self) -> bool:
         """
-        Whether GPU is running OR in the process of starting.
+        Whether GPU/pods are running OR in the process of starting.
         
-        This is the key check to prevent duplicate job submissions:
-        - STARTING: Job submitted, waiting for GPU connection
-        - RUNNING: GPU connected and streaming
+        This is the key check to prevent duplicate start requests:
+        - STARTING: Start requested, waiting for connection
+        - RUNNING: Connected and streaming
         
-        Both states mean we should NOT submit another job.
+        Both states mean we should NOT submit another start request.
         """
         # Fast path: if GPU websocket is connected, definitely active
         if self._gpu_running:
             return True
         
-        # Check GPU manager state if available
+        # Check pod manager state if available (two-pod mode)
+        if self._pod_manager is not None:
+            from aethera.dreams.admin_pod_manager import PodState
+            state = self._pod_manager.stats.state
+            if state in (PodState.STARTING, PodState.RUNNING):
+                return True
+        
+        # Check GPU manager state if available (serverless mode)
         if self._gpu_manager is not None:
             from aethera.dreams.gpu_manager import GPUState
             state = self._gpu_manager.stats.state

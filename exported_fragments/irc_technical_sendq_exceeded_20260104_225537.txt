@@ -1,0 +1,33 @@
+# IRC Fragment - technical (sendq_exceeded)
+# Generated: 2026-01-04 22:55:37
+# Gen: claude-opus-4-5-20251101 | Judge: o3-2025-04-16
+# Messages: 28 | Cost: $0.26
+[00:00] <ph1sh> this dude on craigslist keeps saying he has "complete networking solutions" but won't elaborate
+[00:06] <ph1sh> should i meet him under the bridge
+[00:12] <ph1sh> he says he has "all the protocols"
+[00:18] <ph1sh> even the ones lost to time
+[00:24] <ph1sh> claims he can still ping gopher:// locations
+[00:30] <cryptochat> lol larping as tcp/ip elder? classic
+[00:36] <ph1sh> dude sent me a photo of his "home lab" though
+[00:42] <ph1sh> [IMAGE: dimly lit basement with flickering lights, multiple CRTs stacked vertically, cables everywhere, something glowing green in the corner]
+[00:48] <ph1sh> there's literally a punchdown block mounted on a human skull
+[00:54] <netsecqueen> ok that's actually concerning
+[01:00] <ph1sh> says he's been "routing packets since before tcp was invented"
+[01:06] <ph1sh> calls himself "udp king" because "delivery not guaranteed"
+[01:12] <tinfoilhat> sounds legit meet him alone at night
+[01:18] <netsecqueen> ph1sh DO NOT MEET HIM UNDER THE BRIDGE
+[01:24] <netsecqueen> just report the ad and move on
+[01:30] <ph1sh> bit late for that i'm already here
+[01:36] <ph1sh> holy shit he brought actual carrier pigeons
+[01:42] <ph1sh> says this is how he achieves "true low latency"
+[01:48] <ph1sh> claims they're trained to fly through the sewage tunnels
+[01:54] <ph1sh> "packets never get inspected by the feds if they travel with feces"
+[02:00] <ph1sh> brb he's showing me his "wireless bridge" setup
+[02:06] <ph1sh> oh god it's just two tin cans and a really long string
+[02:12] <ph1sh> but the string is made of fiber optic cable
+[02:18] <ph1sh> says he "spliced it himself"
+[02:24] <ph1sh> with his TEETH
+[02:30] <ph1sh> ok something just moved in the shadows
+[02:36] <ph1sh> i think that's enough networking for tonight
+[02:40] <ph1sh> tell my router i loved her
+[02:44] *** ph1sh has quit (Ping timeout: 666666

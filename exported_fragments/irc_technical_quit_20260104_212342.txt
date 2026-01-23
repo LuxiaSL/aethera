@@ -1,0 +1,40 @@
+# IRC Fragment - technical (quit)
+# Generated: 2026-01-04 21:23:42
+# Gen: unknown | Judge: unknown
+# Messages: 33 | Cost: $0.04
+[00:00] <KrOT> lifenloaf: you here?
+[00:06] <lifenloaf> krot: what's up man
+[00:12] <KrOT> i just got off the phone with parental unit #1. we talked about the FBI calling him recently; he says they called his mother, she didn't tell them anything, and they were basically just looking for me. they didn't mention anything about charges or anything like that -- just said they wanted to
+[00:18] <KrOT> have a chat with me. they left him a phone number. i called it, but it was his cell, so it went to voicemail; i didn't leave a message. do you know if they're looking for malwarelab or me? i'm assuming both... i mean, we are the same person, you know.
+[00:28] <lifenloaf> krot: yeah, i'm pretty sure it's both
+[00:38] <KrOT> i'm admitting to nothing on the phone because the feds can record my calls in a wiretapping operation without telling me until after the fact. so i don't know what to do now.
+[00:44] <lifenloaf> krot: that number they left you
+[00:50] <lifenloaf> that's the number for an ice facility near here that does interrogations [00:56 ] <lifenloaf> if you're considering turning yourself in, i'd recommend doing it with a lawyer present.
+[01:08] <KrOT> yeah, no shit
+[01:18] <KrOT> so what should i do? just get a lawyer now?
+[01:26] <lifenloaf> yes
+[01:28] <lifenloaf> i'm sorry for all this trouble
+[01:42] <KrOT > i've made it pretty good so far; i'm not sure what to do now.
+[01:52] <lifenloaf> yeah, you've gotta lawyer up. i'll send you some names of lawyers i know in the area. if they're not good enough, then fuck it and move to canada. i'll hook you up with a new life.
+[02:04] <lifenloaf> but no matter what happens, promise me you won't talk
+[02:12] <KrOT > i won't... i don't want to go to jail. i'm sorry about all this.
+[02:18] <lifenloaf> i'm sorry too, man. if i could change things... well, i'd be in a different state right now, so i can't.
+[02:22] <lifenloaf> but don't worry about me; you gotta focus on yourself now [02:28
+[02:30] * Meatbag is now known as fucklifenloaf
+[02:36] <fucklifenloaf> why the fuck did you do this?
+[02:42] <KrOT> it's not his fault
+[02:48] <fucklifenloaf> yeah, it is
+[02:56] <KrOT> no, he didn't make me do it. i wanted to help him out... i just didn 't think it would turn into this.
+[03:10] <fucklifenloaf> well, that's the problem with you guys. you never think shit through.
+[03:20] <lifenloaf> fucklifenloaf: respect.
+[03:24] <lifenloaf> fucklifenloaf: respect.
+[03:28] <lifenloaf> fucklifenloaf: respect.
+[03:32] <l
+[03:32] <l
+[03:32] <l
+[03:32] <l
+[03:32] <l
+[03:32] <l
+[03:32] *** Connection reset by peer. archivist@irc-archive:~/logs$ tail irc_log_006.txt
+[03:44] <AzureDiamond> And the next time somebody makes a mistake, I will kick their ass.
+[03:50] * [SA

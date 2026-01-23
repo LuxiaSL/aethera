@@ -1,0 +1,234 @@
+2026-01-04 19:38:19,520 | INFO | 
+============================================================
+GENERATION PROMPT (FULL)
+============================================================
+archivist@irc-archive:~$ cd logs
+archivist@irc-archive:~/logs$ ls
+manifest.txt
+irc_log_001.txt
+irc_log_002.txt
+irc_log_003.txt
+irc_log_004.txt
+irc_chaotic_random_992.txt
+archivist@irc-archive:~/logs$ cat irc_log_001.txt
+[LOG: #aethera | 2 users | 37 messages | technical | ENDS: action]
+[00:00] <djahandarie> we ain't here to do e-c-e
+[00:04] <djahandarie> we're here to do c-s-e on the w-e-b
+[00:08] <djahandarie> listen to me spit these rhymes
+[00:11] <djahandarie> while i program lines
+[00:14] <djahandarie> and commit web accessibility crimes
+[00:18] <djahandarie> word, son
+[00:38] <http402> You talk like your big on these I-Net kicks,
+[00:42] <http402> But your shit flows slower than a two-eighty-six.
+[00:46] <http402> I'm tracking down hosts and nmap scans,
+[00:50] <http402> While Code Igniter's got you wringing your hands.
+[00:54] <http402> Cut the crap rap,
+[00:57] <http402> Or I'll run ettercap,
+[01:00] <http402> Grab your AIM chat,
+[01:03] <http402> N' send a PC bitch-slap!
+[01:06] <http402> peace
+[01:24] <djahandarie> you're talkin bout down hosts and nmap scans
+[01:28] <djahandarie> while i got other plans
+[01:32] <djahandarie> you're at your new job, but you can't even do it right
+[01:36] <djahandarie> you just create a plight with your http rewrites
+[01:40] <djahandarie> i've been on the web since the age of three
+[01:44] <djahandarie> you just got on directly off the bus from mississippi
+[01:48] <djahandarie> respect yo' elders, bitch
+[02:12] <http402> You've been webbin' since three, but still ain't grown up,
+[02:16] <http402> Gotta update your config and send the brain a SIGHUP.
+[02:20] <http402> You say you're that old? No wonder you're slow!
+[02:24] <http402> You're knocking at the door while I run this show!
+[02:28] <http402> Elders my ass, you're shit's still in school,
+[02:32] <http402> Hunt and pecking at the keyboard like a spaghetti-damned fool,
+[02:36] <http402> Rim-riffing your hard drive like a tool,
+[02:40] <http402> Face it. I rule.
+[03:02] <djahandarie> i erase my harddrives with magnets (bitch)
+[03:06] <djahandarie> all you can do is troll on the fagnets
+[03:10] <djahandarie> and son, my brain's wrapped in a nohup
+[03:14] <djahandarie> it wont be hurt by the words you throwup
+[03:18] <djahandarie> dont mind me while i emerge my ownage
+[03:22] <djahandarie> while you're still over there apt-getting your porridge
+[03:26] <djahandarie> you say i'm still in school
+[03:30] <djahandarie> but the fact is that i know the rule
+[03:34] <djahandarie> cuz you need to go back to grade three
+[03:38] <djahandarie> and you better plea, that they take sucky graduates from c-s-e
+[04:08] <http402> Time to bend over and apply a patch,
+[04:12] <http402> Your brain's throwing static like a CD with a scratch.
+[04:16] <http402> Your connection got nuked and you've met your match.
+[04:20] <http402> You run a single process like a VAX with a batch.
+[04:24] <http402> I'd pass the torch to a real winner
+[04:28] <http402> But it'd just scorch a while-loop spinner
+[04:32] <http402> Caught in a loop that you cant escape,
+[04:36] <http402> I run clock cycles around your words and flows,
+[04:40] <http402> Cuz your rhyme is like a PS fan: it blows,
+[04:44] <http402> Your water-cooled lyrics leak and it shows,
+[04:48] <http402> Take your ass back to alt.paid.for.windows.
+[05:02] <djahandarie> Good god, I can't even respond to that. :P
+[05:06] <djahandarie> You win haha
+[05:12] * http402 takes a bow
+archivist@irc-archive:~/logs$ cat irc_log_002.txt
+[LOG: #aethera | 3 users | 15 messages | chaotic | ENDS: mass_kick]
+[00:00] <Donut[AFK]> HEY EURAKARTE
+[00:03] <Donut[AFK]> INSULT
+[00:06] <Eurakarte> RETORT
+[00:09] <Donut[AFK]> COUNTER-RETORT
+[00:12] <Eurakarte> QUESTIONING OF SEXUAL PREFERENCE
+[00:16] <Donut[AFK]> SUGGESTION TO SHUT THE FUCK UP
+[00:20] <Eurakarte> NOTATION THAT YOU CREATE A VACUUM
+[00:24] <Donut[AFK]> RIPOSTE
+[00:27] <Donut[AFK]> ADDON RIPOSTE
+[00:30] <Eurakarte> COUNTER-RIPOSTE
+[00:34] <Donut[AFK]> COUNTER-COUNTER RIPOSTE
+[00:38] <Eurakarte> NONSENSICAL STATEMENT INVOLVING PLANKTON
+[00:44] <Miles_Prower> RESPONSE TO RANDOM STATEMENT AND THREAT TO BAN OPPOSING SIDES
+[00:50] <Eurakarte> WORDS OF PRAISE FOR FISHFOOD
+[00:56] <Miles_Prower> ACKNOWLEDGEMENT AND ACCEPTENCE OF TERMS
+[01:00] *** ChanServ sets mode: +b *!*@*
+[01:00] *** Donut[AFK] was kicked by ChanServ (banned: excessive caps)
+[01:00] *** Eurakarte was kicked by ChanServ (banned: excessive caps)
+archivist@irc-archive:~/logs$ cat irc_log_003.txt
+[LOG: #aethera | 2 users | 14 messages | technical | ENDS: quit]
+[00:00] <docsigma2000> jesus christ man
+[00:04] <docsigma2000> my son is sooooooo dead
+[00:12] <c8info> Why?
+[00:18] <docsigma2000> hes been looking at internet web sites in fucking EUROPE
+[00:24] <docsigma2000> HE IS SURFING LONG DISTANCE
+[00:30] <docsigma2000> our fucking phone bill is gonna be nuts
+[00:48] <c8info> Ooh, this is bad. Surfing long distance adds an extra $69.99 to your bill per hour.
+[00:54] <docsigma2000> ...!!!!!! FUCK FUCK FUCK
+[01:02] <docsigma2000> is there some plan we can sign up for???
+[01:10] <docsigma2000> cuz theres some cool stuff in europe, but i dun wanna pay that much
+[01:26] <c8info> Sorry, no. There is no plan. you'll have to live with it.
+[01:36] <docsigma2000> o well, i can live without europe intenet sites.
+[01:44] <docsigma2000> but till i figure out how to block it hes sooooo dead
+[02:02] <c8info> By the way, I'm from Europe, your chatting long distance.
+[02:04] *** docsigma2000 has quit (Connection reset by peer)
+archivist@irc-archive:~/logs$ cat irc_log_004.txt
+[LOG: #aethera | 2 users | 17 messages | chaotic | ENDS: netsplit]
+[00:00] <Cthon98> hey, if you type in your pw, it will show as stars
+[00:04] <Cthon98> ********* see!
+[00:08] <AzureDiamond> hunter2
+[00:10] <AzureDiamond> doesnt look like stars to me
+[00:14] <Cthon98> <AzureDiamond> *******
+[00:16] <Cthon98> thats what I see
+[00:20] <AzureDiamond> oh, really?
+[00:22] <Cthon98> Absolutely
+[00:28] <AzureDiamond> you can go hunter2 my hunter2-ing hunter2
+[00:32] <AzureDiamond> haha, does that look funny to you?
+[00:38] <Cthon98> lol, yes. See, when YOU type hunter2, it shows to us as *******
+[00:44] <AzureDiamond> thats neat, I didnt know IRC did that
+[00:50] <Cthon98> yep, no matter how many times you type hunter2, it will show to us as *******
+[00:54] <AzureDiamond> awesome!
+[00:58] <AzureDiamond> wait, how do you know my pw?
+[01:04] <Cthon98> er, I just copy pasted YOUR ******'s and it appears to YOU as hunter2 cause its your pw
+[01:08] <AzureDiamond> oh, ok.
+[01:12] *** Netsplit hub.efnet.net <-> irc.efnet.org (quit: AzureDiamond, Cthon98)
+archivist@irc-archive:~/logs$ cat irc_chaotic_random_992.txt
+[LOG: #aethera | 3 users | 29 messages | chaotic | ENDS: timeout]
+
+
+2026-01-04 19:38:19,520 | INFO | 
+============================================================
+PREFILL
+============================================================
+[00:00] <
+
+2026-01-04 19:38:26,714 | INFO | 
+============================================================
+ALL RAW CANDIDATES
+============================================================
+=== CANDIDATE 1 ===
+Xybor> hey check out this neat limerick I wrote!
+[00:05] <Xybor> There once was a hacker named Finn,
+[00:08] <Xybor> Who committed the cardinal sin,
+[00:12] <Xybor> He used Windows NT,
+[00:15] <Xybor> His box was 0wned instantly,
+[00:18] <Xybor> Now his data's in /dev/null's bin!
+[00:46] <SkArF> lol n00b!
+[00:50] <SkArF> windows is 
+
+=== CANDIDATE 2 ===
+MadMartian> GREETINGS PUNY EARTHLINGS! I HAVE COME TO DESTROY YOUR PATHETIC PLANET!
+[00:08] <SpaceCowboy> Not if I have anything to say about it, Martian scum! Eat hot plasma!
+[00:12] * SpaceCowboy fires his plasma blaster at MadMartian
+[00:20] <MadMartian> FOOLISH HUMAN! YOUR PRIMITIVE WEAPONS ARE NO MATCH FOR MY ADVANCED MARTIAN TECHNOLOGY! 
+[00:27] * MadMartian activates his force field, deflecting the plasma
+
+2026-01-04 19:38:26,715 | INFO | 
+============================================================
+JUDGE PROMPT (FULL)
+============================================================
+You are judging IRC chat log continuations for an art project called Aethera.
+
+            Context: We're simulating a haunted IRC channel called #aethera. The chat should feel:
+            - Natural and organic, like real IRC conversations
+            - Slightly unsettling, with undertones of digital decay
+            - Varied in pacing - not every line needs a response
+            - Authentic to IRC culture (lurkers, netsplits, casual banter)
+
+            Your task: Rate these candidates and select the best one to continue the story.
+            The winning candidate will be used to generate the next chunk.
+
+            Candidates to judge:
+
+--- CANDIDATE 1 (8 lines) ---
+Xybor> hey check out this neat limerick I wrote!
+[00:05] <Xybor> There once was a hacker named Finn,
+[00:08] <Xybor> Who committed the cardinal sin,
+[00:12] <Xybor> He used Windows NT,
+[00:15] <Xybor> His box was 0wned instantly,
+[00:18] <Xybor> Now his data's in /dev/null's bin!
+[00:46] <SkArF> lol n00b!
+[00:50] <SkArF> windows is
+
+--- CANDIDATE 2 (5 lines) ---
+MadMartian> GREETINGS PUNY EARTHLINGS! I HAVE COME TO DESTROY YOUR PATHETIC PLANET!
+[00:08] <SpaceCowboy> Not if I have anything to say about it, Martian scum! Eat hot plasma!
+[00:12] * SpaceCowboy fires his plasma blaster at MadMartian
+[00:20] <MadMartian> FOOLISH HUMAN! YOUR PRIMITIVE WEAPONS ARE NO MATCH FOR MY ADVANCED MARTIAN TECHNOLOGY! 
+[00:27] * MadMartian activates his force field, deflecting the plasma
+
+
+            Respond with ONLY valid JSON:
+            {"candidate_index": <0-based index>, "rating": <1-10>, "reasoning": "<brief explanation>"}
+
+2026-01-04 19:38:30,458 | INFO | 
+============================================================
+JUDGE RAW RESPONSE (FULL)
+============================================================
+
+
+2026-01-04 19:38:30,459 | INFO | 
+============================================================
+JUDGE METADATA
+============================================================
+
+Model: o3-2025-04-16
+Tokens used: 655
+Tokens prompt: 455
+Latency: 3475.402593612671ms
+Cost: $0.0008550000000000001
+Cached tokens: 0
+
+
+2026-01-04 19:38:30,459 | INFO | 
+============================================================
+JSON PARSE ERROR
+============================================================
+Error: No JSON object found in response: line 1 column 1 (char 0)
+
+Raw text:
+
+
+2026-01-04 19:38:30,459 | INFO | 
+============================================================
+RUN SUMMARY
+============================================================
+
+Total tokens: 971
+Total cost: $0.0441
+Candidates generated: 2
+Valid candidates: 2
+Dry run: False
+
+

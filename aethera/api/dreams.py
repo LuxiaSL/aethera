@@ -87,6 +87,11 @@ from aethera.dreams import (
     get_gpu_manager,
     configure_gpu_manager,
 )
+from aethera.dreams.admin_pod_manager import (
+    AdminPanelPodManager,
+    PodState,
+    configure_pod_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,30 +104,52 @@ _frame_cache: FrameCache | None = None
 _presence_tracker: ViewerPresenceTracker | None = None
 _websocket_hub: DreamWebSocketHub | None = None
 _gpu_manager: RunPodManager | None = None
+_pod_manager: AdminPanelPodManager | None = None
+
+# Check which lifecycle mode to use
+# - ADMIN_PANEL_URL: Use admin panel for two-pod orchestration (new)
+# - RUNPOD_ENDPOINT_ID: Use serverless endpoint directly (legacy)
+ADMIN_PANEL_URL = os.environ.get("ADMIN_PANEL_URL", "").rstrip("/")
+USE_ADMIN_PANEL = bool(ADMIN_PANEL_URL)
 
 
 def get_hub() -> DreamWebSocketHub:
     """Get or create the WebSocket hub singleton"""
-    global _frame_cache, _presence_tracker, _websocket_hub, _gpu_manager
+    global _frame_cache, _presence_tracker, _websocket_hub, _gpu_manager, _pod_manager
     
     if _websocket_hub is None:
-        # Initialize GPU manager first
-        _gpu_manager = configure_gpu_manager(
-            on_state_change=_on_gpu_state_change,
-        )
+        # Initialize the appropriate GPU/pod manager based on config
+        if USE_ADMIN_PANEL:
+            # Two-pod architecture via admin panel
+            _pod_manager = configure_pod_manager(
+                admin_url=ADMIN_PANEL_URL,
+                on_state_change=_on_pod_state_change,
+            )
+            logger.info(f"Using admin panel for pod lifecycle: {ADMIN_PANEL_URL}")
+            # Still initialize gpu_manager for backward compat (status tracking)
+            _gpu_manager = configure_gpu_manager(
+                on_state_change=_on_gpu_state_change,
+            )
+        else:
+            # Legacy serverless mode
+            _gpu_manager = configure_gpu_manager(
+                on_state_change=_on_gpu_state_change,
+            )
+            logger.info("Using serverless endpoint for GPU lifecycle")
         
         # Initialize frame cache
         _frame_cache = FrameCache(max_frames=30)
         
         # Initialize presence tracker with GPU callbacks
         # Longer shutdown delay to prevent premature GPU shutdown when tabbing away
-        # Pass gpu_manager reference so presence tracker can check STARTING state
+        # Pass gpu_manager/pod_manager reference so presence tracker can check STARTING state
         _presence_tracker = ViewerPresenceTracker(
             shutdown_delay=300.0,  # 5 minutes - match API timeout
             api_timeout=300.0,
             on_should_start=_on_gpu_should_start,
             on_should_stop=_on_gpu_should_stop,
             gpu_manager=_gpu_manager,
+            pod_manager=_pod_manager,
         )
         
         # Initialize WebSocket hub with all components
@@ -131,50 +158,56 @@ def get_hub() -> DreamWebSocketHub:
             presence_tracker=_presence_tracker,
             gpu_manager=_gpu_manager,
         )
-        logger.info("Dreams module initialized (WebSocket hub + GPU manager)")
+        
+        mode = "admin panel (two-pod)" if USE_ADMIN_PANEL else "serverless"
+        logger.info(f"Dreams module initialized - lifecycle mode: {mode}")
     
     return _websocket_hub
 
 
 async def _on_gpu_should_start() -> None:
     """Callback when GPU should start"""
-    global _gpu_manager, _websocket_hub
+    global _gpu_manager, _pod_manager, _websocket_hub
     
-    if _gpu_manager is None:
-        logger.warning("GPU manager not initialized")
-        return
+    if _websocket_hub:
+        await _websocket_hub.broadcast_status("starting", "Waking up the dream machine...")
     
-    if _gpu_manager.is_configured:
-        logger.info("Starting GPU via RunPod...")
-        if _websocket_hub:
-            await _websocket_hub.broadcast_status("starting", "Waking up the dream machine...")
+    # Try admin panel (two-pod) first, fall back to serverless
+    if USE_ADMIN_PANEL and _pod_manager and _pod_manager.is_configured:
+        logger.info("Starting pods via admin panel...")
+        await _pod_manager.start_pods()
+    elif _gpu_manager and _gpu_manager.is_configured:
+        logger.info("Starting GPU via RunPod serverless...")
         await _gpu_manager.start_gpu()
     else:
-        logger.info("GPU start requested (RunPod not configured - waiting for manual GPU connection)")
+        logger.info("GPU start requested (no lifecycle manager configured - waiting for manual connection)")
         if _websocket_hub:
             await _websocket_hub.broadcast_status("starting", "Waiting for GPU connection...")
 
 
 async def _on_gpu_should_stop() -> None:
     """Callback when GPU should stop"""
-    global _gpu_manager, _websocket_hub
+    global _gpu_manager, _pod_manager, _websocket_hub
     
-    if _gpu_manager is None:
-        logger.warning("GPU manager not initialized")
-        return
+    # Request GPU to save state before stopping (regardless of mode)
+    if _websocket_hub:
+        await _websocket_hub.request_gpu_save_state()
+        # Give a moment for state to be saved
+        await asyncio.sleep(2)
     
-    if _gpu_manager.is_configured:
-        logger.info("Stopping GPU via RunPod...")
-        # Request GPU to save state before stopping
-        if _websocket_hub:
-            await _websocket_hub.request_gpu_save_state()
+    # Try admin panel (two-pod) first, fall back to serverless
+    if USE_ADMIN_PANEL and _pod_manager and _pod_manager.is_configured:
+        logger.info("Stopping pods via admin panel...")
+        await _pod_manager.stop_pods()
+    elif _gpu_manager and _gpu_manager.is_configured:
+        logger.info("Stopping GPU via RunPod serverless...")
         await _gpu_manager.stop_gpu()
     else:
-        logger.info("GPU stop requested (RunPod not configured)")
+        logger.info("GPU stop requested (no lifecycle manager configured)")
 
 
 async def _on_gpu_state_change(state: GPUState, error: str | None) -> None:
-    """Callback when GPU state changes"""
+    """Callback when GPU state changes (serverless mode)"""
     global _websocket_hub
     
     if _websocket_hub is None:
@@ -186,6 +219,25 @@ async def _on_gpu_state_change(state: GPUState, error: str | None) -> None:
         GPUState.RUNNING: ("ready", "Dreams flowing..."),
         GPUState.STOPPING: ("stopping", "Saving dreams..."),
         GPUState.ERROR: ("error", error or "Something went wrong"),
+    }
+    
+    status, message = status_map.get(state, ("unknown", "Unknown state"))
+    await _websocket_hub.broadcast_status(status, message)
+
+
+async def _on_pod_state_change(state: PodState, error: str | None) -> None:
+    """Callback when pod state changes (two-pod mode)"""
+    global _websocket_hub
+    
+    if _websocket_hub is None:
+        return
+    
+    status_map = {
+        PodState.IDLE: ("idle", "Dream machine sleeping..."),
+        PodState.STARTING: ("starting", "Waking up both pods..."),
+        PodState.RUNNING: ("ready", "Dreams flowing..."),
+        PodState.STOPPING: ("stopping", "Saving dreams..."),
+        PodState.ERROR: ("error", error or "Something went wrong"),
     }
     
     status, message = status_map.get(state, ("unknown", "Unknown state"))
