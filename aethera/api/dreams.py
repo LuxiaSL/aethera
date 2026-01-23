@@ -642,6 +642,212 @@ async def dreams_sse_stream(request: Request):
     return EventSourceResponse(event_generator())
 
 
+# ==================== ComfyUI Registry Endpoints ====================
+# These endpoints enable the two-pod architecture:
+# - ComfyUI pod registers its IP on startup
+# - DreamGen pod queries for ComfyUI endpoint
+# - Admin panel can check registration status
+
+@router.post("/api/dreams/comfyui/register")
+async def register_comfyui_endpoint(request: Request):
+    """
+    ComfyUI pod registers its IP on startup.
+    
+    Called by ComfyUI startup script (comfyui-start.sh) with pod's public IP.
+    Requires VPS auth token in Authorization header.
+    
+    Body:
+        ip: Public IP of ComfyUI pod
+        port: ComfyUI port (default 8188)
+        auth_user: Basic auth username (optional)
+        auth_pass: Basic auth password (optional)
+        pod_id: RunPod pod ID (optional, for correlation)
+    
+    Returns:
+        200: Registration successful
+        401: Unauthorized (bad token)
+    """
+    # Verify auth token
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+    
+    ip = body.get("ip")
+    if not ip:
+        raise HTTPException(400, "ip is required")
+    
+    port = body.get("port", 8188)
+    auth_user = body.get("auth_user", "")
+    auth_pass = body.get("auth_pass", "")
+    pod_id = body.get("pod_id")
+    
+    from aethera.dreams.comfyui_registry import register_comfyui
+    await register_comfyui(ip, port, auth_user, auth_pass, pod_id)
+    
+    logger.info(f"ComfyUI registered via API: {ip}:{port}")
+    return JSONResponse({
+        "status": "registered",
+        "endpoint": f"http://{ip}:{port}",
+    })
+
+
+@router.get("/api/dreams/comfyui")
+async def get_comfyui_endpoint_api(request: Request):
+    """
+    DreamGen pod queries for ComfyUI endpoint.
+    
+    Returns the registered ComfyUI URL and credentials so DreamGen
+    can connect to ComfyUI for image generation.
+    Requires VPS auth token in Authorization header.
+    
+    Returns:
+        200: Endpoint info (url, auth credentials)
+        401: Unauthorized
+        503: ComfyUI not registered
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.comfyui_registry import get_comfyui_endpoint
+    endpoint = await get_comfyui_endpoint()
+    
+    if endpoint is None:
+        raise HTTPException(503, "ComfyUI not registered - start ComfyUI pod first")
+    
+    return JSONResponse(endpoint)
+
+
+@router.delete("/api/dreams/comfyui")
+async def unregister_comfyui_endpoint(request: Request):
+    """
+    Unregister ComfyUI (pod stopped).
+    
+    Called by admin panel when stopping ComfyUI pod.
+    Requires VPS auth token in Authorization header.
+    
+    Returns:
+        200: Unregistered successfully
+        401: Unauthorized
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.comfyui_registry import unregister_comfyui
+    await unregister_comfyui()
+    
+    logger.info("ComfyUI unregistered via API")
+    return JSONResponse({"status": "unregistered"})
+
+
+@router.get("/api/dreams/comfyui/status")
+async def get_comfyui_status(request: Request):
+    """
+    Get ComfyUI registry status for admin monitoring.
+    
+    No auth required - status is public info for monitoring.
+    Does not expose credentials, only registration state.
+    
+    Returns:
+        200: Registry status
+    """
+    check_rate_limit(request)
+    
+    from aethera.dreams.comfyui_registry import get_registry_status
+    status = await get_registry_status()
+    
+    # Strip auth credentials from public status
+    if status.get("endpoint"):
+        status["endpoint"].pop("auth_user", None)
+        status["endpoint"].pop("auth_pass", None)
+    
+    return JSONResponse(status)
+
+
+@router.post("/api/dreams/comfyui/health-check")
+async def trigger_comfyui_health_check(request: Request):
+    """
+    Trigger a health check to the registered ComfyUI endpoint.
+    
+    Requires VPS auth token (admin only).
+    Updates the registry's healthy flag based on result.
+    
+    Returns:
+        200: Health check result
+        401: Unauthorized
+        503: ComfyUI not registered
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.comfyui_registry import health_check_comfyui, is_registered
+    
+    if not is_registered():
+        raise HTTPException(503, "ComfyUI not registered")
+    
+    healthy = await health_check_comfyui()
+    
+    return JSONResponse({
+        "healthy": healthy,
+        "message": "ComfyUI is responding" if healthy else "ComfyUI health check failed",
+    })
+
+
+# ==================== State Management Endpoints ====================
+# These endpoints manage generation state persistence for resume functionality
+
+@router.get("/api/dreams/state")
+async def get_state_info_api(request: Request):
+    """
+    Get info about saved generation state.
+    
+    Returns metadata about the persisted state (if any) without
+    loading the full state bytes. Useful for admin monitoring.
+    
+    Returns:
+        200: State info (has_state, saved_at, size_bytes, age)
+    """
+    check_rate_limit(request)
+    
+    from aethera.dreams.state_storage import get_state_info
+    info = await get_state_info()
+    
+    return JSONResponse({
+        "has_state": info is not None,
+        "info": info,
+    })
+
+
+@router.delete("/api/dreams/state")
+async def clear_saved_state_api(request: Request):
+    """
+    Clear saved generation state (fresh start).
+    
+    Called when you want to start fresh rather than resume.
+    Requires VPS auth token (admin only).
+    
+    Returns:
+        200: State cleared
+        401: Unauthorized
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.state_storage import clear_state
+    await clear_state()
+    
+    logger.info("Generation state cleared via API")
+    return JSONResponse({"status": "cleared"})
+
+
 # ==================== WebSocket Endpoints ====================
 
 @router.websocket("/ws/dreams")

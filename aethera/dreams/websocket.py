@@ -25,11 +25,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Message type bytes
+# Message type bytes (GPU -> VPS)
 MSG_FRAME = 0x01
 MSG_STATE = 0x02
 MSG_HEARTBEAT = 0x03
 MSG_STATUS = 0x04
+
+# Control message types (VPS -> GPU)
+CTRL_LOAD_STATE = 0x11  # VPS sends saved state to GPU for restoration
+CTRL_SAVE_STATE = 0x12  # Request GPU to save state
+CTRL_SHUTDOWN = 0x13    # Request GPU shutdown
 
 
 class DreamWebSocketHub:
@@ -212,6 +217,7 @@ class DreamWebSocketHub:
         Handle GPU worker connection
         
         Only one GPU connection is allowed at a time.
+        On connect, sends any saved state to GPU for restoration.
         
         Args:
             websocket: The GPU's WebSocket connection
@@ -241,7 +247,46 @@ class DreamWebSocketHub:
             self.gpu_manager.on_gpu_connected()
         
         logger.info("GPU connected")
+        
+        # Send saved state if available (for resume after pod restart)
+        await self._send_saved_state_to_gpu(websocket)
+        
         await self.broadcast_status("ready", "Dreams flowing...")
+    
+    async def _send_saved_state_to_gpu(self, websocket: WebSocket) -> None:
+        """
+        Send any saved state to GPU for restoration
+        
+        Called immediately after GPU connects. If state exists on disk,
+        it's sent to the GPU so it can resume generation from where it left off.
+        """
+        from .state_storage import load_state, get_state_info
+        
+        try:
+            # Check if we have saved state
+            state_info = await get_state_info()
+            if state_info is None:
+                logger.info("No saved state to restore")
+                return
+            
+            # Load the state
+            saved_state = await load_state()
+            if saved_state is None:
+                logger.warning("State metadata exists but load failed")
+                return
+            
+            # Send to GPU: CTRL_LOAD_STATE + state bytes
+            logger.info(f"Sending saved state to GPU: {len(saved_state)} bytes (age: {state_info.get('age_seconds', '?')}s)")
+            await asyncio.wait_for(
+                websocket.send_bytes(bytes([CTRL_LOAD_STATE]) + saved_state),
+                timeout=30.0  # State can be large
+            )
+            logger.info("Saved state sent to GPU for restoration")
+            
+        except asyncio.TimeoutError:
+            logger.error("Timeout sending saved state to GPU")
+        except Exception as e:
+            logger.error(f"Failed to send saved state to GPU: {e}")
     
     async def disconnect_gpu(self) -> None:
         """Handle GPU disconnection"""
@@ -333,9 +378,17 @@ class DreamWebSocketHub:
         )
     
     async def _handle_gpu_state(self, state_data: bytes) -> None:
-        """Handle state snapshot from GPU"""
-        # TODO: Persist state to disk for recovery
+        """Handle state snapshot from GPU - persist to disk for recovery"""
+        from .state_storage import save_state
+        
         logger.debug(f"Received state snapshot: {len(state_data)} bytes")
+        
+        # Persist to disk for resume after pod restart
+        saved = await save_state(state_data)
+        if saved:
+            logger.debug("State persisted to disk")
+        else:
+            logger.warning("Failed to persist state to disk")
     
     # ==================== Broadcasting ====================
     
@@ -418,11 +471,11 @@ class DreamWebSocketHub:
     
     async def request_gpu_shutdown(self) -> bool:
         """Request GPU to save state and shutdown"""
-        return await self.send_to_gpu(0x13)  # SHUTDOWN
+        return await self.send_to_gpu(CTRL_SHUTDOWN)
     
     async def request_gpu_save_state(self) -> bool:
         """Request GPU to save current state"""
-        return await self.send_to_gpu(0x12)  # SAVE_STATE
+        return await self.send_to_gpu(CTRL_SAVE_STATE)
     
     # ==================== Statistics ====================
     
