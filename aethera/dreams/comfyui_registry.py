@@ -1,19 +1,27 @@
 """
 ComfyUI Service Registry
 
-Tracks the ComfyUI pod's IP address for DreamGen to connect to.
+Tracks the ComfyUI pod's endpoint for DreamGen to connect to.
 
-Flow:
-1. Admin panel starts ComfyUI pod via RunPod GraphQL
-2. ComfyUI pod starts up and runs comfyui-start.sh
-3. Startup script POSTs to VPS with pod's public IP
-4. VPS stores endpoint in this registry
+Flow (Proactive Registration - Primary):
+1. Admin panel starts/creates ComfyUI pod via RunPod API
+2. Admin panel immediately constructs proxy URL from pod ID:
+   https://{pod_id}-8188.proxy.runpod.net
+3. Admin panel registers URL with this registry (no waiting)
+4. Admin panel waits for ComfyUI to be healthy (health check)
 5. Admin panel starts DreamGen pod
 6. DreamGen queries VPS for ComfyUI endpoint
-7. DreamGen connects to ComfyUI via the registered IP
+7. DreamGen connects to ComfyUI via the registered proxy URL
+
+Flow (Backup Registration - Fallback):
+1-2. Same as above
+3. ComfyUI pod sends backup registration with auth credentials
+   (updates existing registration or registers if admin failed)
 
 This decouples ComfyUI and DreamGen - they don't need to know
-each other's IPs at deployment time, only at runtime.
+each other's IPs at deployment time, only at runtime. The
+deterministic proxy URL format eliminates the need to wait for
+ComfyUI to self-register.
 """
 
 import asyncio
