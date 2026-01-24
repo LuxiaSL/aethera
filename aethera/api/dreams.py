@@ -734,17 +734,20 @@ async def register_comfyui_endpoint(request: Request):
         raise HTTPException(400, "ip is required")
     
     port = body.get("port", 8188)
+    url = body.get("url", "")  # Full URL (e.g., RunPod proxy URL)
     auth_user = body.get("auth_user", "")
     auth_pass = body.get("auth_pass", "")
     pod_id = body.get("pod_id")
     
     from aethera.dreams.comfyui_registry import register_comfyui
-    await register_comfyui(ip, port, auth_user, auth_pass, pod_id)
+    await register_comfyui(ip, port, url, auth_user, auth_pass, pod_id)
     
-    logger.info(f"ComfyUI registered via API: {ip}:{port}")
+    # Return the effective URL (proxy URL if provided, otherwise ip:port)
+    effective_url = url if url else f"http://{ip}:{port}"
+    logger.info(f"ComfyUI registered via API: {effective_url}")
     return JSONResponse({
         "status": "registered",
-        "endpoint": f"http://{ip}:{port}",
+        "endpoint": effective_url,
     })
 
 

@@ -30,6 +30,7 @@ class ComfyUIEndpoint:
     """Registered ComfyUI endpoint information"""
     ip: str
     port: int
+    url: str = ""  # Full URL (e.g., RunPod proxy URL)
     auth_user: str = ""
     auth_pass: str = ""
     registered_at: float = field(default_factory=time.time)
@@ -46,6 +47,7 @@ _lock = asyncio.Lock()
 async def register_comfyui(
     ip: str,
     port: int = 8188,
+    url: str = "",
     auth_user: str = "",
     auth_pass: str = "",
     pod_id: Optional[str] = None,
@@ -56,8 +58,10 @@ async def register_comfyui(
     Called by ComfyUI startup script via /api/dreams/comfyui/register.
     
     Args:
-        ip: Public IP address of the ComfyUI pod
+        ip: Public IP address of the ComfyUI pod (or pod ID for RunPod)
         port: ComfyUI port (default 8188)
+        url: Full URL to access ComfyUI (e.g., RunPod proxy URL)
+             If not provided, falls back to http://{ip}:{port}
         auth_user: Basic auth username (if nginx auth enabled)
         auth_pass: Basic auth password (if nginx auth enabled)
         pod_id: Optional RunPod pod ID for correlation
@@ -67,14 +71,18 @@ async def register_comfyui(
     """
     global _comfyui_endpoint
     async with _lock:
+        # Use explicit URL if provided, otherwise construct from ip:port
+        actual_url = url if url else f"http://{ip}:{port}"
+        
         _comfyui_endpoint = ComfyUIEndpoint(
             ip=ip,
             port=port,
+            url=actual_url,
             auth_user=auth_user,
             auth_pass=auth_pass,
             pod_id=pod_id,
         )
-        logger.info(f"ComfyUI registered: {ip}:{port} (pod: {pod_id or 'unknown'})")
+        logger.info(f"ComfyUI registered: {actual_url} (pod: {pod_id or 'unknown'})")
         return True
 
 
@@ -92,8 +100,12 @@ async def get_comfyui_endpoint() -> Optional[dict]:
     if _comfyui_endpoint is None:
         return None
     
+    # Use the stored URL (which may be a RunPod proxy URL)
+    # or fall back to constructing from ip:port
+    url = _comfyui_endpoint.url or f"http://{_comfyui_endpoint.ip}:{_comfyui_endpoint.port}"
+    
     return {
-        "url": f"http://{_comfyui_endpoint.ip}:{_comfyui_endpoint.port}",
+        "url": url,
         "ip": _comfyui_endpoint.ip,
         "port": _comfyui_endpoint.port,
         "auth_user": _comfyui_endpoint.auth_user,
@@ -136,7 +148,9 @@ async def health_check_comfyui() -> bool:
     
     try:
         import aiohttp
-        url = f"http://{_comfyui_endpoint.ip}:{_comfyui_endpoint.port}/system_stats"
+        # Use the stored URL (which may be a RunPod proxy URL)
+        base_url = _comfyui_endpoint.url or f"http://{_comfyui_endpoint.ip}:{_comfyui_endpoint.port}"
+        url = f"{base_url}/system_stats"
         
         # Setup basic auth if configured
         auth = None
@@ -153,9 +167,9 @@ async def health_check_comfyui() -> bool:
                 _comfyui_endpoint.last_health_check = time.time()
                 
                 if resp.status == 200:
-                    logger.debug(f"ComfyUI health check passed")
+                    logger.debug(f"ComfyUI health check passed: {base_url}")
                 else:
-                    logger.warning(f"ComfyUI health check failed: HTTP {resp.status}")
+                    logger.warning(f"ComfyUI health check failed: HTTP {resp.status} at {base_url}")
                 
                 return _comfyui_endpoint.healthy
     
@@ -180,10 +194,13 @@ async def get_registry_status() -> dict:
             "endpoint": None,
         }
     
+    # Use the stored URL (which may be a RunPod proxy URL)
+    url = _comfyui_endpoint.url or f"http://{_comfyui_endpoint.ip}:{_comfyui_endpoint.port}"
+    
     return {
         "registered": True,
         "endpoint": {
-            "url": f"http://{_comfyui_endpoint.ip}:{_comfyui_endpoint.port}",
+            "url": url,
             "ip": _comfyui_endpoint.ip,
             "port": _comfyui_endpoint.port,
             "pod_id": _comfyui_endpoint.pod_id,
