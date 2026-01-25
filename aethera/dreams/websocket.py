@@ -8,9 +8,20 @@ Manages two types of WebSocket connections:
 Frame protocol uses binary messages for efficiency:
 - Type byte (0x01 = frame, 0x02 = state, etc.)
 - Payload (WebP data, msgpack, etc.)
+
+Frame Message Format (v2 from GPU):
+  0x01 | metadata_len (4 bytes BE) | JSON metadata | WebP data
+
+Metadata JSON:
+  {
+    "fn": frame_number,      // Sequential frame number from GPU
+    "kf": keyframe_number,   // Current keyframe number
+    "p": "prompt text"       // Prompt for this keyframe (optional)
+  }
 """
 
 import asyncio
+import json
 import logging
 import time
 from typing import Optional, Set, TYPE_CHECKING
@@ -79,9 +90,13 @@ class DreamWebSocketHub:
         # Prevents duplicate frame numbers when frames queue before caching
         self._next_frame_number: int = 1
         
+        # Current prompt (updated with each keyframe from GPU)
+        # This is the prompt that generated the current/recent keyframe
+        self._current_prompt: Optional[str] = None
+        
         # Frame playback queue for smooth pacing
         self._playback_queue = FramePlaybackQueue(
-            broadcast_callback=self._broadcast_frame,
+            broadcast_callback=self._broadcast_frame_with_metadata,
             on_frame_displayed=self._on_frame_displayed,
         )
         self._playback_task: Optional[asyncio.Task] = None
@@ -124,10 +139,25 @@ class DreamWebSocketHub:
         # Send current status
         await self._send_status_to_viewer(websocket)
         
-        # Send current frame if available
+        # Send current frame if available (with metadata)
         current_frame = await self.frame_cache.get_current_frame()
         if current_frame:
             try:
+                # Send metadata first
+                meta_msg = {
+                    "type": "frame_meta",
+                    "fn": current_frame.frame_number,
+                    "kf": current_frame.keyframe_number,
+                }
+                if current_frame.prompt:
+                    meta_msg["p"] = current_frame.prompt
+                elif self._current_prompt:
+                    meta_msg["p"] = self._current_prompt
+                
+                await asyncio.wait_for(
+                    websocket.send_json(meta_msg),
+                    timeout=5.0
+                )
                 await asyncio.wait_for(
                     websocket.send_bytes(bytes([MSG_FRAME]) + current_frame.data),
                     timeout=5.0
@@ -352,29 +382,90 @@ class DreamWebSocketHub:
             except Exception as e:
                 logger.warning(f"Failed to parse GPU status: {e}")
     
-    async def _handle_gpu_frame(self, frame_data: bytes) -> None:
-        """Queue a frame from GPU for smooth playback"""
+    async def _handle_gpu_frame(self, payload: bytes) -> None:
+        """
+        Queue a frame from GPU for smooth playback
+        
+        Frame message format (v2):
+            metadata_len (4 bytes BE) | JSON metadata | WebP data
+        
+        Falls back to legacy format (just WebP data) if no metadata header.
+        """
         self._last_frame_time = time.time()
         
         # Notify GPU manager of frame receipt
         if self.gpu_manager:
             self.gpu_manager.on_frame_received()
         
-        # Assign frame number now (at receive time, not cache time)
-        # This prevents duplicate numbers when frames queue before caching
+        # Parse metadata if present (v2 format)
         frame_number = self._next_frame_number
-        self._next_frame_number += 1
+        keyframe_number = 0
+        prompt = None
+        frame_data = payload
         
-        # Queue for smooth playback (instead of immediate broadcast)
-        # The playback loop will broadcast at steady FPS
-        await self._playback_queue.add_frame(frame_data, frame_number)
+        # Check if this is v2 format (has metadata header)
+        # v2 format: metadata_len (4 bytes) + metadata + frame
+        # Legacy format: just WebP bytes (starts with RIFF header: 0x52 0x49 0x46 0x46)
+        if len(payload) > 4:
+            # Check if first bytes look like a length prefix (not RIFF header)
+            first_four = payload[:4]
+            if first_four != b'RIFF':
+                try:
+                    # Parse v2 format
+                    metadata_len = int.from_bytes(first_four, 'big')
+                    
+                    if metadata_len > 0 and metadata_len < len(payload) - 4:
+                        metadata_bytes = payload[4:4 + metadata_len]
+                        frame_data = payload[4 + metadata_len:]
+                        
+                        # Parse JSON metadata
+                        metadata = json.loads(metadata_bytes.decode('utf-8'))
+                        frame_number = metadata.get('fn', frame_number)
+                        keyframe_number = metadata.get('kf', 0)
+                        
+                        # Update current prompt if provided (must be a string)
+                        if 'p' in metadata and isinstance(metadata['p'], str):
+                            self._current_prompt = metadata['p']
+                            prompt = metadata['p']
+                            logger.debug(f"Frame {frame_number} prompt: {prompt[:60]}...")
+                except Exception as e:
+                    # Fall back to legacy format only if we haven't successfully extracted frame_data yet
+                    # This check prevents corrupting good frame_data due to non-critical errors (e.g., logging)
+                    if frame_data is payload:
+                        logger.debug(f"Metadata parse failed, using legacy format: {e}")
+                    else:
+                        logger.warning(f"Error after frame extraction (frame data preserved): {e}")
+        
+        # Use GPU-provided frame number if available, otherwise assign locally
+        if frame_number == self._next_frame_number:
+            # Using local counter (legacy or parse failed)
+            self._next_frame_number += 1
+        else:
+            # Using GPU-provided number, sync local counter
+            self._next_frame_number = frame_number + 1
+        
+        # Queue for smooth playback with metadata
+        await self._playback_queue.add_frame(
+            frame_data, 
+            frame_number,
+            keyframe_number=keyframe_number,
+            prompt=self._current_prompt  # Use cached prompt for all frames
+        )
     
-    async def _on_frame_displayed(self, frame_data: bytes, frame_number: int) -> None:
+    async def _on_frame_displayed(
+        self, 
+        frame_data: bytes, 
+        frame_number: int,
+        keyframe_number: int = 0,
+        prompt: Optional[str] = None
+    ) -> None:
         """Callback when playback queue displays a frame"""
         # Add to cache (for new viewer catchup and stats)
         await self.frame_cache.add_frame(
             data=frame_data,
             frame_number=frame_number,
+            keyframe_number=keyframe_number,
+            prompt=prompt,
         )
     
     async def _handle_gpu_state(self, state_data: bytes) -> None:
@@ -393,11 +484,40 @@ class DreamWebSocketHub:
     # ==================== Broadcasting ====================
     
     async def _broadcast_frame(self, frame_data: bytes) -> None:
-        """Broadcast frame to all connected viewers"""
+        """Broadcast frame to all connected viewers (legacy method)"""
+        await self._broadcast_frame_with_metadata(frame_data, 0, 0, None)
+    
+    async def _broadcast_frame_with_metadata(
+        self, 
+        frame_data: bytes,
+        frame_number: int = 0,
+        keyframe_number: int = 0,
+        prompt: Optional[str] = None
+    ) -> None:
+        """
+        Broadcast frame to all connected viewers with metadata
+        
+        Sends a JSON metadata message followed by the binary frame data.
+        This allows viewers to receive frame_number and prompt server-authoritatively.
+        
+        Protocol to viewers:
+        1. JSON message: {"type": "frame_meta", "fn": N, "kf": K, "p": "prompt"}
+        2. Binary message: 0x01 + WebP data
+        """
         if not self._viewers:
             return
         
-        message = bytes([MSG_FRAME]) + frame_data
+        # Build metadata JSON for viewers
+        meta_msg = {
+            "type": "frame_meta",
+            "fn": frame_number,
+            "kf": keyframe_number,
+        }
+        if prompt:
+            meta_msg["p"] = prompt
+        
+        # Binary frame message
+        frame_message = bytes([MSG_FRAME]) + frame_data
         dead_viewers = set()
         
         async with self._lock:
@@ -405,8 +525,10 @@ class DreamWebSocketHub:
         
         for viewer in viewers:
             try:
+                # Send metadata first (JSON), then frame (binary)
                 # Timeout prevents blocking on half-open connections
-                await asyncio.wait_for(viewer.send_bytes(message), timeout=5.0)
+                await asyncio.wait_for(viewer.send_json(meta_msg), timeout=5.0)
+                await asyncio.wait_for(viewer.send_bytes(frame_message), timeout=5.0)
             except (asyncio.TimeoutError, Exception):
                 dead_viewers.add(viewer)
         

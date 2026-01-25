@@ -17,6 +17,7 @@ class DreamViewer {
         this.loadingId = options.loadingId || 'dream-loading';
         this.errorId = options.errorId || 'dream-error';
         this.statusId = options.statusId || 'dream-status';
+        this.promptId = options.promptId || 'dream-prompt-text';
         
         // Canvas elements
         this.canvas = document.getElementById(this.canvasId);
@@ -24,6 +25,7 @@ class DreamViewer {
         this.loadingEl = document.getElementById(this.loadingId);
         this.errorEl = document.getElementById(this.errorId);
         this.statusEl = document.getElementById(this.statusId);
+        this.promptEl = document.getElementById(this.promptId);
         
         // WebSocket
         this.ws = null;
@@ -33,7 +35,9 @@ class DreamViewer {
         
         // Connection state
         this.connected = false;
-        this.frameCount = 0;
+        this.frameCount = 0;           // Local display count (deprecated, kept for compat)
+        this.serverFrameNumber = 0;    // Server-authoritative frame number
+        this.currentPrompt = '';       // Current prompt from server
         this.lastFrameTime = 0;
         
         // ==================== Frame Queue System ====================
@@ -188,13 +192,12 @@ class DreamViewer {
         // Start alpha blend to new frame
         this.startBlend(nextImage);
         
-        // Update stats
+        // Update stats (local count kept for compat, but display uses server frame number)
         this.frameCount++;
         this.lastFrameTime = Date.now();
         
-        if (this.frameCountEl) {
-            this.frameCountEl.textContent = this.frameCount.toLocaleString();
-        }
+        // Note: frame count display is now updated in handleFrameMetaMessage
+        // using the server-authoritative frame number
         
         // Hide loading on first displayed frame
         this.hideLoading();
@@ -358,6 +361,9 @@ class DreamViewer {
                 case 'config':
                     this.handleConfigMessage(msg);
                     break;
+                case 'frame_meta':
+                    this.handleFrameMetaMessage(msg);
+                    break;
                 case 'pong':
                     // Heartbeat response
                     break;
@@ -366,6 +372,37 @@ class DreamViewer {
             }
         } catch (error) {
             console.error('Failed to parse JSON message:', error);
+        }
+    }
+    
+    handleFrameMetaMessage(msg) {
+        // Server-authoritative frame metadata
+        // This arrives just before each binary frame
+        
+        // Update server frame number
+        if (msg.fn !== undefined) {
+            this.serverFrameNumber = msg.fn;
+            // Update display with server frame number
+            if (this.frameCountEl) {
+                this.frameCountEl.textContent = this.serverFrameNumber.toLocaleString();
+            }
+        }
+        
+        // Update prompt if changed
+        if (msg.p !== undefined && msg.p !== this.currentPrompt) {
+            this.currentPrompt = msg.p;
+            this.updatePromptDisplay();
+        }
+    }
+    
+    updatePromptDisplay() {
+        if (this.promptEl && this.currentPrompt) {
+            this.promptEl.textContent = this.currentPrompt;
+            // Show the prompt container if it was hidden
+            const container = this.promptEl.closest('.dream-prompt');
+            if (container) {
+                container.classList.remove('hidden');
+            }
         }
     }
     

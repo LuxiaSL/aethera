@@ -547,6 +547,7 @@ async def dreams_recent_frames(request: Request, count: int = 5, format: str = "
                     "timestamp": f.timestamp,
                     "generation_time_ms": f.generation_time_ms,
                     "size_bytes": len(f.data),
+                    "prompt": f.prompt,
                     "data_url": f"data:image/webp;base64,{base64.b64encode(f.data).decode('ascii')}",
                 }
                 for f in frames
@@ -563,6 +564,7 @@ async def dreams_recent_frames(request: Request, count: int = 5, format: str = "
                     "timestamp": f.timestamp,
                     "generation_time_ms": f.generation_time_ms,
                     "size_bytes": len(f.data),
+                    "prompt": f.prompt,
                 }
                 for f in frames
             ],
@@ -644,12 +646,16 @@ async def dreams_sse_stream(request: Request):
         # Send current frame if available
         current = await hub.frame_cache.get_current_frame()
         if current:
+            frame_data = {
+                "frame_number": current.frame_number,
+                "keyframe_number": current.keyframe_number,
+                "data": base64.b64encode(current.data).decode('ascii'),
+            }
+            if current.prompt:
+                frame_data["prompt"] = current.prompt
             yield {
                 "event": "frame",
-                "data": json.dumps({
-                    "frame_number": current.frame_number,
-                    "data": base64.b64encode(current.data).decode('ascii'),
-                })
+                "data": json.dumps(frame_data)
             }
         
         # Poll for new frames (SSE doesn't have push like WS)
@@ -666,12 +672,16 @@ async def dreams_sse_stream(request: Request):
             current = await hub.frame_cache.get_current_frame()
             if current and current.frame_number > last_frame_number:
                 last_frame_number = current.frame_number
+                frame_data = {
+                    "frame_number": current.frame_number,
+                    "keyframe_number": current.keyframe_number,
+                    "data": base64.b64encode(current.data).decode('ascii'),
+                }
+                if current.prompt:
+                    frame_data["prompt"] = current.prompt
                 yield {
                     "event": "frame",
-                    "data": json.dumps({
-                        "frame_number": current.frame_number,
-                        "data": base64.b64encode(current.data).decode('ascii'),
-                    })
+                    "data": json.dumps(frame_data)
                 }
                 hub.presence.on_api_access()  # Keep GPU warm
             

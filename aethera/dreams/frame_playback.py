@@ -17,7 +17,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable, Awaitable, Any
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ class PlaybackFrame:
     data: bytes
     frame_number: int
     received_at: float
+    keyframe_number: int = 0
+    prompt: Optional[str] = None
 
 
 class FramePlaybackQueue:
@@ -56,15 +58,17 @@ class FramePlaybackQueue:
     
     def __init__(
         self,
-        broadcast_callback: Callable[[bytes], Awaitable[None]],
-        on_frame_displayed: Optional[Callable[[bytes, int], Awaitable[None]]] = None,
+        broadcast_callback: Callable[[bytes, int, int, Optional[str]], Awaitable[None]],
+        on_frame_displayed: Optional[Callable[[bytes, int, int, Optional[str]], Awaitable[None]]] = None,
     ):
         """
         Initialize playback queue
         
         Args:
             broadcast_callback: Async function to broadcast frame to viewers
+                               (frame_data, frame_number, keyframe_number, prompt)
             on_frame_displayed: Optional callback when frame is displayed (for cache)
+                               (frame_data, frame_number, keyframe_number, prompt)
         """
         self.broadcast_callback = broadcast_callback
         self.on_frame_displayed = on_frame_displayed
@@ -115,18 +119,28 @@ class FramePlaybackQueue:
             return 0.0
         return len(self._queue) / self._target_fps
     
-    async def add_frame(self, data: bytes, frame_number: int) -> None:
+    async def add_frame(
+        self, 
+        data: bytes, 
+        frame_number: int,
+        keyframe_number: int = 0,
+        prompt: Optional[str] = None
+    ) -> None:
         """
         Add a frame to the playback queue
         
         Args:
             data: Frame image data (WebP/JPEG bytes)
-            frame_number: Sequential frame number
+            frame_number: Sequential frame number (server-authoritative)
+            keyframe_number: Current keyframe number
+            prompt: Prompt text for the current keyframe
         """
         frame = PlaybackFrame(
             data=data,
             frame_number=frame_number,
-            received_at=time.time()
+            received_at=time.time(),
+            keyframe_number=keyframe_number,
+            prompt=prompt
         )
         
         self._queue.append(frame)
@@ -192,13 +206,23 @@ class FramePlaybackQueue:
                     frame = self._queue.popleft()
                     self._last_frame = frame
                     
-                    # Broadcast to viewers
-                    await self.broadcast_callback(frame.data)
+                    # Broadcast to viewers with metadata
+                    await self.broadcast_callback(
+                        frame.data,
+                        frame.frame_number,
+                        frame.keyframe_number,
+                        frame.prompt
+                    )
                     
                     # Notify cache if callback provided
                     if self.on_frame_displayed:
                         try:
-                            await self.on_frame_displayed(frame.data, frame.frame_number)
+                            await self.on_frame_displayed(
+                                frame.data, 
+                                frame.frame_number,
+                                frame.keyframe_number,
+                                frame.prompt
+                            )
                         except Exception as e:
                             logger.warning(f"Frame displayed callback failed: {e}")
                     
