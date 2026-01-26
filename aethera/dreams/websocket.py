@@ -252,12 +252,13 @@ class DreamWebSocketHub:
         Args:
             websocket: The GPU's WebSocket connection
         """
+        # Must accept before we can close with a proper code
+        await websocket.accept()
+        
         if self._gpu_websocket is not None:
             logger.warning("GPU already connected, rejecting new connection")
             await websocket.close(code=4000, reason="GPU already connected")
             return
-        
-        await websocket.accept()
         self._gpu_websocket = websocket
         self.presence.set_gpu_running(True)
         
