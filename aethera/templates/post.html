@@ -48,6 +48,15 @@
 {% endblock %}
 
 {% block content %}
+{% if preview_mode %}
+<!-- Preview Mode Banner -->
+<div class="preview-banner">
+    <span class="preview-banner-icon">👁️</span>
+    <span class="preview-banner-text">PREVIEW MODE</span>
+    <span class="preview-banner-status">{% if post.published %}Published{% else %}Draft{% endif %}</span>
+</div>
+{% endif %}
+
 <!-- Post title/meta with ellipse background like homepage -->
 <header class="post-header-standalone h-entry">
     <h1 class="p-name">{{ post.title }}</h1>

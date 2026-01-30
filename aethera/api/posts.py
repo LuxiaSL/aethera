@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import List, Optional
 import os
+import secrets
 from pathlib import Path
 from datetime import datetime
 from slugify import slugify
@@ -16,6 +17,9 @@ from aethera.utils.templates import templates
 from aethera.api.comments import compute_backlinks_with_cross_post
 
 router = APIRouter(tags=["posts"])
+
+# Preview token for admin panel draft preview
+BLOG_PREVIEW_TOKEN = os.environ.get("BLOG_PREVIEW_TOKEN")
 
 
 class PostResponse(BaseModel):
@@ -143,6 +147,54 @@ def get_post_body(slug: str, session: Session = Depends(get_session)):
     
     # Return just the HTML content
     return post.content_html
+
+
+# =============================================================================
+# ADMIN PREVIEW ENDPOINT (Token-Protected Draft Preview)
+# =============================================================================
+
+@router.get("/preview/{slug}", response_class=HTMLResponse)
+def preview_post(
+    request: Request,
+    slug: str,
+    token: str = Query(None),
+    session: Session = Depends(get_session),
+):
+    """
+    Preview a post regardless of published status.
+    
+    Requires a valid BLOG_PREVIEW_TOKEN for authentication.
+    Used by the admin panel to preview drafts with full blog styling.
+    """
+    # Verify preview token
+    if not BLOG_PREVIEW_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="Preview not configured (BLOG_PREVIEW_TOKEN not set)"
+        )
+    
+    if not token or not secrets.compare_digest(token, BLOG_PREVIEW_TOKEN):
+        raise HTTPException(status_code=403, detail="Invalid preview token")
+    
+    # Get post regardless of published status
+    query = select(Post).where(Post.slug == slug)
+    post = session.exec(query).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Return the full HTML page with preview mode flag
+    return templates.TemplateResponse(
+        "post.html",
+        {
+            "request": request,
+            "post": post,
+            "comments": [],  # No comments in preview
+            "backlinks": {},  # No backlinks in preview
+            "title": post.title,
+            "preview_mode": True,
+        }
+    )
 
 
 # =============================================================================

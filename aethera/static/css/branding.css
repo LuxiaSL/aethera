@@ -1640,3 +1640,57 @@ article.post-body .post-footer a:hover {
         scroll-behavior: auto;
     }
 }
+
+/* ============================================
+   Preview Mode Banner (Admin Draft Preview)
+   ============================================ */
+.preview-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(90deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
+    border-bottom: 2px solid #e94560;
+    color: #fff;
+    font-family: "Libertinus Mono", monospace;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 20px rgba(233, 69, 96, 0.3);
+}
+
+.preview-banner-icon {
+    font-size: 1.1rem;
+}
+
+.preview-banner-text {
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #e94560;
+}
+
+.preview-banner-status {
+    padding: 0.2rem 0.6rem;
+    background: rgba(233, 69, 96, 0.2);
+    border: 1px solid #e94560;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Push body content down when preview banner is present */
+body:has(.preview-banner) {
+    padding-top: 3rem;
+}
+
+/* Disable interactions in preview mode */
+body:has(.preview-banner) .comment-form,
+body:has(.preview-banner) .open-reply-btn {
+    display: none;
+}
