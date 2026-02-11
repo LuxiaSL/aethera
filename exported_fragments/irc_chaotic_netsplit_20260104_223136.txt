@@ -1,0 +1,38 @@
+# IRC Fragment - chaotic (netsplit)
+# Generated: 2026-01-04 22:31:36
+# Gen: claude-opus-4-5-20251101 | Judge: o3-2025-04-16
+# Messages: 31 | Cost: $0.20
+[00:00] <Kamor> GUYS GUYS GUYS
+[00:04] <Kamor> MY RICE COOKER JUST SENT ME A UDP PACKET
+[00:08] <Kamor> LIKE AN ACTUAL UDP PACKET
+[00:12] <Kamor> NOT A PROTOCOL IT UNDERSTANDS, JUST RAW UDP DATA
+[00:16] <Kamor> AND IT WAS SIGNED BY "rice cooker 3000"
+[00:20] <sc2pro> pics or it didn't happen
+[00:24] <Kamor> [Pasted: Base64 encoded data, 2048 bytes]
+[00:32] <Kami> Wait. Wait. Wait.
+[00:36] <Kami> That's not random UDP data.
+[00:40] <Kami> That's an audio stream. Compressed. Old codec.
+[00:44] <Kami> I'm decoding it...
+[00:48] <Kami> Oh my god.
+[00:52] <Kami> It's CNN broadcast from 9/11/2001.
+[00:56] <Kami> The exact moment of impact.
+[01:00] <sc2pro> WHAT THE FUCK
+[01:04] <ZotanNPC> glitch in the matrix?
+[01:08] <Kami> No. No glitch. Check the TTL. Check the timestamp.
+[01:12] <Kami> This packet is from 2001.
+[01:16] <Kami> It's been routing for 22 years.
+[01:20] <Kami> I just... I need to lie down.
+[01:24] <sc2pro> but how
+[01:28] <Kami> IPv4 address exhaustion is a hell of a drug.
+[01:32] <ZotanNPC> that's... that's not how any of this works
+[01:36] <Kami> But it is. It really, truly is.
+[01:40] <Kami> Welcome to the internet, where packets can reach you from the past
+[01:44] <Kami> if they're sufficiently determined.
+[01:48] <sc2pro> im done
+[01:52] <sc2pro> im fucking done with this channel
+[01:54] <ZotanNPC> wait
+[01:56] <ZotanNPC> my toaster just sent me an ICMP echo request
+[02:00] <ZotanNPC> and it's signed "hello from 1995"
+[02:04] *** sc2pro has quit (Quit: Leaving)
+[02:08] *** Kamor has quit (Ping timeout: 240 seconds)
+[02:12] *** Kami has quit (Ping timeout:

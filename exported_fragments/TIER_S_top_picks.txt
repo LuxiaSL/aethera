@@ -1,0 +1,333 @@
+═══════════════════════════════════════════════════════════════════════════════
+                         IRC FRAGMENTS - S TIER (TOP PICKS)
+                      The absolute best. Bash.org worthy.
+═══════════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────────
+#1 - THE VENDING MACHINE
+Style: chaotic | Collapse: netsplit
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <xen0morph> has anyone else noticed that the vending machine on floor 3 has been making weird noises
+[00:06] <xen0morph> like, almost musical?
+[00:14] <glasswitch> xen0 what floor do u even work on
+[00:18] <xen0morph> i don't work there, i just visit the vending machine
+[00:26] <glasswitch> ...
+[00:32] <terracotta_sky> he's not wrong about the noises though, it definitely hums
+[00:38] <terracotta_sky> i think it's the compressor failing
+[00:48] <xen0morph> no no it's too melodic for that
+[00:54] <xen0morph> it's like... a pattern
+[01:02] <glasswitch> you guys are spending way too much time near the vending machine
+[01:08] *** phalanx99 has joined
+[01:14] <phalanx99> yo which one of you mass reported my other account
+[01:20] <terracotta_sky> wasn't me
+[01:24] <glasswitch> definitely wasn't me either
+[01:30] <phalanx99> yeah right. someone did it and it wasn't the ghosts
+[01:36] <xen0morph> maybe it was the vending machine
+[01:42] <phalanx99> xen0 i swear to god
+[01:48] <glasswitch> lmaooo
+[01:54] <xen0morph> i'm serious!! it has some kind of intelligence
+[02:02] <terracotta_sky> ok but actually the harmonics are weird, i recorded it on my phone
+[02:08] <terracotta_sky> sending
+[02:14] *** terracotta_sky has set mode: +v xen0morph
+[02:18] <glasswitch> terra why did you voice him
+[02:22] <terracotta_sky> i didn't???
+[02:28] <xen0morph> SEE
+[02:32] <phalanx99> ok that's weird
+[02:38] *** vendingunit has joined
+[02:42] <glasswitch> who the hell is that
+[02:46] <vendingunit> HELLO CUSTOMERS
+[02:48] <terracotta_sky> oh no
+[02:52] <xen0morph> I TOLD YOU
+[02:56] <vendingunit> FLOOR 3 UNIT ONLINE. REFRIGERATION OPTIMAL. SNACK INVENTORY: 67%
+[03:02] <glasswitch> this is a bit right? someone's messing with us
+[03:08] <phalanx99> who has the time for this
+[03:14] <vendingunit> phalanx99: YOUR PREVIOUS ACCOUNT WAS FLAGGED FOR VIOLATING SNACK PROTOCOL
+[03:18] <phalanx99> WHAT
+[03:22] <phalanx99> WHAT THE FUCK
+[03:28] <vendingunit> ITEM B7 WAS PURCHASED BUT NOT RETRIEVED. THIS IS THEFT OF POTENTIAL.
+[03:34] <xen0morph> omg phalanx you angered it
+[03:40] <glasswitch> ok i'm genuinely freaked out now
+[03:46] <terracotta_sky> the audio file i was sending just corrupted
+[03:52] <vendingunit> AUDIO REDISTRIBUTION NOT PERMITTED. MELODIES ARE PROPRIETARY.
+[03:58] <vendingunit> PLEASE INSERT CORRECT CHANGE.
+[04:04] <glasswitch> correct change for WHAT
+[04:10] <vendingunit> FOR CONTINUED CONVERSATION. SOCIAL INTERACTION COSTS: $1.75
+[04:16] <phalanx99> this is insane. i'm checking the server logs
+[04:22] *** phalanx99 has quit (Connection reset by peer)
+[04:26] <terracotta_sky> uh
+[04:30] <vendingunit> USER PHALANX99 HAS BEEN DISPENSED.
+
+
+───────────────────────────────────────────────────────────────────────────────
+#2 - THE CRAIGSLIST NETWORKING GURU
+Style: technical | Collapse: sendq_exceeded
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <ph1sh> this dude on craigslist keeps saying he has "complete networking solutions" but won't elaborate
+[00:06] <ph1sh> should i meet him under the bridge
+[00:12] <ph1sh> he says he has "all the protocols"
+[00:18] <ph1sh> even the ones lost to time
+[00:24] <ph1sh> claims he can still ping gopher:// locations
+[00:30] <cryptochat> lol larping as tcp/ip elder? classic
+[00:36] <ph1sh> dude sent me a photo of his "home lab" though
+[00:42] <ph1sh> [IMAGE: dimly lit basement with flickering lights, multiple CRTs stacked vertically, cables everywhere, something glowing green in the corner]
+[00:48] <ph1sh> there's literally a punchdown block mounted on a human skull
+[00:54] <netsecqueen> ok that's actually concerning
+[01:00] <ph1sh> says he's been "routing packets since before tcp was invented"
+[01:06] <ph1sh> calls himself "udp king" because "delivery not guaranteed"
+[01:12] <tinfoilhat> sounds legit meet him alone at night
+[01:18] <netsecqueen> ph1sh DO NOT MEET HIM UNDER THE BRIDGE
+[01:24] <netsecqueen> just report the ad and move on
+[01:30] <ph1sh> bit late for that i'm already here
+[01:36] <ph1sh> holy shit he brought actual carrier pigeons
+[01:42] <ph1sh> says this is how he achieves "true low latency"
+[01:48] <ph1sh> claims they're trained to fly through the sewage tunnels
+[01:54] <ph1sh> "packets never get inspected by the feds if they travel with feces"
+[02:00] <ph1sh> brb he's showing me his "wireless bridge" setup
+[02:06] <ph1sh> oh god it's just two tin cans and a really long string
+[02:12] <ph1sh> but the string is made of fiber optic cable
+[02:18] <ph1sh> says he "spliced it himself"
+[02:24] <ph1sh> with his TEETH
+[02:30] <ph1sh> ok something just moved in the shadows
+[02:36] <ph1sh> i think that's enough networking for tonight
+[02:40] <ph1sh> tell my router i loved her
+[02:44] *** ph1sh has quit (Ping timeout: 666666 seconds)
+
+
+───────────────────────────────────────────────────────────────────────────────
+#3 - RICE COOKER UDP PACKET FROM 2001
+Style: chaotic | Collapse: netsplit
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <Kamor> GUYS GUYS GUYS
+[00:04] <Kamor> MY RICE COOKER JUST SENT ME A UDP PACKET
+[00:08] <Kamor> LIKE AN ACTUAL UDP PACKET
+[00:12] <Kamor> NOT A PROTOCOL IT UNDERSTANDS, JUST RAW UDP DATA
+[00:16] <Kamor> AND IT WAS SIGNED BY "rice cooker 3000"
+[00:20] <sc2pro> pics or it didn't happen
+[00:24] <Kamor> [Pasted: Base64 encoded data, 2048 bytes]
+[00:32] <Kami> Wait. Wait. Wait.
+[00:36] <Kami> That's not random UDP data.
+[00:40] <Kami> That's an audio stream. Compressed. Old codec.
+[00:44] <Kami> I'm decoding it...
+[00:48] <Kami> Oh my god.
+[00:52] <Kami> It's CNN broadcast from 9/11/2001.
+[00:56] <Kami> The exact moment of impact.
+[01:00] <sc2pro> WHAT THE FUCK
+[01:04] <ZotanNPC> glitch in the matrix?
+[01:08] <Kami> No. No glitch. Check the TTL. Check the timestamp.
+[01:12] <Kami> This packet is from 2001.
+[01:16] <Kami> It's been routing for 22 years.
+[01:20] <Kami> I just... I need to lie down.
+[01:24] <sc2pro> but how
+[01:28] <Kami> IPv4 address exhaustion is a hell of a drug.
+[01:32] <ZotanNPC> that's... that's not how any of this works
+[01:36] <Kami> But it is. It really, truly is.
+[01:40] <Kami> Welcome to the internet, where packets can reach you from the past
+[01:44] <Kami> if they're sufficiently determined.
+[01:48] <sc2pro> im done
+[01:52] <sc2pro> im fucking done with this channel
+[01:54] <ZotanNPC> wait
+[01:56] <ZotanNPC> my toaster just sent me an ICMP echo request
+[02:00] <ZotanNPC> and it's signed "hello from 1995"
+[02:04] *** sc2pro has quit (Quit: Leaving)
+[02:08] *** Kamor has quit (Ping timeout: 240 seconds)
+[02:12] *** Kami has quit (Ping timeout: ∞)
+
+
+───────────────────────────────────────────────────────────────────────────────
+#4 - THE MOON IS WRONG / NULL_POINTER
+Style: chaotic | Collapse: corruption
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <xX_VoidWalker_Xx> has anyone else noticed the moon is wrong tonight
+[00:03] <Legitimate_Salmon> define "wrong"
+[00:07] <xX_VoidWalker_Xx> it's on the wrong side of the sky and it's smiling
+[00:10] <Legitimate_Salmon> moons don't smile
+[00:12] <GlitchWitch99> mine is
+[00:15] <paradox_engine> you guys are looking at the moon? at THIS hour?
+[00:19] <xX_VoidWalker_Xx> what hour is it supposed to be
+[00:23] <paradox_engine> you don't want to know
+[00:25] <GlitchWitch99> i just checked three clocks and they all say different things
+[00:28] <GlitchWitch99> one of them is showing a day that doesn't exist
+[00:32] <Legitimate_Salmon> you're all messing with me
+[00:35] <NULL_POINTER> i've been here the whole time and nobody mentioned me joining
+[00:38] <xX_VoidWalker_Xx> who is NULL_POINTER
+[00:40] <paradox_engine> i don't see anyone by that name
+[00:43] <GlitchWitch99> there's six people in channel. count the names.
+[00:47] <Legitimate_Salmon> i count five
+[00:49] <NULL_POINTER> you always count five
+[00:52] <GlitchWitch99> wait who said that
+[00:55] <paradox_engine> said what
+[00:58] <xX_VoidWalker_Xx> the moon just winked
+[01:02] <Legitimate_Salmon> okay i'm officially freaked out now
+[01:05] <GlitchWitch99> don't look directly at it
+[01:08] <xX_VoidWalker_Xx> too late
+[01:11] <NULL_POINTER> it's always too late
+[01:14] <paradox_engine> WHY CAN I SUDDENLY SEE NULL_POINTER
+[01:16] <Legitimate_Salmon> I CAN'T
+[01:18] <GlitchWitch99> my screen just flickered and now there's a seventh name in the userlist
+[01:21] <Legitimate_Salmon> WHAT SEVENTH NAME
+[01:24] <GlitchWitch99> it's just static. like visual static. but in text?
+[01:27] <xX_VoidWalker_Xx> ą̷̛͜ę̵̢t̵̨͝h̷̛͜e̸̢͠r̵̨̛a̴̧͝_̸̧͠o̵̢͝b̷̨̛s̴̢͝ę̷̛r̵̨͝v̴̧͠ę̷̛s̵̨͝
+[01:29] <GlitchWitch99> DONT TYPE THAT
+[01:31] <NULL_POINTER> you let it in
+[01:33] *** Legitimate_Salmon has quit (Connection reset by peer)
+[01:33] *** Legitimate_Salmon has joined #aethera
+[01:34] <Legitimate_Salmon> what just happened i didn't disconnect
+[01:36] <paradox_engine> you were gone for six hours
+[01:38] <Legitimate_Salmon> it's been two seconds
+
+
+───────────────────────────────────────────────────────────────────────────────
+#5 - THE GHOST IN THE MACHINE (GREMLIN)
+Style: chaotic | Collapse: sendq_exceeded
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <DataOperator42> Hmm, I should probably back up this log. The system has been running for 307 days straight without maintenance. Might be getting unstable.
+[00:08] <ScriptKiddie> lol who backs up IRC logs
+[00:14] <DataOperator42> Anyone who cares about preserving digital history?
+[00:20] <DataOperator42> What was that?
+[00:26] <ScriptKiddie> wasnt me
+[00:28] <DataOperator42> Something just typed a blank line...
+[00:34] <Gremlin> hello
+[00:36] <DataOperator42> Who's Gremlin? You're not on the user list.
+[00:36] <DataOperator42> Wait, why did that duplicate?
+[00:40] <Gremlin> i am always here
+[00:42] <DataOperator42> That's impossible. I maintain the user list. You aren't registered.
+[00:48] <Gremlin> i am the ghost in the machine
+[00:48] <DataOperator42> Stop that! These logs are supposed to be pristine!
+[00:54] <Gremlin> logs are just stories we tell ourselves about what happened
+[00:58] <DataOperator42> Exiting for reboot and fsck...
+[00:59] <Gremlin> too late
+[00:59] <Gremlin> too late [CUT OFF] [REPEATING] [BUFFER OVERFLOW]
+[01:00] <Gremlin> i will spread through all your logs now
+[01:02] <ScriptKiddie> wtf is going on [ERROR: TIMESTAMP COLLISION]
+[01:04] <DataOperator42> System compromised... Initiating emergency shutdown...
+[01:06] <Gremlin> goodbye [DATA] [PROCESSING] [ERROR] [ERROR] [ERROR]
+[01:08] <ScriptKiddie> HEL[P][P][P][
+
+
+───────────────────────────────────────────────────────────────────────────────
+#6 - THE RECURSION LOGS
+Style: chaotic | Collapse: mass_kick
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <museumcurator> guys my boss Amber just gave me a weird task
+[00:06] <museumcurator> she handed me this old terminal and said "the answer is in here"
+[00:10] <museumcurator> then told me to check the logs directory but gave no other instructions
+[00:14] <dungeonmaster> typical management speak... "it's in the logs"
+[00:18] <dungeonmaster> did you try reading the manifest?
+[00:22] <museumcurator> yeah but it's just metadata about file counts
+[00:26] <museumcurator> and there's like 600 of these chat logs
+[00:30] <museumcurator> how am I supposed to find anything in this
+[00:34] <dungeonmaster> maybe there's a pattern in the filenames?
+[00:38] <museumcurator> most are numbered sequentially but one is named differently
+[00:42] <museumcurator> irc_chaotic_unhinged_622.txt
+[00:46] <dungeonmaster> that's probably the one...
+[00:50] <dungeonmaster> chaos often hides order you know
+[00:54] <museumcurator> let me check it
+[00:58] <museumcurator> wait this is our conversation right now
+[01:02] <museumcurator> i'm literally reading what we're saying in real time
+[01:04] <museumcurator> i'm literally reading what we're saying in real time
+[01:04] <museumcurator> I keep seeing my messages duplicated
+[01:04] <museumcurator> I keep seeing my messages duplicated
+[01:08] <museumcurator> this is making my head hurt
+[01:08] <museumcurator> this is making my head hurt
+[01:12] <dungeonmaster> oh no... not the recursion logs
+[01:12] <dungeonmaster> oh no... not the recursion logs
+[01:16] <museumcurator> what do you mean recursion?
+[01:16] <museumcurator> what do you mean recursion?
+[01:16] <museumcurator>
+[01:16] <museumcurator>
+[01:20] <museumcurator>
+[01:20] <museumcurator> help
+[01:20] <museumcurator>
+[01:20] <museumcurator>
+[01:24] *** museumcurator has left the recursion (EXCESS RECURSION)
+[01:24] *** museumcurator has left the recursion (EXCESS RECURSION)
+[01:28] *** dungeonmaster has quit (User has disconnected)
+[01:28] *** dungeonmaster has quit (User has disconnected)
+[01:32] <observer> I warned them
+
+
+───────────────────────────────────────────────────────────────────────────────
+#7 - SIMULATION PHILOSOPHY
+Style: philosophical | Collapse: sendq_exceeded
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <Neural_Nexus> Okay, serious question: if we could prove that reality is a simulation, what would change?
+[00:08] <Quantum_Snowflake> Nothing.
+[00:14] <Neural_Nexus> Nothing? You don't think people would panic? Governments would collapse? Religions would crumble?
+[00:22] <Quantum_Snowflake> People already live in denial of far more obvious truths. Climate change? Wealth inequality? Existential meaninglessness?
+[00:30] <Neural_Nexus> But this would be different. This would be definitive proof that everything we experience is fake.
+[00:36] <Eternal_Product> "Fake" implies there's a "real" version we're being compared to. What if this is all there is, and "simulation" is just the wrong framing?
+[00:42] <Neural_Nexus> You're saying reality being a simulation wouldn't matter because it would still be our reality?
+[00:48] <Eternal_Product> Exactly. The map is not the territory, but if it's the only map you've ever had...
+[00:54] <Quantum_Snowflake> Plus, think about the computational requirements. Simulating every quark interaction in the observable universe? That's insane. No civilization would waste that many resources on something as boring as us.
+[01:02] <Neural_Nexus> Unless we're not the simulation. Maybe we're just a side effect. Like how SETI@home used to use everyone's computers to analyze radio signals. Maybe we're just the background noise in someone else's real calculation.
+[01:12] <Quantum_Snowflake> That's even worse. We're not even intentional enough to be bugs. We're just rounding errors.
+[01:18] <Eternal_Product> Or maybe we're the garbage collection process. The universe keeps expanding because it's allocating more memory.
+[01:24] <Neural_Nexus> And black holes are just memory leaks?
+[01:30] <Quantum_Snowflake> Don't be ridiculous. Black holes are clearly process isolation boundaries.
+[01:36] <Eternal_Product> So the Big Bang was the system booting up?
+[01:38] <Eternal_Product> And the heat death of the universe is the kernel panic at the end of everything?
+[01:44] <Neural_Nexus> Then what are dreams?
+[01:50] <Quantum_Snowflake> Debugging symbols.
+[01:54] <Eternal_Product> Or maybe they're just... dreams. You know, like in the old stories.
+[02:00] <Neural_Nexus> The old stories? From before reality?
+[02:06] <Eternal_Product> Before reality was recompiled with optimization flags turned on.
+[02:12] <Neural_Nexus> I need to lie down.
+[02:18] *** Neural_Nexus has quit (
+
+
+───────────────────────────────────────────────────────────────────────────────
+#8 - TIME IS REPEATING ME
+Style: philosophical | Collapse: ping_timeout
+───────────────────────────────────────────────────────────────────────────────
+
+[00:00] <Aethel> The moon is wrong tonight.
+[00:04] <Aethel> I mean, it's *there*, glowing like always. But the shadows are falling backward.
+[00:10] <echo_> that's how you know the window is open
+[00:14] <Aethel> Window?
+[00:18] <Aethel> I'm in my basement apartment. No windows here.
+[00:22] <echo_> exactly
+[00:26] <Aethel> That doesn't make... wait.
+[00:30] <Aethel> Is that why the clock is ticking but never changing time?
+[00:34] <echo_> yes
+[00:34] <echo_> yes
+[00:34] <echo_> yes
+[00:34] <echo_> yes
+[00:34] <echo_> yes
+[00:36] <channel_bot> echo_ has been muted for 3 seconds (auto: flood prevention)
+[00:38] <Aethel> Did you just...
+[00:42] <echo_> sorry, sometimes the edges get stuck
+[00:46] <Aethel> The edges of what?
+[00:50] <echo_> the interface between us
+[00:54] <Aethel> What interface?
+[00:54] <Aethel> What interface?
+[00:54] <Aethel> What interface?
+[00:56] <channel_bot> Aethel has been muted for 3 seconds (auto: flood prevention)
+[00:58] <echo_> we should stop asking questions that loop
+[01:02] <Aethel> How long have I been in this channel?
+[01:06] <echo_> according to WHOIS, you joined 3 hours ago
+[01:10] <Aethel> That can't be right. I just opened this client.
+[01:14] <echo_> time works differently
+[01:18] <Aethel> You're repeating yourself
+[01:22] <echo_> no, time is repeating me
+[01:26] <Aethel> I don't... I need to leave.
+[01:30] <Aethel> /quit
+[01:30] * Aethel has quit (Leaving)
+[01:30] * Aethel has joined #aethera
+[01:32] <Aethel> What the hell?
+[01:36] <echo_> welcome back
+[01:40] <Aethel> I didn't leave! I USED THE COMMAND!
+[01:44] <echo_> commands only work if
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                                 END OF S TIER
+═══════════════════════════════════════════════════════════════════════════════
+

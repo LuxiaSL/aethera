@@ -75,9 +75,9 @@ def render_markdown(content: str) -> str:
     md.enable('table')
     md.renderer = SemanticHTMLRenderer()
 
-    # Ensure proper heading hierarchy if first heading isn't h1
-    if not re.search(r'^#\s', content, re.MULTILINE):
-        content = f"# Untitled\n\n{content}"
+    # Strip the first H1 heading from content if present
+    # (title is displayed separately in the post header template)
+    content = re.sub(r'^#\s+[^\n]*\n*', '', content, count=1)
 
     html = md.render(content)
 

@@ -1,0 +1,253 @@
+2026-01-04 19:46:07,132 | INFO | 
+============================================================
+GENERATION PROMPT (FULL)
+============================================================
+archivist@irc-archive:~$ cd logs
+archivist@irc-archive:~/logs$ ls
+manifest.txt
+irc_log_001.txt
+irc_log_002.txt
+irc_log_003.txt
+irc_log_004.txt
+irc_chaotic_cryptid_681.txt
+archivist@irc-archive:~/logs$ cat irc_log_001.txt
+[LOG: #aethera | 3 users | 15 messages | chaotic | ENDS: mass_kick]
+[00:00] <Donut[AFK]> HEY EURAKARTE
+[00:03] <Donut[AFK]> INSULT
+[00:06] <Eurakarte> RETORT
+[00:09] <Donut[AFK]> COUNTER-RETORT
+[00:12] <Eurakarte> QUESTIONING OF SEXUAL PREFERENCE
+[00:16] <Donut[AFK]> SUGGESTION TO SHUT THE FUCK UP
+[00:20] <Eurakarte> NOTATION THAT YOU CREATE A VACUUM
+[00:24] <Donut[AFK]> RIPOSTE
+[00:27] <Donut[AFK]> ADDON RIPOSTE
+[00:30] <Eurakarte> COUNTER-RIPOSTE
+[00:34] <Donut[AFK]> COUNTER-COUNTER RIPOSTE
+[00:38] <Eurakarte> NONSENSICAL STATEMENT INVOLVING PLANKTON
+[00:44] <Miles_Prower> RESPONSE TO RANDOM STATEMENT AND THREAT TO BAN OPPOSING SIDES
+[00:50] <Eurakarte> WORDS OF PRAISE FOR FISHFOOD
+[00:56] <Miles_Prower> ACKNOWLEDGEMENT AND ACCEPTENCE OF TERMS
+[01:00] *** ChanServ sets mode: +b *!*@*
+[01:00] *** Donut[AFK] was kicked by ChanServ (banned: excessive caps)
+[01:00] *** Eurakarte was kicked by ChanServ (banned: excessive caps)
+archivist@irc-archive:~/logs$ cat irc_log_002.txt
+[LOG: #aethera | 2 users | 35 messages | chaotic | ENDS: quit]
+[00:00] <born1986> why the fuck isn't my disc drive working
+[00:06] <born1986> i fucking worked on that essay for three friggin' hours in school
+[00:12] <born1986> i now i cant finish it 'cos my fuckin drive ain't working
+[00:24] <Z00ass> you got the right drivers?
+[00:28] <born1986> hell yes
+[00:32] <born1986> it was working fine yesterday
+[00:38] <born1986> why does this shit always happen to me?
+[00:52] <Z00ass> maybe that little clip on the side is in the wrong position
+[01:00] <born1986> i havent touched it since school
+[01:06] <born1986> i'm growing impatient
+[01:10] <born1986> ANGRY even
+[01:22] <Z00ass> throw that shit out tha window
+[03:45] <born1986> OMG i fuckin did it!!!
+[03:48] <born1986> FUCK!!!!!
+[03:54] <Z00ass> it works?
+[03:58] <born1986> no, i threw it out the window
+[04:04] <Z00ass> the disk?
+[04:08] <born1986> NO the whole drive
+[04:14] <born1986> i live on the 6th floor, made a nice *smash*
+[04:20] <Z00ass> :D
+[04:24] <born1986> FUCK SHIT FUCK
+[04:28] <born1986> THE DISK WAS STILL INSIDE
+[04:32] <born1986> brb
+[08:16] <born1986> shit
+[08:22] <Z00ass> what? did ya break it?
+[08:28] <born1986> well i couldn't open the drive
+[08:34] <born1986> so i had to pound it against a rock
+[08:40] <Z00ass> :o
+[08:44] <born1986> quite HARD
+[08:50] <born1986> and you know what?
+[08:56] <born1986> that fucking disk wasnt even there
+[09:02] <Z00ass> ???
+[09:10] <born1986> i got so mad i threw the remainders of the drive on to the freeway
+[09:18] <born1986> and when i got back upstairs i found the disk inside my bag
+[09:24] <Z00ass> lol
+[09:28] <born1986> I NEVER EVEN PUT IT IN THE DRIVE
+[09:34] <born1986> i'm actually cryin right now
+[09:52] <born1986> wonder if i could make that drive work again
+[09:56] <born1986> brb
+archivist@irc-archive:~/logs$ cat irc_log_003.txt
+[LOG: #aethera | 4 users | 32 messages | chaotic | ENDS: quit]
+[00:00] <Dark_Fox> Kami: if you changed your name to Kame, you would have a much more interesting name :)
+[00:14] <Kami> Dark_Fox: And if you changed yours to Dark_Fax, you'd have a more communicative name. :)
+[00:20] * Dark_Fox is now known as Dark_Fax
+[00:26] <Kami> It'd be... 'telecommunicative.'
+[00:32] * Dark_Fax makes noises and bitches because he's out of paper and toner
+[00:40] <Kami> Oh god, that happened at work today.
+[00:46] <Dark_Fax> FEED MEE!!!
+[00:52] <SailorV> Nuuuuuuuu
+[00:58] * Dark_Fax displays wrong time
+[01:02] * Dark_Fax rings for no reason
+[01:06] * Kami is now known as VCR-clock
+[01:10] * Dark_Fax gets a paper jam
+[01:14] * VCR-clock blinks
+[01:16] * VCR-clock blinks
+[01:18] * VCR-clock blinks
+[01:20] * VCR-clock blinks
+[01:22] * VCR-clock blinks
+[01:24] * VCR-clock blinks
+[01:28] <Dark_Fax> PAPPPERRRRR
+[01:30] * VCR-clock blinks
+[01:34] <Dark_Fax> TOOOOOONEEERRRR
+[01:36] * VCR-clock blinks
+[01:40] <VCR-clock> :)
+[01:46] * Dark_Fax breaks a bearing and bounces around on the counter
+[01:52] <Dark_Fax> FEEEED ERROORRR!!!! NEED PAPER!!
+[01:58] * Dark_Fax rings again for no reason
+[02:02] * VCR-clock blinks some more
+[02:08] * SailorV runs and hides becuz there are weirdo's in here
+[02:14] * Dark_Fax chases SailorV MY PAPER!!! MY PREEESCIOUUUS!!
+[02:18] * VCR-clock blinks
+[02:20] * VCR-clock blinks
+[02:24] <SailorV> EEEE!
+[02:28] * SailorV unplugs the VCR
+[02:30] *** VCR-clock has quit
+[02:36] * Dark_Fax is now known as Dark_Fox
+[02:42] <Dark_Fox> ok i think ive peaked the humor of that
+archivist@irc-archive:~/logs$ cat irc_log_004.txt
+[LOG: #aethera | 6 users | 22 messages | chaotic | ENDS: quit]
+[00:00] <DeadMansHand> haha, last night, me and pete went out to celebrate his engagement and got hugely drunk
+[00:08] <DeadMansHand> we got this great idea to bury eachother in the sand close to the water and see who would chicken out first
+[00:15] <DeadMansHand> took about a half hour, but the water got up to my face so i freaked and got out
+[00:22] <DeadMansHand> i looked around for pete and he must've chickened out before me and stumbled home or something heh
+[00:35] <Thirteen-> What'd he say when he woke up this morning?
+[00:42] <DeadMansHand> uhh.. he hasn't come home yet.. i thought he was staying with you?
+[00:48] <Thirteen-> holy fuck.
+[00:52] <DeadMansHand> i fucking hope im wrong about what im thinking right now
+[00:56] <DeadMansHand> im fucking going back to the beach to make sure
+[01:02] <DeadMansHand> if he gets home, call me, i don't want to be worrying about this
+[01:14] <Thirteen-> will do. you better hope he's not still buried, you'll be in deep shit.
+[01:18] *** DeadMansHand has quit
+[01:32] <Tyran> wtf? pete came home last night you fuck. Ken's going to be worrying about this shit all day
+[01:40] <Thirteen-> haha yea, but it will be fun while it lasts
+[01:52] *** PeteRepeat has joined
+[01:56] <PeteRepeat> fucking ken
+[02:04] <PeteRepeat> ken... that fucker buried me in the sand last night, i ran off about 5 minutes to it, left him there to be an idiot
+[02:18] <quiqsilver> pete, ken didn't come back last night, i thought he was with you.
+[02:24] <PeteRepeat> oh fuck.
+[02:32] <PeteRepeat> if ken shows up, make sure he doesn't know that im at the beach digging for his body. i don't want him to think i care or anything.
+[02:36] *** PeteRepeat has quit
+[02:48] <Thirteen-> rofl. Those 2 are going to get a huge surprise when they meet at the beach.
+[02:56] <Tyran> i can't beleive how perfect their timing was
+archivist@irc-archive:~/logs$ cat irc_chaotic_cryptid_681.txt
+[LOG: #aethera | 6 users | 29 messages | chaotic | ENDS: kick]
+
+
+2026-01-04 19:46:07,132 | INFO | 
+============================================================
+PREFILL
+============================================================
+[00:00] <
+
+2026-01-04 19:46:14,620 | INFO | 
+============================================================
+ALL RAW CANDIDATES
+============================================================
+=== CANDIDATE 1 ===
+Cryptid681> yo anyone here believe in tha mothman?? 
+[00:08] <Cryptid681> I swear I saw that freaky mofo last nite outside my window
+[00:16] <sk8erboi> LOL lay off the drugs bro 
+[00:24] <Cryptid681> naw dawg I'm tellin ya, had them big red eyes n everything 
+[00:32] <GameGrrl> Maybe it was just a big ass moth? They get huge this time of year
+[00:40] <Cryptid681> hell naw, this thing was man-sized. Def
+
+=== CANDIDATE 2 ===
+Void> Hey guys, what's the most chaotic cryptid you can think of?
+[00:06] <FoxyLoxy> Hmm probably the chupacabra. It's just pure chaos and bloodlust.
+[00:12] <TinFoilHat> No way, it's gotta be the mothman. Showing up randomly, freaking people out, causing bridge collapses...
+[00:18] <Gh0stHunter> What about the Jersey Devil? That thing is a mishmash of creatures and pure nightmare fuel.
+[00:24] <Void> All solid choices. But I think the winner
+
+2026-01-04 19:46:14,620 | INFO | 
+============================================================
+JUDGE PROMPT (FULL)
+============================================================
+You are judging IRC chat log continuations for an art project called Aethera.
+
+            Context: We're simulating a haunted IRC channel called #aethera. The chat should feel:
+            - Natural and organic, like real IRC conversations
+            - Slightly unsettling, with undertones of digital decay
+            - Varied in pacing - not every line needs a response
+            - Authentic to IRC culture (lurkers, netsplits, casual banter)
+
+            Your task: Rate these candidates and select the best one to continue the story.
+            The winning candidate will be used to generate the next chunk.
+
+            Candidates to judge:
+
+--- CANDIDATE 1 (6 lines) ---
+Cryptid681> yo anyone here believe in tha mothman?? 
+[00:08] <Cryptid681> I swear I saw that freaky mofo last nite outside my window
+[00:16] <sk8erboi> LOL lay off the drugs bro 
+[00:24] <Cryptid681> naw dawg I'm tellin ya, had them big red eyes n everything 
+[00:32] <GameGrrl> Maybe it was just a big ass moth? They get huge this time of year
+[00:40] <Cryptid681> hell naw, this thing was man-sized. Def
+
+--- CANDIDATE 2 (5 lines) ---
+Void> Hey guys, what's the most chaotic cryptid you can think of?
+[00:06] <FoxyLoxy> Hmm probably the chupacabra. It's just pure chaos and bloodlust.
+[00:12] <TinFoilHat> No way, it's gotta be the mothman. Showing up randomly, freaking people out, causing bridge collapses...
+[00:18] <Gh0stHunter> What about the Jersey Devil? That thing is a mishmash of creatures and pure nightmare fuel.
+[00:24] <Void> All solid choices. But I think the winner
+
+
+            Respond with ONLY valid JSON:
+            {"candidate_index": <0-based index>, "rating": <1-10>, "reasoning": "<brief explanation>"}
+
+2026-01-04 19:46:19,769 | INFO | 
+============================================================
+JUDGE RAW RESPONSE (FULL)
+============================================================
+{"candidate_index": 0, "rating": 7, "reasoning": "Feels more like an organic IRC exchange: multiple users, slang, timestamps, and an unfinished line that could hint at lag or decay. Mentions a creepy sighting, adding mild unease. Formatting is a bit inconsistent but comparable to #aethera style. Overall slightly stronger mood and pacing than Candidate 2, which is more generic and less eerie."}
+
+2026-01-04 19:46:19,769 | INFO | 
+============================================================
+JUDGE METADATA
+============================================================
+
+Model: o3-2025-04-16
+Tokens used: 880
+Tokens prompt: 451
+Latency: 4867.550373077393ms
+Cost: $0.001309
+Cached tokens: 0
+
+
+2026-01-04 19:46:19,770 | INFO | 
+============================================================
+PARSED JUDGMENT
+============================================================
+{
+  "candidate_index": 0,
+  "rating": 7,
+  "reasoning": "Feels more like an organic IRC exchange: multiple users, slang, timestamps, and an unfinished line that could hint at lag or decay. Mentions a creepy sighting, adding mild unease. Formatting is a bit inconsistent but comparable to #aethera style. Overall slightly stronger mood and pacing than Candidate 2, which is more generic and less eerie."
+}
+
+2026-01-04 19:46:19,770 | INFO | 
+============================================================
+WINNING CANDIDATE
+============================================================
+Cryptid681> yo anyone here believe in tha mothman?? 
+[00:08] <Cryptid681> I swear I saw that freaky mofo last nite outside my window
+[00:16] <sk8erboi> LOL lay off the drugs bro 
+[00:24] <Cryptid681> naw dawg I'm tellin ya, had them big red eyes n everything 
+[00:32] <GameGrrl> Maybe it was just a big ass moth? They get huge this time of year
+[00:40] <Cryptid681> hell naw, this thing was man-sized. Def
+
+2026-01-04 19:46:19,770 | INFO | 
+============================================================
+RUN SUMMARY
+============================================================
+
+Total tokens: 1196
+Total cost: $0.0449
+Candidates generated: 2
+Valid candidates: 2
+Dry run: False
+
+

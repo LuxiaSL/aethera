@@ -1,0 +1,159 @@
+2026-01-04 23:48:51,489 | INFO | 
+============================================================
+RUN CONFIGURATION
+============================================================
+Generation Provider: openrouter
+Generation Model: moonshotai/kimi-k2-0905
+Judge Provider: openai
+Judge Model: o3-2025-04-16
+Candidates Per Chunk: 10
+Max Chunks: 20
+Mode: LIVE
+
+2026-01-04 23:48:51,490 | INFO | 
+============================================================
+FRAGMENT PARAMETERS
+============================================================
+Style: technical
+Collapse Type: mass_kick
+Target Users: 3
+Target Messages: 23
+
+2026-01-04 23:48:51,490 | INFO | 
+============================================================
+STABLE PREFIX (CACHED)
+============================================================
+archivist@irc-archive:~$ cd logs
+archivist@irc-archive:~/logs$ ls
+manifest.txt
+irc_log_001.txt
+irc_log_002.txt
+irc_log_003.txt
+irc_log_004.txt
+irc_technical_reverse_engineering_241.txt
+archivist@irc-archive:~/logs$ cat irc_log_001.txt
+[LOG: #aethera | 2 users | 8 messages | chaotic | ENDS: quit]
+[00:00] <Rabidplaybunny87> Okay, so my neighbors officially hate me
+[00:06] <GarbageStan23> why?
+[00:14] <Rabidplaybunny87> Well, me, david and andrew were having a bonfire in the backyard, and we were making s'mores and all... and suddenly we here sirens, and see a firetruck turn into the street in front of us.
+[00:28] <Rabidplaybunny87> So we all went running to see what was up, and our neighbor's house was on fire!
+[00:34] <GarbageStan23> oh shit!
+[00:44] <Rabidplaybunny87> Yeah, and when we got there, the wife was crying into her husbands arms, and we were just kinda standing there, and then she saw us, and then like for 10 seconds, gave us the dirtiest look ever
+[00:58] <Rabidplaybunny87> Turns out, we were still holding our sticks with marshmallows on it, watching the fire....
+[01:08] <Rabidplaybunny87> talk about bad timing...
+[01:14] *** Rabidplaybunny87 has quit (gtg, neighbors knocking)
+archivist@irc-archive:~/logs$ cat irc_log_002.txt
+[LOG: #aethera | 2 users | 14 messages | technical | ENDS: quit]
+[00:00] <docsigma2000> jesus christ man
+[00:04] <docsigma2000> my son is sooooooo dead
+[00:12] <c8info> Why?
+[00:18] <docsigma2000> hes been looking at internet web sites in fucking EUROPE
+[00:24] <docsigma2000> HE IS SURFING LONG DISTANCE
+[00:30] <docsigma2000> our fucking phone bill is gonna be nuts
+[00:48] <c8info> Ooh, this is bad. Surfing long distance adds an extra $69.99 to your bill per hour.
+[00:54] <docsigma2000> ...!!!!!! FUCK FUCK FUCK
+[01:02] <docsigma2000> is there some plan we can sign up for???
+[01:10] <docsigma2000> cuz theres some cool stuff in europe, but i dun wanna pay that much
+[01:26] <c8info> Sorry, no. There is no plan. you'll have to live with it.
+[01:36] <docsigma2000> o well, i can live without europe intenet sites.
+[01:44] <docsigma2000> but till i figure out how to block it hes sooooo dead
+[02:02] <c8info> By the way, I'm from Europe, your chatting long distance.
+[02:04] *** docsigma2000 has quit (Connection reset by peer)
+archivist@irc-archive:~/logs$ cat irc_log_003.txt
+[LOG: #aethera | 4 users | 9 messages | technical | ENDS: corruption]
+[00:00] <Zybl0re> get up
+[00:02] <Zybl0re> get on up
+[00:04] <Zybl0re> get up
+[00:06] <Zybl0re> get on up
+[00:10] <phxl|paper> and DANCE
+[00:12] * nmp3bot dances :D-<
+[00:14] * nmp3bot dances :D|-<
+[00:16] * nmp3bot dances :D/-<
+[00:22] <[SA]HatfulOfHollow> i'm going to become rich and famous after i invent a device that allows you to stab people in the face over the internet
+[00:26] *** WARNING: Connection to server lost. Attempting to reconnect...
+[00:28] *** ERROR: Unable to reconnect. Data may have been corrupted.
+archivist@irc-archive:~/logs$ cat irc_log_004.txt
+[LOG: #aethera | 2 users | 42 messages | philosophical | ENDS: natural]
+[00:00] <Galactic> you know what's ALWAYS bothered me? cold cereal mascots
+[00:06] <Galactic> I mean that is just some FUCKED UP SHIT
+[00:12] <Galactic> the Trix rabbit, for example
+[00:18] <Galactic> I dunno man... if I were him I'd be fucking KILLING some kids
+[00:28] <Galactic> I remember a commercial where the fuckin rabbit WENT INTO A FUCKIN STORE AND BOUGHT A BOX OF TRIX WITH HIS OWN FUCKIN MONEY.
+[00:38] <Galactic> fuckin kids came outta NOWHERE and basically fuckin mug the poor stupid bitch rabbit
+[00:46] <Galactic> "silly rabbit Trix are for kids"
+[00:52] <Galactic> Fuckin rabbit just sits there and looks depressed.
+[00:58] <Galactic> FUCK NO that wouldn't fly with me
+[01:06] <Galactic> I'd have pimp-slapped EVERY ONE OF those fuckin bitches
+[01:16] <Galactic> and made them go get me the REST of a "complete breakfast" and eat Trix right in front of them bitches and THEN beat the shit out of them some more.
+[01:28] <Galactic> and wtf is with the disguises? All the dumb rabbit does is hide his ears and all of a sudden he's a fuckin kid?
+[01:40] <Galactic> I dunno about you, but if I SAW a 6 foot fuckin RABBIT with his ears tucked under a baseball cap, I wouldn't immediately think
+[01:50] <Galactic> "Hey, there's a cool lookin human kid, let me go over and share some of my cereal with him"
+[01:56] <Galactic> NO.
+[02:02] <Galactic> I'd be thinking
+[02:10] <Galactic> "that's a 6 foot fuckin RABBIT with his ears tucked under a baseball cap... what the FUCK was I just smoking?"
+[02:24] <Galactic> another thing... wtf is up with cereal being "A part of this complete breakfast"
+[02:34] <Galactic> last time -I- checked, cereal WAS breakfast
+[02:46] <Galactic> they show a big ass bowl of frosted flakes next to a waffle, a pancake, toast, a banana, a fuckin grapefruit... who the FUCK eats a breakfast that big
+[03:02] <Flaming_Duck> not me
+[03:08] <Flaming_Duck> I don't even EAT breakfast nomore
+[03:16] <Flaming_Duck> I mean, I eat when I get up
+[03:24] <Flaming_Duck> but the whole thought "BREAKFAST IS ONLY SERVED UNTIL SUCH AND SUCH TIME"
+[03:34] <Flaming_Duck> bitch, you make my fucking sausage and egg sandwich when I pay you the fucking money
+[03:42] <Flaming_Duck> don't give me that shit.
+[03:54] <Galactic> Back to stupid cereal mascots...
+[04:00] <Galactic> Lucky Charms.
+[04:04] <Galactic> FUCKING LUCKY CHARMS
+[04:12] <Galactic> Lucky can turn the fucking MOON into a marshmallow, and he can't escape a bunch of fucking 6 year olds?!?!?
+[04:22] <Galactic> C'mon now, Lucky.
+[04:30] <Galactic> I KNOW your bitch ass has got to have a "Blow the fucking kids up" spell SOMEWHERE
+[04:40] <Galactic> or make "kid marshamllows" and EAT those bitches.
+[04:48] <Galactic> "They're after me Lucky Charms!"
+[04:52] <Galactic> ....
+[04:56] <Galactic> KILL THEM, BITCH!
+[05:06] <Galactic> I dunno why I went off on this rant here
+[05:12] <Galactic> it's just always bothered me.
+
+
+2026-01-04 23:48:51,490 | INFO | 
+============================================================
+TARGET INTRO (VARIABLE)
+============================================================
+archivist@irc-archive:~/logs$ cat irc_technical_reverse_engineering_241.txt
+[LOG: #aethera | 3 users | 23 messages | technical | ENDS: kick]
+
+
+2026-01-04 23:48:51,490 | INFO | 
+============================================================
+PREFILL
+============================================================
+[00:00] <
+
+2026-01-04 23:48:51,490 | INFO | 
+============================================================
+CHUNK 1 GENERATOR PROMPT
+============================================================
+Stable prefix (cached): 5966 chars
+Variable prompt: 141 chars
+Total: 6107 chars
+Prefill: '[00:00] <'
+
+--- STABLE PREFIX ---
+archivist@irc-archive:~$ cd logs
+archivist@irc-archive:~/logs$ ls
+manifest.txt
+irc_log_001.txt
+irc_log_002.txt
+irc_log_003.txt
+irc_log_004.txt
+irc_technical_reverse_engineering_241.txt
+archivist@irc-archive:~/logs$ cat irc_log_001.txt
+[LOG: #aethera | 2 users | 8 messages | chaotic | ENDS: quit]
+[00:00] <Rabidplaybunny87> Okay, so my neighbors officially hate me
+[00:06] <GarbageStan23> why?
+[00:14] <Rabidplaybunny87> Well, me, david and andrew were having a bonfire in the backyard, and we were m...
+
+--- VARIABLE PROMPT ---
+archivist@irc-archive:~/logs$ cat irc_technical_reverse_engineering_241.txt
+[LOG: #aethera | 3 users | 23 messages | technical | ENDS: kick]
+
+

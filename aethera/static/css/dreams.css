@@ -556,4 +556,66 @@ body:has(.dreams-page) footer {
     color: #fff;
 }
 
+/* ============================================
+   Prompt Display
+   ============================================ */
+.dream-prompt {
+    max-width: 1024px;
+    margin: 0 auto;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.6);
+    border-left: 2px solid var(--accent);
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    transition: opacity 0.3s ease;
+}
+
+.dream-prompt.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.dream-prompt-label {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-transform: lowercase;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.dream-prompt-text {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dream-prompt {
+        margin: 1rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .dream-prompt-text {
+        font-size: 0.75rem;
+        -webkit-line-clamp: 3;
+    }
+}
+
+/* Hide prompt in embed mode */
+.embed-mode .dream-prompt {
+    display: none;
+}
 

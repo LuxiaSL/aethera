@@ -1,0 +1,31 @@
+# IRC Fragment - technical (netsplit)
+# Generated: 2026-01-04 22:49:16
+# Gen: claude-opus-4-5-20251101 | Judge: o3-2025-04-16
+# Messages: 24 | Cost: $0.24
+[00:00] <entropy_hawk> Security folks, question about the AetheraNameRemover algorithm
+[00:06] <entropy_hawk> why does it replace certain characters with Unicode lookalikes instead of just removing them?
+[00:12] <curious_george> It preserves visual similarity to maintain data integrity in some contexts
+[00:18] <curious_george> like when processing documents that need redaction but also OCR later
+[00:24] <entropy_hawk> seems weird in IRC logs though
+[00:28] <curious_george> It's a general-purpose algorithm used across all AetheraConfidential products
+[00:32] <curious_george> not optimized for specific formats
+[00:38] <memory_leak> curious, how does it handle zero-width unicode?
+[00:42] <entropy_hawk> memory_leak: that's exactly what I was wondering
+[00:48] <curious_george> Zero-width characters are preserved as-is
+[00:54] <entropy_hawk> WHAT
+[00:58] <curious_george> They don't contribute to visual representation, so they're considered harmless
+[01:04] <entropy_hawk> but that's a massive security hole
+[01:08] <curious_george> How so?
+[01:12] <entropy_hawk> you could encode entire messages in zero-width unicode and they'd bypass
+[01:18] <curious_george> But who would look for messages in zero-width unicode?
+[01:24] <entropy_hawk> literally anyone trying to leak sensitive information
+[01:30] <memory_leak> curious, can you confirm this? I just tested it in my dev environment
+[01:36] <memory_leak> I sent "sensitive__password" (with zero-widths between sensitive and password)
+[01:42] <memory_leak> and it completely ignored the zero-width part
+[01:48] <curious_george> Let me check the code...
+[01:52] <curious_george> Huh.
+[01:56] <curious_george> Oh dear.
+[01:58] *** curious_george has quit (Remote host closed the connection)
+[02:02] *** entropy_hawk has quit (Remote host closed the connection)
+[02:06] *** memory_leak has quit (Remote host closed the connection)
+[02:08] *** Netsplit hub.efnet.net <-> irc.efnet.org (quit: all remaining users) archivist@irc-archive:~/logs$ cd .. archivist@irc-archive:~$ ls archivist.txt config documents logs notes.txt projects tools archivist@irc-archive:~

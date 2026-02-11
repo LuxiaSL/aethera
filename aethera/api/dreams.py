@@ -87,6 +87,11 @@ from aethera.dreams import (
     get_gpu_manager,
     configure_gpu_manager,
 )
+from aethera.dreams.admin_pod_manager import (
+    AdminPanelPodManager,
+    PodState,
+    configure_pod_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,28 +104,52 @@ _frame_cache: FrameCache | None = None
 _presence_tracker: ViewerPresenceTracker | None = None
 _websocket_hub: DreamWebSocketHub | None = None
 _gpu_manager: RunPodManager | None = None
+_pod_manager: AdminPanelPodManager | None = None
+
+# Check which lifecycle mode to use
+# - ADMIN_PANEL_URL: Use admin panel for two-pod orchestration (new)
+# - RUNPOD_ENDPOINT_ID: Use serverless endpoint directly (legacy)
+ADMIN_PANEL_URL = os.environ.get("ADMIN_PANEL_URL", "").rstrip("/")
+USE_ADMIN_PANEL = bool(ADMIN_PANEL_URL)
 
 
 def get_hub() -> DreamWebSocketHub:
     """Get or create the WebSocket hub singleton"""
-    global _frame_cache, _presence_tracker, _websocket_hub, _gpu_manager
+    global _frame_cache, _presence_tracker, _websocket_hub, _gpu_manager, _pod_manager
     
     if _websocket_hub is None:
-        # Initialize GPU manager first
-        _gpu_manager = configure_gpu_manager(
-            on_state_change=_on_gpu_state_change,
-        )
+        # Initialize the appropriate GPU/pod manager based on config
+        if USE_ADMIN_PANEL:
+            # Two-pod architecture via admin panel
+            _pod_manager = configure_pod_manager(
+                admin_url=ADMIN_PANEL_URL,
+                on_state_change=_on_pod_state_change,
+            )
+            logger.info(f"Using admin panel for pod lifecycle: {ADMIN_PANEL_URL}")
+            # Still initialize gpu_manager for backward compat (status tracking)
+            _gpu_manager = configure_gpu_manager(
+                on_state_change=_on_gpu_state_change,
+            )
+        else:
+            # Legacy serverless mode
+            _gpu_manager = configure_gpu_manager(
+                on_state_change=_on_gpu_state_change,
+            )
+            logger.info("Using serverless endpoint for GPU lifecycle")
         
         # Initialize frame cache
         _frame_cache = FrameCache(max_frames=30)
         
         # Initialize presence tracker with GPU callbacks
         # Longer shutdown delay to prevent premature GPU shutdown when tabbing away
+        # Pass gpu_manager/pod_manager reference so presence tracker can check STARTING state
         _presence_tracker = ViewerPresenceTracker(
             shutdown_delay=300.0,  # 5 minutes - match API timeout
             api_timeout=300.0,
             on_should_start=_on_gpu_should_start,
             on_should_stop=_on_gpu_should_stop,
+            gpu_manager=_gpu_manager,
+            pod_manager=_pod_manager,
         )
         
         # Initialize WebSocket hub with all components
@@ -129,50 +158,56 @@ def get_hub() -> DreamWebSocketHub:
             presence_tracker=_presence_tracker,
             gpu_manager=_gpu_manager,
         )
-        logger.info("Dreams module initialized (WebSocket hub + GPU manager)")
+        
+        mode = "admin panel (two-pod)" if USE_ADMIN_PANEL else "serverless"
+        logger.info(f"Dreams module initialized - lifecycle mode: {mode}")
     
     return _websocket_hub
 
 
 async def _on_gpu_should_start() -> None:
     """Callback when GPU should start"""
-    global _gpu_manager, _websocket_hub
+    global _gpu_manager, _pod_manager, _websocket_hub
     
-    if _gpu_manager is None:
-        logger.warning("GPU manager not initialized")
-        return
+    if _websocket_hub:
+        await _websocket_hub.broadcast_status("starting", "Waking up the dream machine...")
     
-    if _gpu_manager.is_configured:
-        logger.info("Starting GPU via RunPod...")
-        if _websocket_hub:
-            await _websocket_hub.broadcast_status("starting", "Waking up the dream machine...")
+    # Try admin panel (two-pod) first, fall back to serverless
+    if USE_ADMIN_PANEL and _pod_manager and _pod_manager.is_configured:
+        logger.info("Starting pods via admin panel...")
+        await _pod_manager.start_pods()
+    elif _gpu_manager and _gpu_manager.is_configured:
+        logger.info("Starting GPU via RunPod serverless...")
         await _gpu_manager.start_gpu()
     else:
-        logger.info("GPU start requested (RunPod not configured - waiting for manual GPU connection)")
+        logger.info("GPU start requested (no lifecycle manager configured - waiting for manual connection)")
         if _websocket_hub:
             await _websocket_hub.broadcast_status("starting", "Waiting for GPU connection...")
 
 
 async def _on_gpu_should_stop() -> None:
     """Callback when GPU should stop"""
-    global _gpu_manager, _websocket_hub
+    global _gpu_manager, _pod_manager, _websocket_hub
     
-    if _gpu_manager is None:
-        logger.warning("GPU manager not initialized")
-        return
+    # Request GPU to save state before stopping (regardless of mode)
+    if _websocket_hub:
+        await _websocket_hub.request_gpu_save_state()
+        # Give a moment for state to be saved
+        await asyncio.sleep(2)
     
-    if _gpu_manager.is_configured:
-        logger.info("Stopping GPU via RunPod...")
-        # Request GPU to save state before stopping
-        if _websocket_hub:
-            await _websocket_hub.request_gpu_save_state()
+    # Try admin panel (two-pod) first, fall back to serverless
+    if USE_ADMIN_PANEL and _pod_manager and _pod_manager.is_configured:
+        logger.info("Stopping pods via admin panel...")
+        await _pod_manager.stop_pods()
+    elif _gpu_manager and _gpu_manager.is_configured:
+        logger.info("Stopping GPU via RunPod serverless...")
         await _gpu_manager.stop_gpu()
     else:
-        logger.info("GPU stop requested (RunPod not configured)")
+        logger.info("GPU stop requested (no lifecycle manager configured)")
 
 
 async def _on_gpu_state_change(state: GPUState, error: str | None) -> None:
-    """Callback when GPU state changes"""
+    """Callback when GPU state changes (serverless mode)"""
     global _websocket_hub
     
     if _websocket_hub is None:
@@ -184,6 +219,25 @@ async def _on_gpu_state_change(state: GPUState, error: str | None) -> None:
         GPUState.RUNNING: ("ready", "Dreams flowing..."),
         GPUState.STOPPING: ("stopping", "Saving dreams..."),
         GPUState.ERROR: ("error", error or "Something went wrong"),
+    }
+    
+    status, message = status_map.get(state, ("unknown", "Unknown state"))
+    await _websocket_hub.broadcast_status(status, message)
+
+
+async def _on_pod_state_change(state: PodState, error: str | None) -> None:
+    """Callback when pod state changes (two-pod mode)"""
+    global _websocket_hub
+    
+    if _websocket_hub is None:
+        return
+    
+    status_map = {
+        PodState.IDLE: ("idle", "Dream machine sleeping..."),
+        PodState.STARTING: ("starting", "Waking up both pods..."),
+        PodState.RUNNING: ("ready", "Dreams flowing..."),
+        PodState.STOPPING: ("stopping", "Saving dreams..."),
+        PodState.ERROR: ("error", error or "Something went wrong"),
     }
     
     status, message = status_map.get(state, ("unknown", "Unknown state"))
@@ -272,12 +326,17 @@ async def dreams_status(request: Request):
     
     Returns system status, viewer count, GPU state, and generation stats.
     Rate limited to 60 requests per minute per IP.
+    
+    NOTE: This is a monitoring endpoint - it does NOT trigger GPU start.
+    Admin panels and monitoring tools can poll this without causing GPU spin-up.
     """
     check_rate_limit(request)
     global _gpu_manager
     
     hub = get_hub()
-    hub.presence.on_api_access()  # Track API activity
+    # Status is a monitoring endpoint - don't trigger GPU start
+    # This prevents the admin panel from causing infinite job submissions
+    hub.presence.on_api_access(trigger_gpu_start=False)
     
     stats = hub.get_stats()
     gpu_stats = _gpu_manager.get_status() if _gpu_manager else {}
@@ -292,6 +351,8 @@ async def dreams_status(request: Request):
             "uptime_seconds": gpu_stats.get("uptime_seconds", 0),
             "frames_received": gpu_stats.get("frames_received", 0),
             "error_message": gpu_stats.get("error_message"),
+            # Expose running job ID so admin panel can cancel it
+            "running_job_id": gpu_stats.get("running_job_id"),
         },
         "generation": {
             "frame_count": stats["total_frames_received"],
@@ -404,6 +465,54 @@ async def dreams_health():
         )
 
 
+@router.post("/api/dreams/stop")
+async def dreams_stop_gpu(request: Request):
+    """
+    Force stop the GPU / abort startup
+    
+    Used by admin panel to abort GPU startup when user clicks "Stop GPU"
+    during the STARTING phase. This immediately stops the health check loop
+    and resets the GPU state to IDLE.
+    
+    This is an admin-only endpoint - no rate limiting since it's called
+    programmatically by the admin panel.
+    
+    Returns:
+        200: GPU stopped successfully
+        500: Error stopping GPU
+    """
+    global _gpu_manager
+    
+    try:
+        hub = get_hub()
+        
+        if _gpu_manager is None:
+            return JSONResponse({
+                "success": False,
+                "error": "GPU manager not initialized",
+            }, status_code=500)
+        
+        current_state = _gpu_manager.stats.state.value
+        logger.info(f"Admin requested GPU stop (current state: {current_state})")
+        
+        # Stop the GPU (this cancels health check loop and resets state)
+        result = await _gpu_manager.stop_gpu()
+        
+        return JSONResponse({
+            "success": result,
+            "previous_state": current_state,
+            "new_state": _gpu_manager.stats.state.value,
+            "message": "GPU stopped" if result else "GPU stop failed",
+        })
+    
+    except Exception as e:
+        logger.error(f"Error stopping GPU: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+        }, status_code=500)
+
+
 @router.get("/api/dreams/frames/recent")
 async def dreams_recent_frames(request: Request, count: int = 5, format: str = "metadata"):
     """
@@ -438,6 +547,7 @@ async def dreams_recent_frames(request: Request, count: int = 5, format: str = "
                     "timestamp": f.timestamp,
                     "generation_time_ms": f.generation_time_ms,
                     "size_bytes": len(f.data),
+                    "prompt": f.prompt,
                     "data_url": f"data:image/webp;base64,{base64.b64encode(f.data).decode('ascii')}",
                 }
                 for f in frames
@@ -454,6 +564,7 @@ async def dreams_recent_frames(request: Request, count: int = 5, format: str = "
                     "timestamp": f.timestamp,
                     "generation_time_ms": f.generation_time_ms,
                     "size_bytes": len(f.data),
+                    "prompt": f.prompt,
                 }
                 for f in frames
             ],
@@ -535,12 +646,16 @@ async def dreams_sse_stream(request: Request):
         # Send current frame if available
         current = await hub.frame_cache.get_current_frame()
         if current:
+            frame_data = {
+                "frame_number": current.frame_number,
+                "keyframe_number": current.keyframe_number,
+                "data": base64.b64encode(current.data).decode('ascii'),
+            }
+            if current.prompt:
+                frame_data["prompt"] = current.prompt
             yield {
                 "event": "frame",
-                "data": json.dumps({
-                    "frame_number": current.frame_number,
-                    "data": base64.b64encode(current.data).decode('ascii'),
-                })
+                "data": json.dumps(frame_data)
             }
         
         # Poll for new frames (SSE doesn't have push like WS)
@@ -557,12 +672,16 @@ async def dreams_sse_stream(request: Request):
             current = await hub.frame_cache.get_current_frame()
             if current and current.frame_number > last_frame_number:
                 last_frame_number = current.frame_number
+                frame_data = {
+                    "frame_number": current.frame_number,
+                    "keyframe_number": current.keyframe_number,
+                    "data": base64.b64encode(current.data).decode('ascii'),
+                }
+                if current.prompt:
+                    frame_data["prompt"] = current.prompt
                 yield {
                     "event": "frame",
-                    "data": json.dumps({
-                        "frame_number": current.frame_number,
-                        "data": base64.b64encode(current.data).decode('ascii'),
-                    })
+                    "data": json.dumps(frame_data)
                 }
                 hub.presence.on_api_access()  # Keep GPU warm
             
@@ -583,6 +702,215 @@ async def dreams_sse_stream(request: Request):
             await asyncio.sleep(0.1)  # 10 Hz poll rate
     
     return EventSourceResponse(event_generator())
+
+
+# ==================== ComfyUI Registry Endpoints ====================
+# These endpoints enable the two-pod architecture:
+# - ComfyUI pod registers its IP on startup
+# - DreamGen pod queries for ComfyUI endpoint
+# - Admin panel can check registration status
+
+@router.post("/api/dreams/comfyui/register")
+async def register_comfyui_endpoint(request: Request):
+    """
+    ComfyUI pod registers its IP on startup.
+    
+    Called by ComfyUI startup script (comfyui-start.sh) with pod's public IP.
+    Requires VPS auth token in Authorization header.
+    
+    Body:
+        ip: Public IP of ComfyUI pod
+        port: ComfyUI port (default 8188)
+        auth_user: Basic auth username (optional)
+        auth_pass: Basic auth password (optional)
+        pod_id: RunPod pod ID (optional, for correlation)
+    
+    Returns:
+        200: Registration successful
+        401: Unauthorized (bad token)
+    """
+    # Verify auth token
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+    
+    ip = body.get("ip")
+    if not ip:
+        raise HTTPException(400, "ip is required")
+    
+    port = body.get("port", 8188)
+    url = body.get("url", "")  # Full URL (e.g., RunPod proxy URL)
+    auth_user = body.get("auth_user", "")
+    auth_pass = body.get("auth_pass", "")
+    pod_id = body.get("pod_id")
+    
+    from aethera.dreams.comfyui_registry import register_comfyui
+    await register_comfyui(ip, port, url, auth_user, auth_pass, pod_id)
+    
+    # Return the effective URL (proxy URL if provided, otherwise ip:port)
+    effective_url = url if url else f"http://{ip}:{port}"
+    logger.info(f"ComfyUI registered via API: {effective_url}")
+    return JSONResponse({
+        "status": "registered",
+        "endpoint": effective_url,
+    })
+
+
+@router.get("/api/dreams/comfyui")
+async def get_comfyui_endpoint_api(request: Request):
+    """
+    DreamGen pod queries for ComfyUI endpoint.
+    
+    Returns the registered ComfyUI URL and credentials so DreamGen
+    can connect to ComfyUI for image generation.
+    Requires VPS auth token in Authorization header.
+    
+    Returns:
+        200: Endpoint info (url, auth credentials)
+        401: Unauthorized
+        503: ComfyUI not registered
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.comfyui_registry import get_comfyui_endpoint
+    endpoint = await get_comfyui_endpoint()
+    
+    if endpoint is None:
+        raise HTTPException(503, "ComfyUI not registered - start ComfyUI pod first")
+    
+    return JSONResponse(endpoint)
+
+
+@router.delete("/api/dreams/comfyui")
+async def unregister_comfyui_endpoint(request: Request):
+    """
+    Unregister ComfyUI (pod stopped).
+    
+    Called by admin panel when stopping ComfyUI pod.
+    Requires VPS auth token in Authorization header.
+    
+    Returns:
+        200: Unregistered successfully
+        401: Unauthorized
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.comfyui_registry import unregister_comfyui
+    await unregister_comfyui()
+    
+    logger.info("ComfyUI unregistered via API")
+    return JSONResponse({"status": "unregistered"})
+
+
+@router.get("/api/dreams/comfyui/status")
+async def get_comfyui_status(request: Request):
+    """
+    Get ComfyUI registry status for admin monitoring.
+    
+    No auth required - status is public info for monitoring.
+    Does not expose credentials, only registration state.
+    
+    Returns:
+        200: Registry status
+    """
+    check_rate_limit(request)
+    
+    from aethera.dreams.comfyui_registry import get_registry_status
+    status = await get_registry_status()
+    
+    # Strip auth credentials from public status
+    if status.get("endpoint"):
+        status["endpoint"].pop("auth_user", None)
+        status["endpoint"].pop("auth_pass", None)
+    
+    return JSONResponse(status)
+
+
+@router.post("/api/dreams/comfyui/health-check")
+async def trigger_comfyui_health_check(request: Request):
+    """
+    Trigger a health check to the registered ComfyUI endpoint.
+    
+    Requires VPS auth token (admin only).
+    Updates the registry's healthy flag based on result.
+    
+    Returns:
+        200: Health check result
+        401: Unauthorized
+        503: ComfyUI not registered
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.comfyui_registry import health_check_comfyui, is_registered
+    
+    if not is_registered():
+        raise HTTPException(503, "ComfyUI not registered")
+    
+    healthy = await health_check_comfyui()
+    
+    return JSONResponse({
+        "healthy": healthy,
+        "message": "ComfyUI is responding" if healthy else "ComfyUI health check failed",
+    })
+
+
+# ==================== State Management Endpoints ====================
+# These endpoints manage generation state persistence for resume functionality
+
+@router.get("/api/dreams/state")
+async def get_state_info_api(request: Request):
+    """
+    Get info about saved generation state.
+    
+    Returns metadata about the persisted state (if any) without
+    loading the full state bytes. Useful for admin monitoring.
+    
+    Returns:
+        200: State info (has_state, saved_at, size_bytes, age)
+    """
+    check_rate_limit(request)
+    
+    from aethera.dreams.state_storage import get_state_info
+    info = await get_state_info()
+    
+    return JSONResponse({
+        "has_state": info is not None,
+        "info": info,
+    })
+
+
+@router.delete("/api/dreams/state")
+async def clear_saved_state_api(request: Request):
+    """
+    Clear saved generation state (fresh start).
+    
+    Called when you want to start fresh rather than resume.
+    Requires VPS auth token (admin only).
+    
+    Returns:
+        200: State cleared
+        401: Unauthorized
+    """
+    auth_header = request.headers.get("authorization")
+    if not verify_gpu_token(auth_header):
+        raise HTTPException(401, "Unauthorized")
+    
+    from aethera.dreams.state_storage import clear_state
+    await clear_state()
+    
+    logger.info("Generation state cleared via API")
+    return JSONResponse({"status": "cleared"})
 
 
 # ==================== WebSocket Endpoints ====================

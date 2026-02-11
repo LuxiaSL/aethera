@@ -1,0 +1,24 @@
+# IRC Fragment - technical (mass_kick)
+# Generated: 2026-01-04 23:27:32
+# Gen: claude-opus-4-5-20251101 | Judge: o3-2025-04-16
+# Messages: 14 | Cost: $0.34
+[00:00] <bufferOverflow> anyone know why gcc gives "illegal instruction" when compiling this?
+[00:06] <bufferOverflow> http://pastebin.com/gcc_issue_348
+[00:12] <nullpointer> sounds like undefined behavior
+[00:20] <bufferOverflow> but the assembly looks fine?
+[00:24] <nullpointer> post it
+[00:26] <bufferOverflow> http://pastebin.com/gcc_issue_348_asm
+[00:32] <nullpointer> oh god
+[00:36] <nullpointer> is that a jmp into the middle of a mov instruction?
+[00:42] <bufferOverflow> yeah but it's intentional
+[00:48] <null pointer> intentional illegal instructions are still illegal
+[00:56] <bufferOverflow> but it works on my machine
+[01:02] <nullpointer> this is why we can't have nice things
+[01:08] <nullpointer> also why you're getting kicked
+[01:12] * ChanServ has kicked bufferOverflow from #aethera
+[01:12] * ChanServ has kicked bufferOverflow from #aethera
+[01:12] * nullpointer sets mode: +b bufferOverflow!*@*
+[01:18] * nullpointer has left #aethera archivist@irc-archive:~/logs [1:18] * maxwellff has joined #aethera [1:18] < maxwellff> why was bufferOverflow kicked? [1:18] * ChanServ sets mode: +o nullpointer [1:18] * nullpointer has returned [1:18] < nullpointer> he was being bufferOverflow
+[01:18] * nullpointer sets mode: -o nullpointer
+[01:18] * nullpointer has quit (Quit: leaving)
+[01:18] * maxwellff has quit (Quit: leaving) archivist@irc-archive:~/logs$ ls -la total 64 drwxr-xr-x 3 archivist

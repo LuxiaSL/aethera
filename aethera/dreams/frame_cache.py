@@ -23,6 +23,7 @@ class CachedFrame:
     keyframe_number: int
     timestamp: float = field(default_factory=time.time)
     generation_time_ms: int = 0
+    prompt: Optional[str] = None
 
 
 class FrameCache:
@@ -64,22 +65,25 @@ class FrameCache:
         data: bytes,
         frame_number: int,
         keyframe_number: int = 0,
-        generation_time_ms: int = 0
+        generation_time_ms: int = 0,
+        prompt: Optional[str] = None
     ) -> None:
         """
         Add a new frame to the cache
         
         Args:
             data: WebP frame data
-            frame_number: Sequential frame number
+            frame_number: Sequential frame number (server-authoritative)
             keyframe_number: Which keyframe this relates to
             generation_time_ms: How long generation took
+            prompt: Prompt text for the current keyframe
         """
         frame = CachedFrame(
             data=data,
             frame_number=frame_number,
             keyframe_number=keyframe_number,
-            generation_time_ms=generation_time_ms
+            generation_time_ms=generation_time_ms,
+            prompt=prompt
         )
         
         async with self._lock:

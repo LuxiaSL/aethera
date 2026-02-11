@@ -9,8 +9,12 @@ brief disconnections without unnecessary GPU cycling.
 import asyncio
 import time
 import logging
-from typing import Optional, Set, Callable, Awaitable
+from typing import Optional, Set, Callable, Awaitable, TYPE_CHECKING
 from fastapi import WebSocket
+
+if TYPE_CHECKING:
+    from aethera.dreams.gpu_manager import RunPodManager
+    from aethera.dreams.admin_pod_manager import AdminPanelPodManager
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +38,8 @@ class ViewerPresenceTracker:
         api_timeout: float = 300.0,
         on_should_start: Optional[Callable[[], Awaitable[None]]] = None,
         on_should_stop: Optional[Callable[[], Awaitable[None]]] = None,
+        gpu_manager: Optional["RunPodManager"] = None,
+        pod_manager: Optional["AdminPanelPodManager"] = None,
     ):
         """
         Initialize presence tracker
@@ -43,11 +49,15 @@ class ViewerPresenceTracker:
             api_timeout: Seconds of API inactivity before considering inactive
             on_should_start: Async callback when GPU should start
             on_should_stop: Async callback when GPU should stop
+            gpu_manager: Reference to GPU manager for state checking (serverless)
+            pod_manager: Reference to pod manager for state checking (two-pod)
         """
         self.shutdown_delay = shutdown_delay
         self.api_timeout = api_timeout
         self.on_should_start = on_should_start
         self.on_should_stop = on_should_stop
+        self._gpu_manager = gpu_manager
+        self._pod_manager = pod_manager
         
         self._viewers: Set[WebSocket] = set()
         self._last_api_access: float = 0
@@ -79,6 +89,45 @@ class ViewerPresenceTracker:
         """Update GPU running state (called by GPU manager)"""
         self._gpu_running = running
     
+    def set_gpu_manager(self, gpu_manager: "RunPodManager") -> None:
+        """Set GPU manager reference (for state checking)"""
+        self._gpu_manager = gpu_manager
+    
+    def set_pod_manager(self, pod_manager: "AdminPanelPodManager") -> None:
+        """Set pod manager reference (for state checking in two-pod mode)"""
+        self._pod_manager = pod_manager
+    
+    @property
+    def gpu_active_or_starting(self) -> bool:
+        """
+        Whether GPU/pods are running OR in the process of starting.
+        
+        This is the key check to prevent duplicate start requests:
+        - STARTING: Start requested, waiting for connection
+        - RUNNING: Connected and streaming
+        
+        Both states mean we should NOT submit another start request.
+        """
+        # Fast path: if GPU websocket is connected, definitely active
+        if self._gpu_running:
+            return True
+        
+        # Check pod manager state if available (two-pod mode)
+        if self._pod_manager is not None:
+            from aethera.dreams.admin_pod_manager import PodState
+            state = self._pod_manager.stats.state
+            if state in (PodState.STARTING, PodState.RUNNING):
+                return True
+        
+        # Check GPU manager state if available (serverless mode)
+        if self._gpu_manager is not None:
+            from aethera.dreams.gpu_manager import GPUState
+            state = self._gpu_manager.stats.state
+            if state in (GPUState.STARTING, GPUState.RUNNING):
+                return True
+        
+        return False
+    
     async def on_viewer_connect(self, websocket: WebSocket) -> None:
         """
         Called when a browser connects via WebSocket
@@ -98,15 +147,17 @@ class ViewerPresenceTracker:
             self._shutdown_task = None
             logger.debug("Cancelled pending shutdown")
         
-        # Start GPU if not running
-        # The on_should_start callback (gpu_manager.start_gpu) has its own
-        # protection against duplicate jobs, but we avoid unnecessary calls
-        if not self._gpu_running and self.on_should_start:
+        # Start GPU if not already running or starting
+        # Use gpu_active_or_starting to prevent duplicate job submissions
+        # when GPU is in STARTING state (job submitted, waiting for connection)
+        if not self.gpu_active_or_starting and self.on_should_start:
             logger.info("Starting GPU due to viewer connection")
             try:
                 await self.on_should_start()
             except Exception as e:
                 logger.error(f"Failed to start GPU: {e}")
+        elif self.gpu_active_or_starting:
+            logger.debug("GPU already active or starting, skipping start request")
     
     async def on_viewer_disconnect(self, websocket: WebSocket) -> None:
         """
@@ -128,8 +179,15 @@ class ViewerPresenceTracker:
             )
             logger.debug(f"Scheduled shutdown in {self.shutdown_delay}s")
     
-    def on_api_access(self) -> None:
-        """Called when an API endpoint is accessed"""
+    def on_api_access(self, trigger_gpu_start: bool = True) -> None:
+        """
+        Called when an API endpoint is accessed
+        
+        Args:
+            trigger_gpu_start: Whether this access should trigger GPU start.
+                              Set to False for admin/monitoring endpoints that
+                              shouldn't cause GPU startup.
+        """
         self._last_api_access = time.time()
         
         # Cancel any pending shutdown
@@ -138,10 +196,9 @@ class ViewerPresenceTracker:
             self._shutdown_task = None
             logger.debug("Cancelled pending shutdown due to API access")
         
-        # Start GPU if not running
-        # The on_should_start callback (gpu_manager.start_gpu) has its own
-        # protection against duplicate jobs, but we avoid unnecessary calls
-        if not self._gpu_running and self.on_should_start:
+        # Only trigger GPU start if requested AND GPU not already active/starting
+        # Use gpu_active_or_starting to prevent duplicate job submissions
+        if trigger_gpu_start and not self.gpu_active_or_starting and self.on_should_start:
             logger.info("Starting GPU due to API access")
             async def _start_with_error_handling():
                 try:
@@ -149,6 +206,8 @@ class ViewerPresenceTracker:
                 except Exception as e:
                     logger.error(f"Failed to start GPU from API access: {e}")
             asyncio.create_task(_start_with_error_handling())
+        elif trigger_gpu_start and self.gpu_active_or_starting:
+            logger.debug("GPU already active or starting, skipping start from API access")
     
     async def _delayed_shutdown(self) -> None:
         """Wait, then shutdown if still no activity"""
