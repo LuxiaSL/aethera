@@ -17,16 +17,12 @@ class DreamViewer {
         this.loadingId = options.loadingId || 'dream-loading';
         this.errorId = options.errorId || 'dream-error';
         this.statusId = options.statusId || 'dream-status';
-        this.promptId = options.promptId || 'dream-prompt-text';
-        
         // Canvas elements
         this.canvas = document.getElementById(this.canvasId);
         this.ctx = this.canvas?.getContext('2d');
         this.loadingEl = document.getElementById(this.loadingId);
         this.errorEl = document.getElementById(this.errorId);
         this.statusEl = document.getElementById(this.statusId);
-        this.promptEl = document.getElementById(this.promptId);
-        
         // WebSocket
         this.ws = null;
         this.reconnectAttempts = 0;
@@ -37,7 +33,6 @@ class DreamViewer {
         this.connected = false;
         this.frameCount = 0;           // Local display count (deprecated, kept for compat)
         this.serverFrameNumber = 0;    // Server-authoritative frame number
-        this.currentPrompt = '';       // Current prompt from server
         this.lastFrameTime = 0;
         
         // ==================== Frame Queue System ====================
@@ -388,24 +383,8 @@ class DreamViewer {
             }
         }
         
-        // Update prompt if changed
-        if (msg.p !== undefined && msg.p !== this.currentPrompt) {
-            this.currentPrompt = msg.p;
-            this.updatePromptDisplay();
-        }
     }
-    
-    updatePromptDisplay() {
-        if (this.promptEl && this.currentPrompt) {
-            this.promptEl.textContent = this.currentPrompt;
-            // Show the prompt container if it was hidden
-            const container = this.promptEl.closest('.dream-prompt');
-            if (container) {
-                container.classList.remove('hidden');
-            }
-        }
-    }
-    
+
     handleStatusMessage(msg) {
         this.setStatus(msg.status, msg.message);
         

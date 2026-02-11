@@ -82,7 +82,4 @@ def health_check():
 
 
 if __name__ == "__main__":
-    import os
-    # Only enable reload in development (when AETHERA_DEV is set)
-    reload = os.environ.get("AETHERA_DEV", "").lower() in ("1", "true", "yes")
-    uvicorn.run("aethera.main:app", host="0.0.0.0", port=8000, reload=reload)
+    uvicorn.run("aethera.main:app", host="0.0.0.0", port=2222, reload=True)
