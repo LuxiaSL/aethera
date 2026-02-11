@@ -32,11 +32,11 @@ ENV DATABASE_URL=sqlite:///./data/blog.sqlite
 # - RUNPOD_API_KEY (required for GPU management)
 # - RUNPOD_ENDPOINT_ID (required for GPU management)
 
-EXPOSE 8000
+EXPOSE 2222
 
 # Health check - restart container if server becomes unresponsive
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -sf http://localhost:8000/healthz || exit 1
+    CMD curl -sf http://localhost:2222/healthz || exit 1
 
 # Run migrations and start the server
 CMD ["sh", "-c", "uv run alembic upgrade head && uv run python -m aethera.main"]

@@ -45,11 +45,11 @@ jobs:
             docker run -d \
               --name aethera \
               --restart unless-stopped \
-              --health-cmd "curl -f http://localhost:8000/healthz || exit 1" \
+              --health-cmd "curl -f http://localhost:2222/healthz || exit 1" \
               --health-interval 30s \
               --health-timeout 10s \
               --health-retries 3 \
-              -p 127.0.0.1:8000:8000 \
+              -p 127.0.0.1:2222:2222 \
               --env-file /opt/aethera-server/core/.env \
               -v /opt/aethera-server/core/data:/app/data \
               aethera:latest
@@ -57,7 +57,7 @@ jobs:
             echo "⏳ Waiting for container to be healthy..."
             sleep 5
             for i in {1..12}; do
-              if curl -sf http://localhost:8000/healthz > /dev/null 2>&1; then
+              if curl -sf http://localhost:2222/healthz > /dev/null 2>&1; then
                 echo "✅ Health check passed!"
                 break
               fi
