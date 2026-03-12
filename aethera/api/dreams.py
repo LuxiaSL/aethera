@@ -1009,12 +1009,10 @@ async def gpu_websocket(websocket: WebSocket):
         return
     
     hub = get_hub()
-    connected = False
-    
+
     try:
         await hub.connect_gpu(websocket)
-        connected = True
-        
+
         while True:
             try:
                 # Receive binary messages
@@ -1022,13 +1020,16 @@ async def gpu_websocket(websocket: WebSocket):
                 await hub.handle_gpu_message(data)
             except WebSocketDisconnect:
                 break
-    
+
     except Exception as e:
         logger.error(f"GPU WebSocket error: {e}")
-    
+
     finally:
-        # Only disconnect if we successfully connected (avoid disconnecting existing GPU)
-        if connected:
+        # Only disconnect if THIS socket is still the active GPU connection
+        # (a newer connection may have already replaced us)
+        if hub._gpu_websocket is websocket:
             await hub.disconnect_gpu()
+        else:
+            logger.info("GPU WebSocket handler exiting (replaced by newer connection)")
 
 
