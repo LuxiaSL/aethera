@@ -255,28 +255,31 @@ class DreamWebSocketHub:
         # Must accept before we can close with a proper code
         await websocket.accept()
 
-        if self._gpu_websocket is not None:
+        replacing = self._gpu_websocket is not None
+        if replacing:
             logger.warning("GPU already connected — replacing stale connection with new one")
+            old_ws = self._gpu_websocket
+            self._gpu_websocket = None  # Clear before closing to prevent disconnect_gpu race
             try:
-                await self._gpu_websocket.close(code=4001, reason="Replaced by new GPU connection")
+                await old_ws.close(code=4001, reason="Replaced by new GPU connection")
             except Exception:
                 pass  # Old socket may already be dead
-            await self.disconnect_gpu()
+            self.presence.set_gpu_running(False)
             logger.info("Stale GPU connection cleaned up")
 
         self._gpu_websocket = websocket
         self.presence.set_gpu_running(True)
-        
-        # Reset FPS session stats for accurate measurement
-        self.frame_cache.reset_session()
-        
-        # Reset frame numbering counter
-        self._next_frame_number = 1
-        
-        # Reset and start playback queue
-        self._playback_queue.reset()
-        self._playback_task = asyncio.create_task(self._playback_queue.run())
-        logger.info("Playback queue started")
+
+        if not replacing:
+            # Fresh connection — full reset
+            self.frame_cache.reset_session()
+            self._next_frame_number = 1
+            self._playback_queue.reset()
+            self._playback_task = asyncio.create_task(self._playback_queue.run())
+            logger.info("Playback queue started (fresh connection)")
+        else:
+            # Replacement — keep existing queue/playback (frames are still valid)
+            logger.info("Playback queue preserved (reconnection)")
         
         # Notify GPU manager
         if self.gpu_manager:
