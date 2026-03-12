@@ -50,11 +50,11 @@ class FramePlaybackQueue:
     """
     
     # Playback configuration
-    DEFAULT_TARGET_FPS = 5.0
-    FPS_CUSHION = 0.3  # Play slightly slower to build buffer
-    MIN_BUFFER_FRAMES = 5  # Wait for 1 second of buffer before starting
-    MAX_QUEUE_SIZE = 50  # ~10 seconds at 5 FPS, prevents memory growth
-    OVERRUN_TRIM_TO = 30  # When max reached, trim to this many frames
+    DEFAULT_TARGET_FPS = 30.0
+    FPS_CUSHION = 0.5  # Play slightly slower to build buffer
+    MIN_BUFFER_FRAMES = 10  # Buffer before starting playback
+    MAX_QUEUE_SIZE = 150  # ~5 seconds at 30 FPS, prevents memory growth
+    OVERRUN_TRIM_TO = 90  # When max reached, trim to this many frames
     
     def __init__(
         self,
