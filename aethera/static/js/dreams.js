@@ -118,37 +118,215 @@ class DreamViewer {
         return null;
     }
 
+    // ==================== Annex B → AVC Conversion ====================
+    // WebCodecs VideoDecoder expects AVC format (length-prefixed NALs)
+    // with an avcC description, NOT raw Annex B (start codes).
+    // We parse the Annex B stream, extract SPS/PPS for the description,
+    // and convert NAL units to length-prefixed format.
+
+    /**
+     * Find NAL unit boundaries in Annex B byte stream.
+     * Returns array of {offset, length, type} for each NAL unit.
+     */
+    _parseAnnexBNALs(data) {
+        const view = new Uint8Array(data);
+        const nals = [];
+        let i = 0;
+
+        while (i < view.length) {
+            // Find start code: 00 00 01 or 00 00 00 01
+            let startCodeLen = 0;
+            if (i + 2 < view.length &&
+                view[i] === 0 && view[i + 1] === 0 && view[i + 2] === 1) {
+                startCodeLen = 3;
+            } else if (i + 3 < view.length &&
+                view[i] === 0 && view[i + 1] === 0 &&
+                view[i + 2] === 0 && view[i + 3] === 1) {
+                startCodeLen = 4;
+            }
+
+            if (startCodeLen === 0) {
+                i++;
+                continue;
+            }
+
+            const nalStart = i + startCodeLen;
+
+            // Find next start code (or end of data)
+            let nalEnd = view.length;
+            for (let j = nalStart + 1; j < view.length - 2; j++) {
+                if (view[j] === 0 && view[j + 1] === 0 &&
+                    (view[j + 2] === 1 || (j + 3 < view.length && view[j + 2] === 0 && view[j + 3] === 1))) {
+                    nalEnd = j;
+                    break;
+                }
+            }
+
+            if (nalStart < nalEnd) {
+                const nalType = view[nalStart] & 0x1f;
+                nals.push({
+                    offset: nalStart,
+                    length: nalEnd - nalStart,
+                    type: nalType,
+                });
+            }
+
+            i = nalEnd;
+        }
+
+        return nals;
+    }
+
+    /**
+     * Build avcC description from SPS and PPS NAL units.
+     * This is required by VideoDecoder.configure() for H.264.
+     */
+    _buildAvcCDescription(spsData, ppsData) {
+        // avcC format:
+        // 1 byte: version (1)
+        // 1 byte: profile (from SPS[1])
+        // 1 byte: compatibility (from SPS[2])
+        // 1 byte: level (from SPS[3])
+        // 1 byte: 0xFF (length size minus 1 = 3, i.e., 4-byte lengths)
+        // 1 byte: 0xE1 (number of SPS = 1)
+        // 2 bytes: SPS length
+        // N bytes: SPS data
+        // 1 byte: number of PPS (1)
+        // 2 bytes: PPS length
+        // N bytes: PPS data
+
+        const totalLen = 6 + 2 + spsData.length + 1 + 2 + ppsData.length;
+        const buf = new Uint8Array(totalLen);
+        let offset = 0;
+
+        buf[offset++] = 1;                  // version
+        buf[offset++] = spsData[1];         // profile
+        buf[offset++] = spsData[2];         // compatibility
+        buf[offset++] = spsData[3];         // level
+        buf[offset++] = 0xFF;               // 4-byte NAL length size
+        buf[offset++] = 0xE1;               // 1 SPS
+
+        // SPS length (big-endian 16-bit)
+        buf[offset++] = (spsData.length >> 8) & 0xFF;
+        buf[offset++] = spsData.length & 0xFF;
+
+        // SPS data
+        buf.set(spsData, offset);
+        offset += spsData.length;
+
+        buf[offset++] = 1;                  // 1 PPS
+
+        // PPS length (big-endian 16-bit)
+        buf[offset++] = (ppsData.length >> 8) & 0xFF;
+        buf[offset++] = ppsData.length & 0xFF;
+
+        // PPS data
+        buf.set(ppsData, offset);
+
+        return buf;
+    }
+
+    /**
+     * Convert Annex B NAL units to AVC format (4-byte length prefixes).
+     * Strips SPS/PPS (type 7/8) since they're in the avcC description.
+     */
+    _annexBToAvc(data, nals) {
+        // Calculate total size for non-parameter-set NALs
+        let totalSize = 0;
+        for (const nal of nals) {
+            if (nal.type !== 7 && nal.type !== 8) { // Skip SPS/PPS
+                totalSize += 4 + nal.length; // 4-byte length prefix + NAL data
+            }
+        }
+
+        if (totalSize === 0) return null;
+
+        const view = new Uint8Array(data);
+        const output = new Uint8Array(totalSize);
+        let offset = 0;
+
+        for (const nal of nals) {
+            if (nal.type === 7 || nal.type === 8) continue; // Skip SPS/PPS
+
+            // 4-byte big-endian length
+            output[offset++] = (nal.length >> 24) & 0xFF;
+            output[offset++] = (nal.length >> 16) & 0xFF;
+            output[offset++] = (nal.length >> 8) & 0xFF;
+            output[offset++] = nal.length & 0xFF;
+
+            // NAL data
+            output.set(view.subarray(nal.offset, nal.offset + nal.length), offset);
+            offset += nal.length;
+        }
+
+        return output.buffer;
+    }
+
     // ==================== WebCodecs Path ====================
 
     async _initWebCodecs() {
-        const config = {
-            codec: 'avc1.42001e',  // Baseline Level 3.0
-            codedWidth: 1024,
-            codedHeight: 512,
-        };
+        // Don't configure yet — we need SPS/PPS from the first I-frame
+        // to build the avcC description. Decoder is created but configured
+        // lazily in _feedWebCodecs when the first keyframe arrives.
+        this._webCodecsConfigured = false;
+        this._spsData = null;
+        this._ppsData = null;
+        console.log('WebCodecs path selected — waiting for first I-frame to configure');
+        return true;
+    }
 
-        try {
-            const support = await VideoDecoder.isConfigSupported(config);
-            if (!support.supported) {
-                console.warn('H.264 Baseline not supported');
-                return false;
+    _configureWebCodecsFromKeyframe(nals, data) {
+        const view = new Uint8Array(data);
+
+        // Extract SPS and PPS
+        for (const nal of nals) {
+            if (nal.type === 7) { // SPS
+                this._spsData = view.slice(nal.offset, nal.offset + nal.length);
+            } else if (nal.type === 8) { // PPS
+                this._ppsData = view.slice(nal.offset, nal.offset + nal.length);
             }
-        } catch (e) {
-            console.warn('isConfigSupported failed:', e);
+        }
+
+        if (!this._spsData || !this._ppsData) {
+            console.warn('I-frame missing SPS or PPS — cannot configure decoder');
             return false;
         }
 
-        this.videoDecoder = new VideoDecoder({
-            output: (frame) => this._onVideoFrame(frame),
-            error: (e) => {
-                console.error('VideoDecoder error:', e);
-                this._resetDecoder();
-            },
-        });
+        // Build avcC description
+        const description = this._buildAvcCDescription(this._spsData, this._ppsData);
 
-        this.videoDecoder.configure(config);
-        console.log('WebCodecs VideoDecoder initialized');
-        return true;
+        // Build codec string from SPS: avc1.PPCCLL
+        const profile = this._spsData[1].toString(16).padStart(2, '0');
+        const compat = this._spsData[2].toString(16).padStart(2, '0');
+        const level = this._spsData[3].toString(16).padStart(2, '0');
+        const codecStr = `avc1.${profile}${compat}${level}`;
+
+        const config = {
+            codec: codecStr,
+            codedWidth: 1024,
+            codedHeight: 512,
+            description: description,
+        };
+
+        console.log(`Configuring VideoDecoder: ${codecStr}`);
+
+        try {
+            this.videoDecoder = new VideoDecoder({
+                output: (frame) => this._onVideoFrame(frame),
+                error: (e) => {
+                    console.error('VideoDecoder error:', e);
+                    this._resetDecoder();
+                },
+            });
+
+            this.videoDecoder.configure(config);
+            this._webCodecsConfigured = true;
+            console.log('VideoDecoder configured successfully');
+            return true;
+        } catch (e) {
+            console.error('VideoDecoder configure failed:', e);
+            return false;
+        }
     }
 
     _onVideoFrame(frame) {
@@ -164,15 +342,32 @@ class DreamViewer {
     }
 
     _feedWebCodecs(nalData) {
-        if (!this.videoDecoder || this.videoDecoder.state === 'closed') return;
-
         const isKey = this._lastFrameMetaIsVideoKeyframe;
 
         // Must receive a keyframe first before decoding can start
         if (!isKey && !this._receivedFirstKeyframe) return;
+
+        // Parse Annex B NAL units
+        const nals = this._parseAnnexBNALs(nalData);
+        if (nals.length === 0) return;
+
+        // On first keyframe: extract SPS/PPS and configure decoder
+        if (isKey && !this._webCodecsConfigured) {
+            if (!this._configureWebCodecsFromKeyframe(nals, nalData)) {
+                return; // Can't decode without config
+            }
+        }
+
+        if (!this.videoDecoder || this.videoDecoder.state === 'closed') return;
+        if (!this._webCodecsConfigured) return;
+
         if (isKey) this._receivedFirstKeyframe = true;
 
-        // Timestamp in microseconds (VideoDecoder requirement)
+        // Convert Annex B → AVC format (length-prefixed, no SPS/PPS)
+        const avcData = this._annexBToAvc(nalData, nals);
+        if (!avcData) return;
+
+        // Timestamp in microseconds
         const timestamp = this.videoFrameCount * (1_000_000 / this.targetFps);
         this.videoFrameCount++;
 
@@ -180,10 +375,10 @@ class DreamViewer {
             this.videoDecoder.decode(new EncodedVideoChunk({
                 type: isKey ? 'key' : 'delta',
                 timestamp: timestamp,
-                data: nalData,
+                data: avcData,
             }));
         } catch (e) {
-            console.error('Decode failed:', e);
+            console.error('Failed to decode frame', this.videoFrameCount, e);
             if (!isKey) this._resetDecoder();
         }
     }
@@ -273,6 +468,9 @@ class DreamViewer {
             this.videoDecoder = null;
         }
         this._receivedFirstKeyframe = false;
+        this._webCodecsConfigured = false;
+        this._spsData = null;
+        this._ppsData = null;
         this.videoFrameCount = 0;
         console.log('Decoder reset — waiting for I-frame');
     }
