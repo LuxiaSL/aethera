@@ -22,6 +22,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Optional, AsyncGenerator
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class MpegTSMuxer:
         self._stream.width = self.width
         self._stream.height = self.height
         self._stream.pix_fmt = 'yuv420p'
-        self._stream.codec_context.time_base = av.Fraction(1, 90000)  # Standard MPEG-TS timebase
+        self._stream.codec_context.time_base = Fraction(1, 90000)  # Standard MPEG-TS timebase
 
     def feed_nal(self, nal_data: bytes, is_keyframe: bool) -> None:
         """
