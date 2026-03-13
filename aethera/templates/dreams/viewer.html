@@ -9,7 +9,7 @@
 <!-- Dreams-specific Open Graph -->
 <meta property="og:title" content="Dreams | æthera">
 <meta property="og:description" content="Live AI-generated morphing art. Watch ethereal digital dreams evolve in real-time.">
-<meta property="og:image" content="{{ request.base_url }}api/dreams/current">
+<meta property="og:image" content="{{ request.base_url }}static/images/dreams-preview.png">
 <meta property="og:type" content="website">
 <link rel="canonical" href="{{ request.base_url }}dreams">
 
@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Dreams | æthera">
 <meta name="twitter:description" content="Live AI-generated morphing art">
-<meta name="twitter:image" content="{{ request.base_url }}api/dreams/current">
+<meta name="twitter:image" content="{{ request.base_url }}static/images/dreams-preview.png">
 {% endblock %}
 
 {% block schema %}
@@ -103,6 +103,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- jMuxer for Safari MSE fallback (H.264 NAL → fMP4) -->
+<script src="https://cdn.jsdelivr.net/npm/jmuxer@2.0.5/dist/jmuxer.min.js" defer></script>
 <script src="/static/js/dreams.js"></script>
 <script>
 // Frame-blended background video for smooth slow-motion

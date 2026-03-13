@@ -366,40 +366,30 @@ async def dreams_status(request: Request):
             "websocket_count": stats["viewer_count"],
             "api_active": stats["has_recent_api_activity"],
         },
-        "cache": {
-            "frames_cached": stats["frames_cached"],
+        "stream": {
+            "format": stats.get("stream_format", "h264"),
             "total_bytes": stats["total_bytes_received"],
+            "has_video_keyframe": stats.get("has_video_keyframe", False),
         },
-        "playback": stats.get("playback", {}),
     })
 
 
 @router.get("/api/dreams/current")
 async def dreams_current_frame(request: Request):
     """
-    Get the current frame as a WebP image
-    
-    Returns the most recent frame, or 204 No Content if no frames available.
-    Rate limited to 60 requests per minute per IP.
+    Previously returned the current frame as a WebP image.
+    Now returns 410 Gone — the stream uses H.264 video encoding.
+    Use WebSocket at /ws/dreams for live video, or /api/dreams/stream for MPEG-TS.
     """
-    check_rate_limit(request)
-    hub = get_hub()
-    hub.presence.on_api_access()
-    
-    current_frame = await hub.frame_cache.get_current_frame()
-    
-    if current_frame is None:
-        return Response(status_code=204)
-    
-    return Response(
-        content=current_frame.data,
-        media_type="image/webp",
-        headers={
-            "X-Frame-Number": str(current_frame.frame_number),
-            "X-Keyframe-Number": str(current_frame.keyframe_number),
-            "X-Generation-Time-Ms": str(current_frame.generation_time_ms),
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-        }
+    return JSONResponse(
+        {
+            "error": "Image endpoint removed — stream uses H.264 video",
+            "alternatives": {
+                "websocket": "/ws/dreams",
+                "mpegts": "/api/dreams/stream",
+            }
+        },
+        status_code=410,
     )
 
 
@@ -418,17 +408,14 @@ async def dreams_embed_code(request: Request):
         "iframe": f'<iframe src="{base_url}/dreams?embed=1" width="1024" height="512" frameborder="0" allow="autoplay" loading="lazy"></iframe>',
         "endpoints": {
             "viewer_page": f"{base_url}/dreams",
-            "current_frame": f"{base_url}/api/dreams/current",
             "status": f"{base_url}/api/dreams/status",
             "health": f"{base_url}/api/dreams/health",
-            "recent_frames": f"{base_url}/api/dreams/frames/recent",
             "websocket": f"{ws_base}/ws/dreams",
-            "sse": f"{base_url}/api/dreams/sse",
+            "mpegts": f"{base_url}/api/dreams/stream",
         },
-        # Backwards compatibility
-        "image_url": f"{base_url}/api/dreams/current",
         "stream_url": f"{ws_base}/ws/dreams",
         "status_url": f"{base_url}/api/dreams/status",
+        "format": "h264",
         "resolution": {
             "width": 1024,
             "height": 512,
@@ -463,6 +450,49 @@ async def dreams_health():
             {"status": "unhealthy", "error": str(e)},
             status_code=503
         )
+
+
+@router.get("/api/dreams/stream")
+async def dreams_video_stream(request: Request):
+    """
+    Live H.264 video stream in MPEG-TS container.
+
+    Playable directly in external players:
+    - VLC: vlc https://aetherawi.red/api/dreams/stream
+    - mpv: mpv https://aetherawi.red/api/dreams/stream
+    - ffplay: ffplay https://aetherawi.red/api/dreams/stream
+
+    Uses chunked transfer encoding for continuous delivery.
+    Starts from the latest I-frame for fast playback start.
+    """
+    from starlette.responses import StreamingResponse
+    from aethera.dreams.mpegts_muxer import MpegTSMuxer
+
+    hub = get_hub()
+    hub.presence.on_api_access()
+
+    muxer = hub._mpegts_muxer if hasattr(hub, '_mpegts_muxer') else None
+    if muxer is None or not hub.gpu_connected:
+        return JSONResponse(
+            {"error": "Stream not available — GPU not connected"},
+            status_code=503,
+        )
+
+    async def generate():
+        async for chunk in muxer.consume():
+            if await request.is_disconnected():
+                break
+            yield chunk
+
+    return StreamingResponse(
+        generate(),
+        media_type="video/mp2t",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "Connection": "keep-alive",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.post("/api/dreams/stop")
@@ -514,194 +544,31 @@ async def dreams_stop_gpu(request: Request):
 
 
 @router.get("/api/dreams/frames/recent")
-async def dreams_recent_frames(request: Request, count: int = 5, format: str = "metadata"):
-    """
-    Get recent frames from the cache
-    
-    Args:
-        count: Number of frames to retrieve (1-30, default 5)
-        format: "metadata" returns frame info, "urls" includes data URLs
-    
-    Returns:
-        List of recent frames with metadata
-    
-    Rate limited to 60 requests per minute per IP.
-    """
-    check_rate_limit(request)
-    hub = get_hub()
-    hub.presence.on_api_access()
-    
-    # Clamp count to valid range
-    count = max(1, min(30, count))
-    
-    frames = await hub.frame_cache.get_recent_frames(count)
-    
-    if format == "urls":
-        # Include base64 data URLs (larger response, but useful for clients)
-        import base64
-        return JSONResponse({
-            "frames": [
-                {
-                    "frame_number": f.frame_number,
-                    "keyframe_number": f.keyframe_number,
-                    "timestamp": f.timestamp,
-                    "generation_time_ms": f.generation_time_ms,
-                    "size_bytes": len(f.data),
-                    "prompt": f.prompt,
-                    "data_url": f"data:image/webp;base64,{base64.b64encode(f.data).decode('ascii')}",
-                }
-                for f in frames
-            ],
-            "count": len(frames),
-        })
-    else:
-        # Metadata only (lightweight)
-        return JSONResponse({
-            "frames": [
-                {
-                    "frame_number": f.frame_number,
-                    "keyframe_number": f.keyframe_number,
-                    "timestamp": f.timestamp,
-                    "generation_time_ms": f.generation_time_ms,
-                    "size_bytes": len(f.data),
-                    "prompt": f.prompt,
-                }
-                for f in frames
-            ],
-            "count": len(frames),
-        })
+async def dreams_recent_frames(request: Request):
+    """Removed — stream uses H.264 video encoding. No individual frames stored."""
+    return JSONResponse(
+        {"error": "Endpoint removed — stream uses H.264 video"},
+        status_code=410,
+    )
 
 
 @router.get("/api/dreams/frame/{frame_number}")
 async def dreams_frame_by_number(request: Request, frame_number: int):
-    """
-    Get a specific frame by number from the cache
-    
-    Args:
-        frame_number: The frame number to retrieve
-    
-    Returns:
-        The frame as a WebP image, or 404 if not in cache
-    
-    Rate limited to 60 requests per minute per IP.
-    """
-    check_rate_limit(request)
-    hub = get_hub()
-    hub.presence.on_api_access()
-    
-    frames = await hub.frame_cache.get_recent_frames(hub.frame_cache.max_frames)
-    
-    for frame in frames:
-        if frame.frame_number == frame_number:
-            return Response(
-                content=frame.data,
-                media_type="image/webp",
-                headers={
-                    "X-Frame-Number": str(frame.frame_number),
-                    "X-Keyframe-Number": str(frame.keyframe_number),
-                    "X-Generation-Time-Ms": str(frame.generation_time_ms),
-                    "Cache-Control": "public, max-age=3600",  # Can cache historical frames
-                }
-            )
-    
-    raise HTTPException(status_code=404, detail=f"Frame {frame_number} not in cache")
+    """Removed — stream uses H.264 video encoding. No individual frames stored."""
+    return JSONResponse(
+        {"error": "Endpoint removed — stream uses H.264 video"},
+        status_code=410,
+    )
 
 
 @router.get("/api/dreams/sse")
 async def dreams_sse_stream(request: Request):
-    """
-    Server-Sent Events stream for frame updates
-    
-    Alternative to WebSocket for simpler clients. Sends:
-    - status: JSON status updates
-    - frame: Base64-encoded frame data
-    
-    Note: WebSocket is more efficient for high-frequency frame data.
-    SSE is useful for status-only monitoring or constrained environments.
-    
-    Rate limited: Initial connection counts against rate limit.
-    """
-    from sse_starlette.sse import EventSourceResponse
-    import base64
-    
-    check_rate_limit(request)
-    hub = get_hub()
-    
-    async def event_generator():
-        # Track this as API activity (keeps GPU warm)
-        hub.presence.on_api_access()
-        
-        # Send initial status
-        stats = hub.get_stats()
-        yield {
-            "event": "status",
-            "data": json.dumps({
-                "status": stats["status"],
-                "gpu_connected": stats["gpu_connected"],
-                "viewer_count": stats["viewer_count"],
-                "frame_count": stats["total_frames_received"],
-            })
-        }
-        
-        # Send current frame if available
-        current = await hub.frame_cache.get_current_frame()
-        if current:
-            frame_data = {
-                "frame_number": current.frame_number,
-                "keyframe_number": current.keyframe_number,
-                "data": base64.b64encode(current.data).decode('ascii'),
-            }
-            if current.prompt:
-                frame_data["prompt"] = current.prompt
-            yield {
-                "event": "frame",
-                "data": json.dumps(frame_data)
-            }
-        
-        # Poll for new frames (SSE doesn't have push like WS)
-        # This is less efficient but works for simple clients
-        last_frame_number = current.frame_number if current else 0
-        last_status_time = time.time()
-        
-        while True:
-            # Check if client disconnected
-            if await request.is_disconnected():
-                break
-            
-            # Check for new frame
-            current = await hub.frame_cache.get_current_frame()
-            if current and current.frame_number > last_frame_number:
-                last_frame_number = current.frame_number
-                frame_data = {
-                    "frame_number": current.frame_number,
-                    "keyframe_number": current.keyframe_number,
-                    "data": base64.b64encode(current.data).decode('ascii'),
-                }
-                if current.prompt:
-                    frame_data["prompt"] = current.prompt
-                yield {
-                    "event": "frame",
-                    "data": json.dumps(frame_data)
-                }
-                hub.presence.on_api_access()  # Keep GPU warm
-            
-            # Send status update every 5 seconds
-            if time.time() - last_status_time > 5:
-                last_status_time = time.time()
-                stats = hub.get_stats()
-                yield {
-                    "event": "status", 
-                    "data": json.dumps({
-                        "status": stats["status"],
-                        "gpu_connected": stats["gpu_connected"],
-                        "viewer_count": stats["viewer_count"],
-                        "frame_count": stats["total_frames_received"],
-                    })
-                }
-            
-            await asyncio.sleep(0.1)  # 10 Hz poll rate
-    
-    return EventSourceResponse(event_generator())
+    """Removed — stream uses H.264 video. Use /ws/dreams or /api/dreams/stream."""
+    return JSONResponse(
+        {"error": "SSE endpoint removed — stream uses H.264 video",
+         "alternatives": {"websocket": "/ws/dreams", "mpegts": "/api/dreams/stream"}},
+        status_code=410,
+    )
 
 
 # ==================== ComfyUI Registry Endpoints ====================

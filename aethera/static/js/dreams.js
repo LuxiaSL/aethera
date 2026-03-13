@@ -1,78 +1,86 @@
 /**
- * Dream Window WebSocket Client
+ * Dream Window — H.264 Video Stream Client
  *
- * Connects to the dreams WebSocket endpoint and displays
- * live AI-generated frames on a canvas element.
+ * Two decode paths:
+ * 1. WebCodecs VideoDecoder (Chrome 94+, Edge 94+)
+ *    - Receives raw H.264 NAL units via WebSocket
+ *    - Feeds EncodedVideoChunk to VideoDecoder
+ *    - Draws VideoFrame directly to canvas
  *
- * Features:
- * - Client-side frame queue for smooth playback
- * - Canvas alpha blending for seamless transitions
- * - Adaptive FPS for buffer management
- * - Tab visibility handling (pause/skip-to-live)
+ * 2. MSE fallback (Safari 17.1+, Firefox)
+ *    - Receives raw H.264 NAL units via WebSocket
+ *    - Client-side JS muxes NAL → fMP4 segments via jMuxer
+ *    - Feeds fMP4 to MediaSource → hidden <video> → canvas
+ *
+ * If neither is available, shows "unsupported browser" message.
  */
+
+const MSG_FRAME = 0x01;
 
 class DreamViewer {
     constructor(options = {}) {
+        // DOM elements
         this.canvasId = options.canvasId || 'dream-canvas';
         this.loadingId = options.loadingId || 'dream-loading';
         this.errorId = options.errorId || 'dream-error';
         this.statusId = options.statusId || 'dream-status';
-        // Canvas elements
+
         this.canvas = document.getElementById(this.canvasId);
         this.ctx = this.canvas?.getContext('2d');
         this.loadingEl = document.getElementById(this.loadingId);
         this.errorEl = document.getElementById(this.errorId);
         this.statusEl = document.getElementById(this.statusId);
+
         // WebSocket
         this.ws = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 1000;
-        
-        // Connection state
         this.connected = false;
-        this.frameCount = 0;           // Local display count (deprecated, kept for compat)
-        this.serverFrameNumber = 0;    // Server-authoritative frame number
+
+        // Frame tracking
+        this.serverFrameNumber = 0;
+        this.targetFps = 17.0;
+        this.frameCount = 0;
         this.lastFrameTime = 0;
-        
-        // ==================== Frame Queue System ====================
-        this.frameQueue = [];           // Decoded Image objects waiting to display
-        this.targetFps = 3.0;           // Updated from server config
-        this.minBufferFrames = 3;       // Wait for ~1s buffer before starting
-        this.maxQueueSize = 30;         // ~10s max buffer
-        this.targetBufferFrames = 5;    // Ideal buffer size for adaptive FPS
-        this.playbackStarted = false;
-        this.playbackInterval = null;
-        this.playbackPaused = false;    // Paused when tab hidden
-        
-        // ==================== Alpha Blend System ====================
-        this.currentImage = null;       // Currently displayed image
-        this.blendingImage = null;      // Image being blended in
-        this.blendStartTime = null;
-        this.blendDuration = 500;       // 500ms crossfade
-        this.blendAnimationId = null;
-        
+
+        // Decode path: 'webcodecs' | 'mse' | null
+        this.decodePath = null;
+        this.videoDecoder = null;        // WebCodecs
+        this.jmuxer = null;             // jMuxer for MSE
+        this.videoElement = null;        // MSE — hidden <video> for decode
+        this.videoFrameCount = 0;
+        this._lastFrameMetaIsVideoKeyframe = false;
+        this._receivedFirstKeyframe = false;
+        this._mseCanvasLoop = null;
+
         // Stats elements
-        this.frameCountEl = document.querySelector('#dream-frame-count .dream-stat-value');
-        this.viewerCountEl = document.querySelector('#dream-viewer-count .dream-stat-value');
-        this.connectionIndicator = document.querySelector('#dream-connection-status .dream-stat-indicator');
-        this.connectionStatus = document.querySelector('#dream-connection-status .dream-stat-value');
-        
-        // Bind methods
-        this.connect = this.connect.bind(this);
-        this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
-        this.playbackTick = this.playbackTick.bind(this);
-        this.blendLoop = this.blendLoop.bind(this);
-        
-        // Setup event listeners
+        this.frameCountEl = document.querySelector(
+            '#dream-frame-count .dream-stat-value'
+        );
+        this.viewerCountEl = document.querySelector(
+            '#dream-viewer-count .dream-stat-value'
+        );
+        this.connectionIndicator = document.querySelector(
+            '#dream-connection-status .dream-stat-indicator'
+        );
+        this.connectionStatus = document.querySelector(
+            '#dream-connection-status .dream-stat-value'
+        );
+
         this.setupEventListeners();
     }
-    
+
+    // ==================== Initialization ====================
+
     setupEventListeners() {
-        // Visibility API - pause/resume playback
-        document.addEventListener('visibilitychange', this.handleVisibilityChange);
-        
-        // Retry button
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !this.connected) {
+                this.reconnectAttempts = 0;
+                this.connect();
+            }
+        });
+
         const retryBtn = document.getElementById('dream-retry-btn');
         if (retryBtn) {
             retryBtn.addEventListener('click', () => {
@@ -81,251 +89,272 @@ class DreamViewer {
                 this.connect();
             });
         }
-        
-        // Before unload - clean disconnect
+
         window.addEventListener('beforeunload', () => {
-            if (this.ws) {
-                this.ws.close(1000, 'page_unload');
-            }
+            if (this.ws) this.ws.close(1000, 'page_unload');
         });
     }
-    
-    handleVisibilityChange() {
-        if (document.hidden) {
-            // Tab hidden - pause playback (frames keep queueing)
-            console.log('Tab hidden - pausing playback');
-            this.pausePlayback();
-        } else {
-            // Tab visible - skip to live if we fell behind, then resume
-            console.log('Tab visible - resuming playback');
-            this.skipToLiveIfNeeded();
-            this.resumePlayback();
-            
-            // Reconnect if disconnected
-            if (!this.connected) {
-                this.reconnectAttempts = 0;
-                this.connect();
+
+    _detectDecodePath() {
+        // Prefer WebCodecs (lower latency, direct canvas output)
+        try {
+            if (typeof VideoDecoder === 'function'
+                && typeof EncodedVideoChunk === 'function') {
+                return 'webcodecs';
             }
+        } catch (e) { /* not available */ }
+
+        // Fall back to MSE via jMuxer (if loaded)
+        if (typeof JMuxer === 'function') {
+            return 'mse';
         }
+
+        // Raw MSE without jMuxer — check if browser supports it
+        if (typeof MediaSource === 'function'
+            && MediaSource.isTypeSupported('video/mp4; codecs="avc1.42001e"')) {
+            return 'mse';
+        }
+
+        return null;
     }
-    
-    // ==================== Frame Queue Management ====================
-    
-    queueFrame(frameData) {
-        // Decode image asynchronously
-        const blob = new Blob([frameData], { type: 'image/webp' });
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
 
-        img.onload = () => {
-            URL.revokeObjectURL(url);
+    // ==================== WebCodecs Path ====================
 
-            // Add to queue
-            this.frameQueue.push(img);
+    async _initWebCodecs() {
+        const config = {
+            codec: 'avc1.42001e',  // Baseline Level 3.0
+            codedWidth: 1024,
+            codedHeight: 512,
+        };
 
-            // Start playback if we have enough buffer
-            if (!this.playbackStarted && !this.playbackPaused &&
-                this.frameQueue.length >= this.minBufferFrames) {
-                this.startPlayback();
+        try {
+            const support = await VideoDecoder.isConfigSupported(config);
+            if (!support.supported) {
+                console.warn('H.264 Baseline not supported');
+                return false;
             }
-        };
-        
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            console.error('Failed to decode frame');
-        };
-        
-        img.src = url;
-    }
-    
-    startPlayback() {
-        if (this.playbackInterval) return;
-
-        this.playbackStarted = true;
-        this.scheduleNextFrame();
-    }
-    
-    scheduleNextFrame() {
-        if (this.playbackPaused) return;
-        
-        // Calculate effective FPS with adaptive adjustment
-        const effectiveFps = this.calculateEffectiveFps();
-        const intervalMs = 1000 / effectiveFps;
-        
-        this.playbackInterval = setTimeout(() => {
-            this.playbackTick();
-            this.scheduleNextFrame();
-        }, intervalMs);
-    }
-    
-    calculateEffectiveFps() {
-        const queueDepth = this.frameQueue.length;
-        const overrun = queueDepth - this.targetBufferFrames;
-        
-        if (overrun <= 0) {
-            // At or below target - play at normal speed
-            return this.targetFps;
-        } else if (overrun <= 5) {
-            // Small overrun - speed up gently (3-15% faster)
-            const boost = 1 + (overrun * 0.03);
-            return this.targetFps * boost;
-        } else {
-            // Larger overrun - cap at 15% faster
-            // (skip-to-live handles extreme cases)
-            return this.targetFps * 1.15;
-        }
-    }
-    
-    playbackTick() {
-        if (this.frameQueue.length === 0) {
-            // Underrun - hold current frame (nothing to do)
-            return;
+        } catch (e) {
+            console.warn('isConfigSupported failed:', e);
+            return false;
         }
 
-        const nextImage = this.frameQueue.shift();
+        this.videoDecoder = new VideoDecoder({
+            output: (frame) => this._onVideoFrame(frame),
+            error: (e) => {
+                console.error('VideoDecoder error:', e);
+                this._resetDecoder();
+            },
+        });
 
-        // Start alpha blend to new frame
-        this.startBlend(nextImage);
-        
-        // Update stats (local count kept for compat, but display uses server frame number)
+        this.videoDecoder.configure(config);
+        console.log('WebCodecs VideoDecoder initialized');
+        return true;
+    }
+
+    _onVideoFrame(frame) {
+        if (!this.ctx) { frame.close(); return; }
+
+        // Draw decoded frame directly to canvas
+        this.ctx.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
+        frame.close();  // MUST close to free GPU memory
+
         this.frameCount++;
         this.lastFrameTime = Date.now();
-        
-        // Note: frame count display is now updated in handleFrameMetaMessage
-        // using the server-authoritative frame number
-        
-        // Hide loading on first displayed frame
         this.hideLoading();
     }
-    
-    pausePlayback() {
-        this.playbackPaused = true;
-        if (this.playbackInterval) {
-            clearTimeout(this.playbackInterval);
-            this.playbackInterval = null;
+
+    _feedWebCodecs(nalData) {
+        if (!this.videoDecoder || this.videoDecoder.state === 'closed') return;
+
+        const isKey = this._lastFrameMetaIsVideoKeyframe;
+
+        // Must receive a keyframe first before decoding can start
+        if (!isKey && !this._receivedFirstKeyframe) return;
+        if (isKey) this._receivedFirstKeyframe = true;
+
+        // Timestamp in microseconds (VideoDecoder requirement)
+        const timestamp = this.videoFrameCount * (1_000_000 / this.targetFps);
+        this.videoFrameCount++;
+
+        try {
+            this.videoDecoder.decode(new EncodedVideoChunk({
+                type: isKey ? 'key' : 'delta',
+                timestamp: timestamp,
+                data: nalData,
+            }));
+        } catch (e) {
+            console.error('Decode failed:', e);
+            if (!isKey) this._resetDecoder();
         }
     }
-    
-    resumePlayback() {
-        this.playbackPaused = false;
-        if (this.playbackStarted && !this.playbackInterval) {
-            this.scheduleNextFrame();
-        }
-    }
-    
-    skipToLiveIfNeeded() {
-        // If queue has grown large (tab was hidden), skip to near-live
-        const skipThreshold = 10;
-        const keepFrames = 3;
-        
-        if (this.frameQueue.length > skipThreshold) {
-            const dropped = this.frameQueue.length - keepFrames;
-            this.frameQueue = this.frameQueue.slice(-keepFrames);
-            console.log(`Skipped to live: dropped ${dropped} frames, keeping ${keepFrames}`);
-        }
-    }
-    
-    // ==================== Canvas Alpha Blending ====================
-    
-    startBlend(newImage) {
-        if (!this.ctx) return;
 
-        // If no current image, just draw directly (first frame)
-        if (!this.currentImage) {
-            this.currentImage = newImage;
-            this.ctx.drawImage(newImage, 0, 0, this.canvas.width, this.canvas.height);
-            return;
+    // ==================== MSE Path (jMuxer) ====================
+
+    async _initMSE() {
+        if (typeof JMuxer === 'function') {
+            return this._initJMuxer();
         }
 
-        // If mid-blend, complete it first (promote blending to current)
-        if (this.blendingImage) {
-            this.currentImage = this.blendingImage;
-        }
-        if (this.blendAnimationId) {
-            cancelAnimationFrame(this.blendAnimationId);
-        }
-
-        // Start crossfade blend
-        this.blendingImage = newImage;
-        this.blendStartTime = performance.now();
-
-        this.blendLoop();
+        // Fallback: raw MSE (more complex, less tested)
+        console.warn('jMuxer not loaded — MSE fallback unavailable');
+        return false;
     }
 
-    blendLoop() {
-        if (!this.blendingImage || !this.ctx) return;
+    _initJMuxer() {
+        // Create hidden video element
+        this.videoElement = document.createElement('video');
+        this.videoElement.id = 'dream-video-mse';
+        this.videoElement.muted = true;
+        this.videoElement.autoplay = true;
+        this.videoElement.playsInline = true;
+        this.videoElement.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:1px;height:1px';
+        document.body.appendChild(this.videoElement);
 
-        const elapsed = performance.now() - this.blendStartTime;
-        const progress = Math.min(1.0, elapsed / this.blendDuration);
-        
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Draw current image at full opacity (base layer)
-        this.ctx.globalAlpha = 1.0;
-        this.ctx.drawImage(this.currentImage, 0, 0, w, h);
-        
-        // Draw new image at blend progress (fading in on top)
-        this.ctx.globalAlpha = progress;
-        this.ctx.drawImage(this.blendingImage, 0, 0, w, h);
-        
-        // Reset alpha
-        this.ctx.globalAlpha = 1.0;
-        
-        if (progress < 1.0) {
-            // Continue blending
-            this.blendAnimationId = requestAnimationFrame(this.blendLoop);
-        } else {
-            // Blend complete - new becomes current
-            this.currentImage = this.blendingImage;
-            this.blendingImage = null;
-            this.blendAnimationId = null;
+        try {
+            this.jmuxer = new JMuxer({
+                node: 'dream-video-mse',
+                mode: 'video',
+                fps: this.targetFps,
+                flushingTime: 0,  // Immediate playback
+                debug: false,
+            });
+
+            // Draw video frames to canvas
+            this._startMSECanvasLoop();
+
+            console.log('jMuxer MSE initialized');
+            return true;
+        } catch (e) {
+            console.error('jMuxer init failed:', e);
+            return false;
         }
     }
-    
-    // ==================== WebSocket Connection ====================
-    
+
+    _startMSECanvasLoop() {
+        const draw = () => {
+            if (this.videoElement && this.ctx
+                && this.videoElement.readyState >= 2) {
+                this.ctx.drawImage(
+                    this.videoElement, 0, 0,
+                    this.canvas.width, this.canvas.height
+                );
+                this.frameCount++;
+                this.lastFrameTime = Date.now();
+                this.hideLoading();
+            }
+            this._mseCanvasLoop = requestAnimationFrame(draw);
+        };
+        this._mseCanvasLoop = requestAnimationFrame(draw);
+    }
+
+    _feedMSE(nalData) {
+        const isKey = this._lastFrameMetaIsVideoKeyframe;
+
+        // Must receive a keyframe first
+        if (!isKey && !this._receivedFirstKeyframe) return;
+        if (isKey) this._receivedFirstKeyframe = true;
+
+        if (this.jmuxer) {
+            try {
+                this.jmuxer.feed({
+                    video: new Uint8Array(nalData),
+                });
+            } catch (e) {
+                console.error('jMuxer feed error:', e);
+            }
+        }
+    }
+
+    // ==================== Shared Logic ====================
+
+    _resetDecoder() {
+        if (this.videoDecoder) {
+            try { this.videoDecoder.close(); } catch (e) { /* ignore */ }
+            this.videoDecoder = null;
+        }
+        this._receivedFirstKeyframe = false;
+        this.videoFrameCount = 0;
+        console.log('Decoder reset — waiting for I-frame');
+    }
+
+    _cleanupMSE() {
+        if (this._mseCanvasLoop) {
+            cancelAnimationFrame(this._mseCanvasLoop);
+            this._mseCanvasLoop = null;
+        }
+        if (this.jmuxer) {
+            try { this.jmuxer.destroy(); } catch (e) { /* ignore */ }
+            this.jmuxer = null;
+        }
+        if (this.videoElement) {
+            this.videoElement.remove();
+            this.videoElement = null;
+        }
+    }
+
+    // ==================== WebSocket ====================
+
     connect() {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        if (this.ws?.readyState === WebSocket.OPEN) return;
+
+        this.decodePath = this._detectDecodePath();
+
+        if (!this.decodePath) {
+            this.showError(
+                'Your browser does not support H.264 video decoding. ' +
+                'Please use Chrome, Edge, or Safari 17.1+.'
+            );
             return;
         }
-        
+
         this.setStatus('connecting', 'connecting...');
         this.setConnectionState('connecting');
-        
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/dreams`;
-        
+
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${location.host}/ws/dreams`;
+
         try {
             this.ws = new WebSocket(wsUrl);
             this.ws.binaryType = 'arraybuffer';
-            
             this.ws.onopen = () => this.handleOpen();
-            this.ws.onmessage = (event) => this.handleMessage(event);
-            this.ws.onclose = (event) => this.handleClose(event);
-            this.ws.onerror = (error) => this.handleError(error);
-        } catch (error) {
-            console.error('WebSocket connection failed:', error);
-            this.handleError(error);
+            this.ws.onmessage = (e) => this.handleMessage(e);
+            this.ws.onclose = (e) => this.handleClose(e);
+            this.ws.onerror = (e) => this.handleError(e);
+        } catch (e) {
+            console.error('WebSocket failed:', e);
+            this.handleError(e);
         }
     }
-    
-    handleOpen() {
-        console.log('Dream WebSocket connected');
+
+    async handleOpen() {
+        console.log(`Dream WebSocket connected (decode: ${this.decodePath})`);
         this.connected = true;
         this.reconnectAttempts = 0;
         this.setConnectionState('connected');
-        
-        // Reset playback state for new session
-        this.frameQueue = [];
-        this.playbackStarted = false;
-        this.currentImage = null;
-        this.blendingImage = null;
-        
-        // Start ping interval
+
+        // Reset state
+        this._resetDecoder();
+        this._cleanupMSE();
+        this._receivedFirstKeyframe = false;
+        this._lastFrameMetaIsVideoKeyframe = false;
+
+        // Initialize decode path
+        let ok = false;
+        if (this.decodePath === 'webcodecs') {
+            ok = await this._initWebCodecs();
+        } else if (this.decodePath === 'mse') {
+            ok = await this._initMSE();
+        }
+
+        if (!ok) {
+            console.error(`Failed to initialize ${this.decodePath} decoder`);
+            this.showError('Failed to initialize video decoder');
+            return;
+        }
+
         this.startPingInterval();
     }
-    
+
     handleMessage(event) {
         if (event.data instanceof ArrayBuffer) {
             this.handleBinaryMessage(event.data);
@@ -336,218 +365,151 @@ class DreamViewer {
 
     handleBinaryMessage(data) {
         const view = new Uint8Array(data);
-        const messageType = view[0];
+        if (view[0] !== MSG_FRAME) return;
 
-        if (messageType === 0x01) {
-            // Frame data - queue it for smooth playback
-            const frameData = data.slice(1);
-            this.queueFrame(frameData);
+        const nalData = data.slice(1);
+
+        if (this.decodePath === 'webcodecs') {
+            this._feedWebCodecs(nalData);
+        } else if (this.decodePath === 'mse') {
+            this._feedMSE(nalData);
         }
     }
 
     handleJsonMessage(data) {
         try {
             const msg = JSON.parse(data);
-
             switch (msg.type) {
                 case 'status':
                     this.handleStatusMessage(msg);
                     break;
                 case 'config':
-                    this.handleConfigMessage(msg);
+                    if (msg.target_fps > 0) this.targetFps = msg.target_fps;
                     break;
                 case 'frame_meta':
                     this.handleFrameMetaMessage(msg);
                     break;
                 case 'pong':
-                    // Heartbeat response
                     break;
-                default:
-                    console.log('Unknown message type:', msg.type);
             }
-        } catch (error) {
-            console.error('Failed to parse JSON message:', error);
+        } catch (e) {
+            console.error('JSON parse failed:', e);
         }
     }
-    
+
     handleFrameMetaMessage(msg) {
-        // Server-authoritative frame metadata
-        // This arrives just before each binary frame
-        
-        // Update server frame number
         if (msg.fn !== undefined) {
             this.serverFrameNumber = msg.fn;
-            // Update display with server frame number
             if (this.frameCountEl) {
-                this.frameCountEl.textContent = this.serverFrameNumber.toLocaleString();
+                this.frameCountEl.textContent =
+                    this.serverFrameNumber.toLocaleString();
             }
         }
-        
+        this._lastFrameMetaIsVideoKeyframe = msg.vk === true;
     }
 
     handleStatusMessage(msg) {
         this.setStatus(msg.status, msg.message);
-        
-        // Update viewer count
         if (msg.viewer_count !== undefined && this.viewerCountEl) {
             this.viewerCountEl.textContent = msg.viewer_count;
         }
-        
-        // Update frame count from server
-        if (msg.frame_count !== undefined && this.frameCountEl) {
-            // Don't override local count - server count is total received
-        }
-        
-        // Check for target_fps in status (GPU config passthrough)
-        if (msg.target_fps !== undefined) {
-            this.updateTargetFps(msg.target_fps);
-        }
-        
-        // Handle different statuses
-        switch (msg.status) {
-            case 'ready':
-                // Frames should start flowing
-                break;
-            case 'starting':
-            case 'loading_models':
-                // Show loading with appropriate message
-                this.showLoading();
-                break;
-            case 'error':
-                this.showError(msg.message);
-                break;
+        if (msg.target_fps > 0) this.targetFps = msg.target_fps;
+
+        if (msg.status === 'starting' || msg.status === 'loading_models') {
+            this.showLoading();
+        } else if (msg.status === 'error') {
+            this.showError(msg.message);
         }
     }
-    
-    handleConfigMessage(msg) {
-        // Config from server (GPU settings)
-        if (msg.target_fps !== undefined) {
-            this.updateTargetFps(msg.target_fps);
-        }
-    }
-    
-    updateTargetFps(fps) {
-        if (fps > 0 && fps !== this.targetFps) {
-            console.log(`Target FPS updated: ${this.targetFps} → ${fps}`);
-            this.targetFps = fps;
-            // Adjust buffer thresholds based on FPS
-            this.minBufferFrames = Math.max(2, Math.ceil(fps));  // ~1s buffer
-            this.targetBufferFrames = Math.ceil(fps * 1.5);      // ~1.5s target
-        }
-    }
-    
+
     handleClose(event) {
-        console.log('Dream WebSocket closed:', event.code, event.reason);
         this.connected = false;
         this.stopPingInterval();
-        this.pausePlayback();
-        
+
+        // Clean up decoders
+        this._resetDecoder();
+        this._cleanupMSE();
+
         if (event.code === 1000) {
-            // Normal close (page unload)
             this.setConnectionState('offline');
             return;
         }
-        
-        // Abnormal close - attempt reconnect
         this.scheduleReconnect();
     }
-    
+
     handleError(error) {
-        console.error('Dream WebSocket error:', error);
+        console.error('WebSocket error:', error);
         this.setConnectionState('error');
     }
-    
+
     scheduleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             this.showError('Unable to connect after multiple attempts');
             return;
         }
-        
         this.reconnectAttempts++;
         const delay = Math.min(
             this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1),
             30000
         );
-        
-        this.setStatus('reconnecting', `reconnecting in ${Math.round(delay / 1000)}s...`);
+        this.setStatus('reconnecting',
+            `reconnecting in ${Math.round(delay / 1000)}s...`);
         this.setConnectionState('connecting');
-        
-        setTimeout(() => {
-            if (!document.hidden) {
-                this.connect();
-            }
-        }, delay);
+        setTimeout(() => { if (!document.hidden) this.connect(); }, delay);
     }
-    
+
     // ==================== UI Helpers ====================
-    
+
     setStatus(status, message) {
         if (this.statusEl) {
             this.statusEl.textContent = message;
             this.statusEl.className = `dream-status dream-status-${status}`;
         }
     }
-    
+
     setConnectionState(state) {
         if (this.connectionIndicator) {
-            this.connectionIndicator.className = `dream-stat-indicator ${state}`;
+            this.connectionIndicator.className =
+                `dream-stat-indicator ${state}`;
         }
         if (this.connectionStatus) {
             const labels = {
-                'connected': 'live',
-                'connecting': 'connecting',
-                'offline': 'offline',
-                'error': 'error'
+                connected: 'live', connecting: 'connecting',
+                offline: 'offline', error: 'error'
             };
             this.connectionStatus.textContent = labels[state] || state;
         }
     }
-    
+
     showLoading() {
-        if (this.loadingEl) {
-            this.loadingEl.classList.remove('hidden');
-        }
-        if (this.errorEl) {
-            this.errorEl.classList.add('hidden');
-        }
+        this.loadingEl?.classList.remove('hidden');
+        this.errorEl?.classList.add('hidden');
     }
-    
+
     hideLoading() {
-        if (this.loadingEl) {
-            this.loadingEl.classList.add('hidden');
-        }
+        this.loadingEl?.classList.add('hidden');
     }
-    
+
     showError(message) {
-        if (this.errorEl) {
-            const messageEl = document.getElementById('dream-error-message');
-            if (messageEl) {
-                messageEl.textContent = message;
-            }
-            this.errorEl.classList.remove('hidden');
-        }
-        if (this.loadingEl) {
-            this.loadingEl.classList.add('hidden');
-        }
+        const msgEl = document.getElementById('dream-error-message');
+        if (msgEl) msgEl.textContent = message;
+        this.errorEl?.classList.remove('hidden');
+        this.loadingEl?.classList.add('hidden');
         this.setConnectionState('error');
     }
-    
+
     hideError() {
-        if (this.errorEl) {
-            this.errorEl.classList.add('hidden');
-        }
+        this.errorEl?.classList.add('hidden');
     }
-    
-    // ==================== Heartbeat ====================
-    
+
     startPingInterval() {
         this.pingInterval = setInterval(() => {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            if (this.ws?.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'ping' }));
             }
         }, 30000);
     }
-    
+
     stopPingInterval() {
         if (this.pingInterval) {
             clearInterval(this.pingInterval);
@@ -556,16 +518,13 @@ class DreamViewer {
     }
 }
 
-// ==================== Initialization ====================
-
+// ==================== Init ====================
 document.addEventListener('DOMContentLoaded', () => {
-    // Check for embed mode
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(location.search);
     if (urlParams.get('embed') === '1') {
         document.body.classList.add('embed-mode');
     }
-    
-    // Initialize viewer
+
     window.dreamViewer = new DreamViewer();
     window.dreamViewer.connect();
 });

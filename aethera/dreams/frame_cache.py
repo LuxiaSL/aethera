@@ -1,172 +1,149 @@
 """
-Frame Cache - Storage and serving of dream frames
+Frame Cache — Stream statistics and metrics for Dream Window
 
-Maintains a rolling buffer of recent frames for:
-- Immediate display to newly connected viewers
-- API access to current frame
-- Fallback during brief GPU disconnections
+With H.264 video streaming, individual frames are no longer stored.
+This module tracks stream statistics (FPS, byte counts, frame numbers)
+and provides the data for the /api/dreams/status endpoint.
+
+The I-frame cache for late-joining viewers is handled by
+DreamWebSocketHub directly (simpler than routing through here).
 """
 
 import asyncio
 import time
-from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass, field
 from collections import deque
-
-
-@dataclass
-class CachedFrame:
-    """A single cached frame with metadata"""
-    data: bytes
-    frame_number: int
-    keyframe_number: int
-    timestamp: float = field(default_factory=time.time)
-    generation_time_ms: int = 0
-    prompt: Optional[str] = None
 
 
 class FrameCache:
     """
-    Thread-safe frame cache for Dream Window
-    
-    Stores recent frames in memory for quick access.
-    Provides the current frame for API requests and new WebSocket connections.
+    Stream statistics tracker for Dream Window.
+
+    Tracks FPS, frame counts, and byte counters for the H.264 video stream.
+    No longer stores individual frame data — that's unnecessary with
+    video streaming where the encoder handles temporal state.
     """
-    
-    def __init__(self, max_frames: int = 30, state_dir: Optional[Path] = None):
+
+    def __init__(self, max_frames: int = 30, state_dir=None):
         """
-        Initialize frame cache
-        
+        Initialize frame cache / stats tracker.
+
         Args:
-            max_frames: Maximum number of frames to keep in memory
-            state_dir: Directory for persisting state (optional)
+            max_frames: Unused (kept for API compatibility). Previously was
+                       the max number of image frames to cache.
+            state_dir: Unused (kept for API compatibility).
         """
-        self.max_frames = max_frames
-        self.state_dir = state_dir
-        
-        self._frames: deque[CachedFrame] = deque(maxlen=max_frames)
-        self._current_frame: Optional[CachedFrame] = None
         self._lock = asyncio.Lock()
-        
+
         # Statistics
         self.total_frames_received = 0
         self.total_bytes_received = 0
         self.start_time = time.time()
-        
-        # Rolling FPS calculation (tracks frames in last N seconds)
-        self._fps_window_seconds = 30.0  # Calculate FPS over last 30 seconds
-        self._frame_timestamps: deque[float] = deque()  # Timestamps of recent frames
-        self._session_start_time: Optional[float] = None  # Reset when GPU connects
-        self._session_frames = 0  # Frames in current session
-    
-    async def add_frame(
+
+        # Rolling FPS calculation
+        self._fps_window_seconds = 30.0
+        self._frame_timestamps: deque[float] = deque()
+        self._session_start_time: Optional[float] = None
+        self._session_frames = 0
+
+        # Current frame tracking (for status endpoint)
+        self._current_frame_number = 0
+        self._current_keyframe_number = 0
+
+    def record_frame(
         self,
-        data: bytes,
-        frame_number: int,
+        size_bytes: int,
+        frame_number: int = 0,
         keyframe_number: int = 0,
-        generation_time_ms: int = 0,
-        prompt: Optional[str] = None
     ) -> None:
         """
-        Add a new frame to the cache
-        
+        Record a frame receipt for stats tracking.
+
+        Called by the WebSocket hub for every frame received from GPU.
+        This is synchronous (no lock needed — called from single async context).
+
         Args:
-            data: WebP frame data
-            frame_number: Sequential frame number (server-authoritative)
-            keyframe_number: Which keyframe this relates to
-            generation_time_ms: How long generation took
-            prompt: Prompt text for the current keyframe
+            size_bytes: Size of the H.264 NAL data
+            frame_number: Sequential frame number
+            keyframe_number: Current generation keyframe number
         """
-        frame = CachedFrame(
-            data=data,
-            frame_number=frame_number,
-            keyframe_number=keyframe_number,
-            generation_time_ms=generation_time_ms,
-            prompt=prompt
-        )
-        
-        async with self._lock:
-            self._frames.append(frame)
-            self._current_frame = frame
-            
-            self.total_frames_received += 1
-            self.total_bytes_received += len(data)
-            
-            # Track for rolling FPS calculation
-            now = time.time()
-            self._frame_timestamps.append(now)
-            self._session_frames += 1
-            
-            # Start session timer on first frame
-            if self._session_start_time is None:
-                self._session_start_time = now
-            
-            # Prune old timestamps (keep only last N seconds)
-            cutoff = now - self._fps_window_seconds
-            while self._frame_timestamps and self._frame_timestamps[0] < cutoff:
-                self._frame_timestamps.popleft()
-    
-    async def get_current_frame(self) -> Optional[CachedFrame]:
-        """Get the most recent frame"""
-        async with self._lock:
-            return self._current_frame
-    
-    async def get_current_frame_data(self) -> Optional[bytes]:
-        """Get just the frame data (for API responses)"""
-        frame = await self.get_current_frame()
-        return frame.data if frame else None
-    
-    async def get_recent_frames(self, count: int = 10) -> list[CachedFrame]:
-        """Get the N most recent frames"""
-        async with self._lock:
-            return list(self._frames)[-count:]
-    
+        self.total_frames_received += 1
+        self.total_bytes_received += size_bytes
+        self._session_frames += 1
+        self._current_frame_number = frame_number
+        self._current_keyframe_number = keyframe_number
+
+        now = time.time()
+        self._frame_timestamps.append(now)
+
+        if self._session_start_time is None:
+            self._session_start_time = now
+
+        # Prune old timestamps
+        cutoff = now - self._fps_window_seconds
+        while self._frame_timestamps and self._frame_timestamps[0] < cutoff:
+            self._frame_timestamps.popleft()
+
+    def reset_session(self) -> None:
+        """Reset session stats (call when GPU connects)."""
+        self._session_start_time = None
+        self._session_frames = 0
+        self._frame_timestamps.clear()
+
     def get_stats(self) -> dict:
-        """Get cache statistics"""
+        """Get stream statistics."""
         now = time.time()
         uptime = now - self.start_time
-        
+
         # Rolling FPS: frames in the last N seconds
         if len(self._frame_timestamps) >= 2:
-            # Time span of frames in window
             window_span = self._frame_timestamps[-1] - self._frame_timestamps[0]
-            if window_span > 0:
-                rolling_fps = (len(self._frame_timestamps) - 1) / window_span
-            else:
-                rolling_fps = 0.0
+            rolling_fps = (len(self._frame_timestamps) - 1) / window_span if window_span > 0 else 0.0
         else:
             rolling_fps = 0.0
-        
+
         # Session FPS: frames since GPU connected
         if self._session_start_time and self._session_frames > 0:
             session_time = now - self._session_start_time
             session_fps = self._session_frames / session_time if session_time > 0 else 0.0
         else:
             session_fps = 0.0
-        
+
         return {
-            "frames_cached": len(self._frames),
-            "max_frames": self.max_frames,
             "total_frames_received": self.total_frames_received,
             "total_bytes_received": self.total_bytes_received,
-            "average_fps": round(rolling_fps, 2),  # Now uses rolling window
-            "session_fps": round(session_fps, 2),  # FPS since GPU connected
+            "average_fps": round(rolling_fps, 2),
+            "session_fps": round(session_fps, 2),
             "uptime_seconds": round(uptime, 1),
-            "current_frame_number": self._current_frame.frame_number if self._current_frame else 0,
-            "current_keyframe_number": self._current_frame.keyframe_number if self._current_frame else 0,
+            "current_frame_number": self._current_frame_number,
+            "current_keyframe_number": self._current_keyframe_number,
+            "stream_format": "h264",
         }
-    
+
+    # ==================== Compatibility stubs ====================
+    # These methods existed when FrameCache stored image frames.
+    # They're kept as no-ops so callers don't break during transition.
+
+    async def get_current_frame(self):
+        """No longer stores frames. Returns None."""
+        return None
+
+    async def get_current_frame_data(self) -> Optional[bytes]:
+        """No longer stores frames. Returns None."""
+        return None
+
+    async def get_recent_frames(self, count: int = 10) -> list:
+        """No longer stores frames. Returns empty list."""
+        return []
+
     async def clear(self) -> None:
-        """Clear all cached frames"""
-        async with self._lock:
-            self._frames.clear()
-            self._current_frame = None
-    
-    def reset_session(self) -> None:
-        """Reset session stats (call when GPU connects)"""
-        self._session_start_time = None
-        self._session_frames = 0
+        """Clear stats."""
+        self.total_frames_received = 0
+        self.total_bytes_received = 0
+        self._current_frame_number = 0
+        self._current_keyframe_number = 0
         self._frame_timestamps.clear()
 
-
+    async def add_frame(self, **kwargs) -> None:
+        """No-op compatibility stub. Use record_frame() instead."""
+        pass
