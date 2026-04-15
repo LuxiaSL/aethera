@@ -134,7 +134,7 @@ def oembed(request: Request, url: str, format: str = "json", session: Session = 
         "version": "1.0",
         "type": "link",
         "title": "æthera",
-        "author_name": "Luxia",
+        "author_name": "Celeste & Luxia",
         "author_url": base_url,
         "provider_name": "æthera",
         "provider_url": base_url,
