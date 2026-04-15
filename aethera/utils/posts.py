@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlmodel import Session
 from slugify import slugify
 
-from aethera.models.models import Post
+from aethera.models.models import Post, SlugRedirect
 from aethera.utils.markdown import render_markdown
 
 
@@ -25,7 +25,10 @@ def save_post(
 ) -> Post:
     """
     Create or update a blog post.
-    
+
+    When updating, if the title changes, the slug is regenerated and the old
+    slug is stored as a redirect so that existing links continue to work.
+
     Args:
         session: SQLModel session
         title: Post title
@@ -38,18 +41,40 @@ def save_post(
         published: Whether the post is published
         slug: Optional slug override
         existing_post: Existing post to update (None for new posts)
-        
+
     Returns:
         The created or updated Post instance
     """
     # Render Markdown to HTML
     content_html = render_markdown(content)
-    
+
     # Generate excerpt
     excerpt = Post.create_excerpt(content)
-    
+
     if existing_post:
-        # Update existing post
+        # If title changed, regenerate slug and save redirect
+        if title != existing_post.title:
+            new_slug = Post.generate_slug(title, session, exclude_id=existing_post.id)
+            if new_slug != existing_post.slug:
+                old_slug = existing_post.slug
+
+                # Save old slug as redirect (if not already tracked)
+                existing_redirect = session.exec(
+                    select(SlugRedirect).where(SlugRedirect.old_slug == old_slug)
+                ).first()
+                if not existing_redirect:
+                    session.add(SlugRedirect(old_slug=old_slug, post_id=existing_post.id))
+
+                # If new slug was itself a redirect, remove it (renaming back)
+                stale_redirect = session.exec(
+                    select(SlugRedirect).where(SlugRedirect.old_slug == new_slug)
+                ).first()
+                if stale_redirect:
+                    session.delete(stale_redirect)
+
+                existing_post.slug = new_slug
+
+        # Update remaining fields
         existing_post.title = title
         existing_post.author = author
         existing_post.content = content
@@ -61,13 +86,20 @@ def save_post(
         existing_post.license = license
         existing_post.published = published
         existing_post.updated_at = datetime.now()
-        
+
         post = existing_post
     else:
         # Generate slug if not provided
         if not slug:
             slug = Post.generate_slug(title, session)
-        
+
+        # Clean up any stale redirect that matches our new slug
+        stale_redirect = session.exec(
+            select(SlugRedirect).where(SlugRedirect.old_slug == slug)
+        ).first()
+        if stale_redirect:
+            session.delete(stale_redirect)
+
         # Create a new post
         post = Post(
             title=title,
@@ -84,10 +116,10 @@ def save_post(
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
-    
+
     # Save to DB
     session.add(post)
     session.commit()
     session.refresh(post)
-    
+
     return post

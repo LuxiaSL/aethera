@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, Form, File, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 from typing import List, Optional
 import os
@@ -10,13 +10,24 @@ from slugify import slugify
 from pydantic import BaseModel
 
 from aethera.models.base import get_session
-from aethera.models.models import Post, Comment
+from aethera.models.models import Post, Comment, SlugRedirect
 from aethera.utils.markdown import render_markdown
 from aethera.utils.posts import save_post
 from aethera.utils.templates import templates
 from aethera.api.comments import compute_backlinks_with_cross_post
 
 router = APIRouter(tags=["posts"])
+
+
+def resolve_redirect(slug: str, session: Session) -> Optional[str]:
+    """Check if a slug has a redirect entry, return the current target slug."""
+    redirect = session.exec(
+        select(SlugRedirect).where(SlugRedirect.old_slug == slug)
+    ).first()
+    if not redirect:
+        return None
+    post = session.exec(select(Post).where(Post.id == redirect.post_id)).first()
+    return post.slug if post else None
 
 # Preview token for admin panel draft preview
 BLOG_PREVIEW_TOKEN = os.environ.get("BLOG_PREVIEW_TOKEN")
@@ -112,10 +123,13 @@ def get_post(request: Request, slug: str, session: Session = Depends(get_session
     """Get a single post by slug."""
     query = select(Post).where(Post.slug == slug, Post.published == True)
     post = session.exec(query).first()
-    
+
     if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}", status_code=301)
         raise HTTPException(status_code=404, detail="Post not found")
-    
+
     # Get comments for this post
     comment_query = select(Comment).where(Comment.post_id == post.id).order_by(Comment.created_at)
     comments = session.exec(comment_query).all()
@@ -141,10 +155,13 @@ def get_post_body(slug: str, session: Session = Depends(get_session)):
     """Get just the HTML body of a post."""
     query = select(Post).where(Post.slug == slug, Post.published == True)
     post = session.exec(query).first()
-    
+
     if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}/body", status_code=301)
         raise HTTPException(status_code=404, detail="Post not found")
-    
+
     # Return just the HTML content
     return post.content_html
 
@@ -179,8 +196,14 @@ def preview_post(
     # Get post regardless of published status
     query = select(Post).where(Post.slug == slug)
     post = session.exec(query).first()
-    
+
     if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(
+                url=f"/preview/{target_slug}?token={token}",
+                status_code=301,
+            )
         raise HTTPException(status_code=404, detail="Post not found")
     
     # Return the full HTML page with preview mode flag
@@ -247,8 +270,11 @@ def get_post_json(slug: str, session: Session = Depends(get_session)):
     """Get a post as JSON (machine-readable endpoint)."""
     query = select(Post).where(Post.slug == slug, Post.published == True)
     post = session.exec(query).first()
-    
+
     if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/api/posts/{target_slug}", status_code=301)
         raise HTTPException(status_code=404, detail="Post not found")
     
     # Return the post directly, FastAPI will convert it to the response model
@@ -265,14 +291,17 @@ from fastapi.responses import PlainTextResponse
 def get_post_plaintext(slug: str, session: Session = Depends(get_session)):
     """
     Get post as plain text (raw markdown source).
-    
+
     Ideal for AI agents that prefer clean text over HTML parsing.
     Returns the original markdown content with metadata header.
     """
     query = select(Post).where(Post.slug == slug, Post.published == True)
     post = session.exec(query).first()
-    
+
     if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}.txt", status_code=301)
         raise HTTPException(status_code=404, detail="Post not found")
     
     # Build a clean plain text representation with metadata
@@ -300,13 +329,16 @@ def get_post_plaintext(slug: str, session: Session = Depends(get_session)):
 def get_post_markdown(slug: str, session: Session = Depends(get_session)):
     """
     Get post as raw markdown with frontmatter.
-    
+
     Returns the post in a format that could be directly saved as a .md file.
     """
     query = select(Post).where(Post.slug == slug, Post.published == True)
     post = session.exec(query).first()
-    
+
     if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}.md", status_code=301)
         raise HTTPException(status_code=404, detail="Post not found")
     
     # Build markdown with YAML frontmatter

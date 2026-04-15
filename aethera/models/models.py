@@ -10,6 +10,14 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Text
 
 
+class SlugRedirect(SQLModel, table=True):
+    __tablename__ = "slug_redirect"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    old_slug: str = Field(index=True, unique=True)
+    post_id: int = Field(foreign_key="post.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Post(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
@@ -25,7 +33,7 @@ class Post(SQLModel, table=True):
     categories: Optional[str] = None  # Comma-separated categories
     canonical_url: Optional[str] = None
     license: str = "CC BY 4.0"
-    
+
     comments: List["Comment"] = Relationship(back_populates="post")
     
     def get_tags_list(self) -> List[str]:
@@ -41,22 +49,29 @@ class Post(SQLModel, table=True):
         return [cat.strip() for cat in self.categories.split(",")]
     
     @classmethod
-    def generate_slug(cls, title: str, session: Optional[Session] = None) -> str:
-        """Generate a unique slug from a title."""
+    def generate_slug(cls, title: str, session: Optional[Session] = None, exclude_id: Optional[int] = None) -> str:
+        """Generate a unique slug from a title.
+
+        Args:
+            exclude_id: Post ID to exclude from uniqueness check (for renames).
+        """
         base_slug = slugify(title)
         slug = base_slug
-        
+
         # If no session provided, just return the basic slug
         if not session:
             return slug
-            
+
         # Check if slug already exists and make it unique if needed
         counter = 1
         while True:
-            existing = session.exec(select(Post).where(Post.slug == slug)).first()
+            query = select(Post).where(Post.slug == slug)
+            if exclude_id is not None:
+                query = query.where(Post.id != exclude_id)
+            existing = session.exec(query).first()
             if not existing:
                 return slug
-            
+
             # If slug exists, increment counter
             counter += 1
             slug = f"{base_slug}-{counter}"
