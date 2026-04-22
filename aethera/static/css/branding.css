@@ -88,13 +88,20 @@ body {
     color: var(--text) !important;
     font-family: "Libertinus Mono", "JetBrains Mono", "Fira Code", monospace;
     line-height: 1.7;
-    font-size: 17px;
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
     min-height: 100%;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
+}
+
+@media (min-width: 640px) {
+    body {
+        font-size: 17px;
+    }
 }
 
 /* Animated video background */
@@ -102,8 +109,8 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     z-index: -1;
     pointer-events: none;
@@ -120,9 +127,15 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--text);
 }
 
-h1 { font-size: 2.25rem; margin-top: 0; margin-bottom: 1rem; }
-h2 { font-size: 1.75rem; margin-top: 1.5rem; margin-bottom: 1rem; }
-h3 { font-size: 1.375rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+h1 { font-size: 1.75rem; margin-top: 0; margin-bottom: 1rem; }
+h2 { font-size: 1.375rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+h3 { font-size: 1.125rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+
+@media (min-width: 640px) {
+    h1 { font-size: 2.25rem; }
+    h2 { font-size: 1.75rem; }
+    h3 { font-size: 1.375rem; }
+}
 
 /* ============================================
    Links
@@ -158,7 +171,8 @@ a:hover, a:focus {
 .logo-container {
     position: relative;
     display: inline-block;
-    width: 28rem;
+    width: 100%;
+    max-width: 28rem;
     height: 6rem;
 }
 
@@ -1216,11 +1230,18 @@ main .text-6xl {
 article.post,
 article.post-body {
     border-bottom: none;
-    padding: 4rem 2.5rem;
+    padding: 2rem 1rem;
     margin-bottom: 0;
     position: relative;
     color: #000;
     overflow: visible;
+}
+
+@media (min-width: 640px) {
+    article.post,
+    article.post-body {
+        padding: 4rem 2.5rem;
+    }
 }
 
 #post-caustics-canvas {
@@ -1248,7 +1269,13 @@ article.post-body .post-content:has(.post-segment) {
 
 .post-segment {
     position: relative;
-    padding: 4rem 2.5rem 5rem;
+    padding: 2rem 1rem 2.5rem;
+}
+
+@media (min-width: 640px) {
+    .post-segment {
+        padding: 4rem 2.5rem 5rem;
+    }
 }
 
 /* Normalize spacing at segment edges - remove margins from first/last content */
@@ -1381,7 +1408,13 @@ article.post-body .prose blockquote p {
 .post-header-standalone h1 {
     margin-bottom: 0.5rem;
     color: #000;
-    font-size: 1.75rem;
+    font-size: 1.35rem;
+}
+
+@media (min-width: 640px) {
+    .post-header-standalone h1 {
+        font-size: 1.75rem;
+    }
 }
 
 .post-header-standalone .post-meta {
