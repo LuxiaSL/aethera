@@ -46,8 +46,6 @@ Key environment variables:
 - `DATABASE_URL`: SQLite or other database URL
 - `AETHERA_TRIPCODE_SALT`: Salt for comment tripcodes
 - `DREAM_GEN_AUTH_TOKEN`: Shared secret for GPU worker authentication (Dreams module)
-- `RUNPOD_API_KEY`: RunPod API key for GPU lifecycle management (Dreams module)
-- `RUNPOD_ENDPOINT_ID`: RunPod endpoint ID for the Dream Window worker (Dreams module)
 
 ### Database Setup
 
@@ -109,14 +107,13 @@ docker run -p 8000:8000 \
 The Dreams module acts as a relay between browsers and a GPU cloud worker:
 
 ```
-Browsers ←→ æthera (VPS) ←→ RunPod GPU Worker
+Browsers ←→ æthera (VPS) ←→ GPU Worker (Heimdall/B200)
          WebSocket        WebSocket
 ```
 
-- **ViewerPresenceTracker**: Manages GPU lifecycle based on viewer count
+- **ViewerPresenceTracker**: Tracks viewer count and GPU connection state
 - **FrameCache**: Stores recent frames for instant display on connect
 - **DreamWebSocketHub**: Broadcasts frames to all connected viewers
-- **RunPodManager**: Starts/stops GPU workers on demand
 
 ### Configuration
 
@@ -125,20 +122,7 @@ Set these environment variables for Dreams functionality:
 ```bash
 # Required for GPU worker authentication
 DREAM_GEN_AUTH_TOKEN=your_secure_shared_secret
-
-# Required for GPU lifecycle management
-RUNPOD_API_KEY=your_runpod_api_key
-RUNPOD_ENDPOINT_ID=your_endpoint_id
 ```
-
-### Smart GPU Management
-
-The GPU worker only runs when viewers are present:
-
-1. First viewer connects → GPU starts (~30-60s cold start)
-2. Frames stream to all viewers
-3. Last viewer disconnects → 30s grace period → GPU stops
-4. Pay only for actual usage (per-second billing on RunPod)
 
 
 ## Production Considerations

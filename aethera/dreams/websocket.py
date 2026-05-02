@@ -28,14 +28,11 @@ import asyncio
 import json
 import logging
 import time
-from typing import Optional, Set, TYPE_CHECKING
+from typing import Optional, Set
 from fastapi import WebSocket, WebSocketDisconnect
 
 from .frame_cache import FrameCache
 from .presence import ViewerPresenceTracker
-
-if TYPE_CHECKING:
-    from .gpu_manager import RunPodManager
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +65,9 @@ class DreamWebSocketHub:
         self,
         frame_cache: FrameCache,
         presence_tracker: ViewerPresenceTracker,
-        gpu_manager: Optional["RunPodManager"] = None,
     ):
         self.frame_cache = frame_cache
         self.presence = presence_tracker
-        self.gpu_manager = gpu_manager
 
         self._viewers: Set[WebSocket] = set()
         self._gpu_websocket: Optional[WebSocket] = None
@@ -244,10 +239,6 @@ class DreamWebSocketHub:
             self._last_keyframe_nal = None
             self._last_keyframe_meta = None
 
-        # Notify GPU manager
-        if self.gpu_manager:
-            self.gpu_manager.on_gpu_connected()
-
         logger.info("GPU connected")
 
         # Send saved state if available (for resume after pod restart)
@@ -286,10 +277,6 @@ class DreamWebSocketHub:
         """Handle GPU disconnection."""
         self._gpu_websocket = None
         self.presence.set_gpu_running(False)
-
-        # Notify GPU manager
-        if self.gpu_manager:
-            self.gpu_manager.on_gpu_disconnected()
 
         logger.info("GPU disconnected")
         await self.broadcast_status("idle", "Dream machine sleeping...")
@@ -339,9 +326,6 @@ class DreamWebSocketHub:
         I-frames are cached for late-joining viewers.
         """
         self._last_frame_time = time.time()
-
-        if self.gpu_manager:
-            self.gpu_manager.on_frame_received()
 
         # Parse metadata
         frame_number = self._next_frame_number

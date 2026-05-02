@@ -1,6 +1,6 @@
 # Dreams API Documentation
 
-The Dreams API provides access to a live AI-generated art stream. Frames are generated on a GPU (typically via RunPod serverless) and streamed to viewers in real-time through a WebSocket-based architecture.
+The Dreams API provides access to a live AI-generated art stream. Frames are generated on a GPU and streamed to viewers in real-time through a WebSocket-based architecture.
 
 ## Overview
 
@@ -49,13 +49,7 @@ Returns comprehensive status information about the Dreams system.
 {
   "status": "ready",
   "gpu": {
-    "active": true,
-    "state": "running",
-    "configured": true,
-    "provider": "runpod",
-    "uptime_seconds": 3600,
-    "frames_received": 12500,
-    "error_message": null
+    "active": true
   },
   "generation": {
     "frame_count": 12500,
@@ -617,8 +611,6 @@ All frames are delivered as **WebP images**:
 | Variable | Description |
 |----------|-------------|
 | `DREAM_GEN_AUTH_TOKEN` | Shared secret for GPU authentication |
-| `RUNPOD_API_KEY` | RunPod API key for GPU lifecycle management |
-| `RUNPOD_ENDPOINT_ID` | RunPod serverless endpoint ID |
 | `VPS_HOST` | VPS hostname (default: `aetherawi.red`) |
 
 ---
