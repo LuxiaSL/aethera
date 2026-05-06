@@ -1,0 +1,257 @@
+/* apeiron — combinatorial prompt generator */
+
+#apeiron-app {
+    --ap-primary: #00ff41;
+    --ap-bright: #00ff00;
+    --ap-dim: #005500;
+    --ap-accent: #00ffff;
+    --ap-border: #00ff00;
+    --ap-border-dim: #006600;
+
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: 'LibertinusMono', 'Consolas', 'Monaco', 'Liberation Mono', monospace;
+    color: var(--ap-primary);
+}
+
+/* main layout: content + history sidebar */
+#main-layout {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+#main-column {
+    min-width: 0;
+}
+
+/* viewport */
+#viewport-container {
+    width: 100%;
+    aspect-ratio: 5 / 3;
+    min-height: 400px;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    overflow: hidden;
+    background: #000;
+}
+
+#hyperobject-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+}
+
+/* prompt */
+#prompt-container {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.88);
+    min-height: 2rem;
+    transition: border-color 0.3s;
+}
+
+#prompt-display {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* info row */
+#info-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+#negative-prompt {
+    padding: 0.5rem;
+    border: 1px solid #1a0000;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.88);
+    color: #662222;
+    font-size: 0.8rem;
+    font-style: italic;
+    transition: border-color 0.3s, color 0.3s;
+}
+
+#components-table {
+    padding: 0.5rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.88);
+    font-size: 0.75rem;
+    overflow-y: auto;
+    max-height: 10rem;
+}
+
+/* entropy meter */
+#entropy-container {
+    padding: 0.5rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.88);
+    font-size: 0.8rem;
+}
+
+/* history panel */
+#history-panel {
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 120px);
+    min-height: 300px;
+}
+
+#history-header {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ap-dim);
+    border-bottom: 1px solid var(--ap-border-dim);
+    flex-shrink: 0;
+}
+
+#history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem;
+    font-size: 0.7rem;
+}
+
+.history-entry {
+    padding: 0.2rem 0.3rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-entry:first-child {
+    color: var(--ap-bright);
+    font-weight: bold;
+}
+
+.history-entry:nth-child(n+2):nth-child(-n+4) {
+    color: var(--ap-primary);
+}
+
+.history-entry:nth-child(n+5) {
+    color: var(--ap-dim);
+}
+
+.history-entry .star {
+    color: var(--ap-accent);
+}
+
+.history-entry .template-label {
+    color: var(--ap-dim);
+    font-size: 0.6rem;
+    margin-left: 0.3rem;
+}
+
+/* controls bar */
+#controls-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 0.5rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.88);
+}
+
+.control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--ap-dim);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.control-btn:hover {
+    border-color: var(--ap-primary);
+    color: var(--ap-primary);
+    background: rgba(0, 255, 65, 0.05);
+}
+
+.control-btn:active {
+    background: rgba(0, 255, 65, 0.12);
+    color: var(--ap-bright);
+}
+
+.control-btn.active {
+    border-color: var(--ap-accent);
+    color: var(--ap-accent);
+}
+
+.control-btn kbd {
+    display: inline-block;
+    padding: 0.05rem 0.25rem;
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    color: var(--ap-primary);
+    font-family: inherit;
+    font-size: 0.7rem;
+    line-height: 1.2;
+}
+
+/* responsive */
+@media (max-width: 900px) {
+    #main-layout {
+        grid-template-columns: 1fr;
+    }
+
+    #history-panel {
+        max-height: 200px;
+        min-height: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    #viewport-container {
+        min-height: 280px;
+        aspect-ratio: 3 / 2;
+    }
+}
+
+@media (max-width: 640px) {
+    #info-row {
+        grid-template-columns: 1fr;
+    }
+
+    #apeiron-app {
+        padding: 0.5rem;
+    }
+
+    .control-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.7rem;
+    }
+
+    #viewport-container {
+        min-height: 200px;
+    }
+}

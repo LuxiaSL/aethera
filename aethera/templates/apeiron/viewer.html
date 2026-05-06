@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}apeiron | æthera{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Combinatorial prompt generator with real-time 3D ASCII hyperobject rendering">
+<meta property="og:title" content="apeiron | æthera">
+<meta property="og:description" content="Combinatorial prompt generator with real-time 3D ASCII hyperobject rendering">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="æthera">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="apeiron | æthera">
+<meta name="twitter:description" content="Combinatorial prompt generator with real-time 3D ASCII hyperobject rendering">
+{% endblock %}
+
+{% block schema %}{% endblock %}
+
+{% block extra_head %}
+<link href="/static/apeiron/apeiron.css" rel="stylesheet">
+<style>
+    @font-face {
+        font-family: 'LibertinusMono';
+        src: url('/static/fonts/LibertinusMono-Regular.ttf') format('truetype');
+        font-display: swap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="apeiron-app">
+    <div id="main-layout">
+        <div id="main-column">
+            <div id="viewport-container">
+                <canvas id="hyperobject-canvas"></canvas>
+            </div>
+
+            <div id="prompt-container">
+                <div id="prompt-display"></div>
+            </div>
+
+            <div id="info-row">
+                <div id="negative-prompt"></div>
+                <div id="components-table"></div>
+            </div>
+
+            <div id="entropy-container">
+                <div id="entropy-meter"></div>
+            </div>
+        </div>
+
+        <div id="history-panel">
+            <div id="history-header">history</div>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <div id="controls-bar">
+        <button class="control-btn" data-action="generate"><kbd>Space</kbd> Generate</button>
+        <button class="control-btn" data-action="template"><kbd>T</kbd> Template</button>
+        <button class="control-btn" data-action="favorite"><kbd>F</kbd> Favorite</button>
+        <button class="control-btn" data-action="auto"><kbd>A</kbd> Auto</button>
+        <button class="control-btn" data-action="copy"><kbd>C</kbd> Copy</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/apeiron/apeiron.js"></script>
+{% endblock %}

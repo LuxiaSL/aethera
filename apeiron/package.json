@@ -1,0 +1,15 @@
+{
+  "name": "apeiron",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "convert-data": "node --loader ts-node/esm scripts/convert-data.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "vite": "^6.3.0"
+  }
+}
