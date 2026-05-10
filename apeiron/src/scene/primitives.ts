@@ -278,6 +278,8 @@ export function makeSplitMorphPair(): [Mesh, Mesh] {
     subdivide(b);
   }
   b.vertices.length = vertCount;
+  b.faces = b.faces.filter(f => f.every(i => i < vertCount));
+  b.computeEdgesFromFaces();
   b.computeNormals();
   return [a, b];
 }
