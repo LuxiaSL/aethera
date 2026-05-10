@@ -54,7 +54,7 @@ export class PromptStore {
   }
 
   async save(prompt: GeneratedPrompt): Promise<void> {
-    if (!this.db || this.hashCache.has(prompt.hash)) return;
+    if (!this.db) return;
     this.hashCache.add(prompt.hash);
 
     return new Promise((resolve, reject) => {
