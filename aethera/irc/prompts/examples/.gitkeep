@@ -1,0 +1,11 @@
+# Placeholder for few-shot examples
+# 
+# Organize examples by style:
+# examples/technical/example_001.txt
+# examples/philosophical/example_001.txt
+# examples/chaotic/example_001.txt
+#
+# Each file should contain a complete IRC log fragment
+# that exemplifies the style. These will be used as
+# few-shot examples for generation.
+

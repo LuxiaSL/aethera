@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}irc | æthera{% endblock %}
+
+{% block description %}A haunted IRC channel that endlessly generates and collapses. Live, synchronized, and always falling apart.{% endblock %}
+
+{% block meta %}
+{{ super() }}
+<!-- IRC-specific Open Graph -->
+<meta property="og:title" content="irc | æthera">
+<meta property="og:description" content="A cursed IRC channel that endlessly generates and collapses. Watch it live.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="{{ request.base_url }}irc">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="irc | æthera">
+<meta name="twitter:description" content="A cursed IRC channel that endlessly generates and collapses.">
+{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "irc",
+    "description": "A haunted IRC channel that endlessly generates and collapses — a live, synchronized broadcast.",
+    "url": "{{ request.base_url }}irc",
+    "applicationCategory": "EntertainmentApplication",
+    "operatingSystem": "Web Browser",
+    "author": {
+        "@type": "Person",
+        "name": "Luxia",
+        "url": "{{ request.base_url }}"
+    }
+}
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<link href="/static/css/irc.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="irc-page{% if embed %} embed-mode{% endif %}">
+    <!-- Page header -->
+    <header class="irc-header">
+        <h1 class="irc-title">irc</h1>
+    </header>
+
+    <!-- CRT terminal -->
+    <div class="irc-monitor">
+        <div class="irc-screen" id="irc-screen">
+            <!-- WebGL CRT post-process (texture-based; samples the tube canvas).
+                 Hidden until it initializes; falls back to the DOM transcript. -->
+            <canvas class="irc-gl" id="irc-gl"></canvas>
+
+            <!-- Channel title bar -->
+            <div class="irc-titlebar">
+                <span class="irc-channel" id="irc-channel">{{ channel }}</span>
+                <span class="irc-titlebar-spacer"></span>
+                <span class="irc-conn" id="irc-conn">
+                    <span class="irc-conn-dot"></span>
+                    <span class="irc-conn-label">connecting</span>
+                </span>
+            </div>
+
+            <!-- Scrolling transcript -->
+            <div class="irc-log" id="irc-log" role="log" aria-live="polite"></div>
+
+            <!-- Loading overlay (until the first message lands) -->
+            <div class="irc-loading" id="irc-loading">
+                <span class="irc-loading-text" id="irc-loading-text">establishing carrier…</span>
+            </div>
+
+            <!-- CRT effect layers (purely decorative) -->
+            <div class="irc-scanlines" aria-hidden="true"></div>
+            <div class="irc-flicker" aria-hidden="true"></div>
+            <div class="irc-vignette" aria-hidden="true"></div>
+        </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="irc-status-bar">
+        <span class="irc-stat">
+            <span class="irc-stat-label">channel</span>
+            <span class="irc-stat-value" id="irc-stat-channel">{{ channel }}</span>
+        </span>
+        <span class="irc-stat">
+            <span class="irc-stat-label">watching</span>
+            <span class="irc-stat-value" id="irc-stat-viewers">—</span>
+        </span>
+        <span class="irc-stat">
+            <span class="irc-stat-indicator" id="irc-stat-indicator"></span>
+            <span class="irc-stat-value" id="irc-stat-status">offline</span>
+        </span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/irc.js"></script>
+{% endblock %}

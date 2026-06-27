@@ -1,0 +1,1304 @@
+/**
+ * IRC Admin Control Panel Styles
+ * 
+ * Follows æthera branding - inverted dark theme (like Dreams API docs).
+ * Uses soft fade backgrounds with white text on dark gradients.
+ * 
+ * Layout: Vertical stacking with smart horizontal grouping.
+ * All config sections always visible (no collapsible dropdowns).
+ */
+
+/* ============================================
+   Disable video background for this page
+   ============================================ */
+.irc-admin-page ~ .video-bg,
+body:has(.irc-admin-page) .video-bg {
+    display: none;
+}
+
+body:has(.irc-admin-page) {
+    background: radial-gradient(ellipse 80% 50% at 50% 20%, 
+        rgba(25, 25, 35, 1) 0%, 
+        rgba(8, 8, 12, 1) 50%,
+        rgba(0, 0, 0, 1) 100%);
+    background-attachment: fixed;
+}
+
+/* Invert header/footer for admin page (like dreams) */
+body:has(.irc-admin-page) .logo-container {
+    filter: invert(1);
+}
+
+body:has(.irc-admin-page) footer {
+    filter: invert(1);
+}
+
+/* ============================================
+   Admin Page Container
+   ============================================ */
+.irc-admin-page {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* ============================================
+   Page Header with ellipse glow
+   ============================================ */
+.admin-page-header {
+    text-align: center;
+    margin-bottom: 1rem;
+    position: relative;
+    padding: 0.5rem 1.5rem;
+}
+
+.admin-page-header::before {
+    content: '';
+    position: absolute;
+    top: -1.5rem;
+    left: -3rem;
+    right: -3rem;
+    bottom: -1.5rem;
+    background: radial-gradient(ellipse 70% 70% at center, 
+        rgba(30, 30, 40, 0.9) 0%, 
+        rgba(15, 15, 20, 0.7) 40%, 
+        rgba(10, 10, 15, 0.3) 60%, 
+        transparent 80%);
+    z-index: -1;
+}
+
+.admin-page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+    color: #fff;
+    margin: 0 0 0.35rem 0;
+}
+
+.admin-page-header .session-info {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #888;
+}
+
+#session-id {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.8rem;
+}
+
+/* ============================================
+   Status Badge
+   ============================================ */
+.status-badge {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    background: rgba(255,255,255,0.1);
+    color: #888;
+}
+
+.status-badge.idle {
+    background: rgba(255,255,255,0.05);
+    color: #666;
+}
+
+.status-badge.running {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+.status-badge.paused {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+}
+
+.status-badge.complete {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+}
+
+.status-badge.error {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+}
+
+.status-badge.stopping {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fb923c;
+    animation: pulse 1s infinite;
+}
+
+.status-badge.stopped {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fb923c;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ============================================
+   Config Bar - Vertical Layout with Smart Grouping
+   ============================================ */
+.config-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, 
+        rgba(20, 20, 25, 0.95) 0%, 
+        rgba(10, 10, 12, 0.98) 50%,
+        rgba(15, 15, 18, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 
+        inset 0 0 40px rgba(0, 0, 0, 0.4),
+        0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Config row - horizontal grouping of related sections */
+.config-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+/* Responsive: stack on smaller screens */
+@media (max-width: 900px) {
+    .config-row {
+        flex-direction: column;
+    }
+}
+
+/* Config section base styles */
+.config-bar-section {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Fixed width sections */
+.config-bar-section.fixed-small {
+    flex: 0 0 auto;
+    min-width: 180px;
+    max-width: 220px;
+}
+
+.config-bar-section.fixed-medium {
+    flex: 0 0 auto;
+    min-width: 280px;
+    max-width: 360px;
+}
+
+/* Full width section */
+.config-bar-section.full-width {
+    flex: 1 1 100%;
+}
+
+/* Section header - always visible, not clickable */
+.config-bar-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Hide toggle icons since we're not collapsing */
+.config-bar-header .toggle-icon {
+    display: none;
+}
+
+.config-bar-header h2 {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: lowercase;
+    color: #999;
+    margin: 0;
+    letter-spacing: 0.08em;
+}
+
+/* Section content - always visible */
+.config-bar-content {
+    padding: 0.6rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Remove collapsed state - content always visible */
+.config-bar-content.collapsed {
+    display: flex;
+}
+
+/* Form elements in config bar */
+.form-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-row.sliders {
+    flex-wrap: wrap;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 80px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.65rem;
+    color: #888;
+    margin-bottom: 0.15rem;
+    text-transform: lowercase;
+}
+
+.form-group select,
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 0.75rem;
+    font-family: 'Libertinus Mono', monospace;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+    border-color: rgba(255,255,255,0.25);
+    outline: none;
+}
+
+.form-group input[type="range"] {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    appearance: none;
+    cursor: pointer;
+    margin-top: 0.2rem;
+}
+
+.form-group input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.form-group input[type="range"]::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+/* API Key Status */
+.api-key-status {
+    font-size: 0.55rem;
+    font-weight: normal;
+    padding: 0.05rem 0.25rem;
+    margin-left: 0.3rem;
+}
+
+.api-key-status.configured {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+.api-key-status.missing {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+}
+
+.api-key-status.not-required {
+    background: rgba(255,255,255,0.05);
+    color: #666;
+}
+
+/* Control mode row */
+.control-mode-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.control-radio,
+.control-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    color: #aaa;
+    cursor: pointer;
+}
+
+.control-radio input,
+.control-checkbox input {
+    margin: 0;
+    accent-color: #fff;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.action-buttons .btn {
+    flex: 1;
+    padding: 0.4rem 0.75rem;
+}
+
+/* Button group */
+.button-group {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.button-group .btn {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+}
+
+/* Profiles section */
+.profiles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.profiles-list:empty::before {
+    content: 'no saved profiles';
+    font-size: 0.6rem;
+    color: #555;
+    font-style: italic;
+    padding: 0.25rem 0;
+}
+
+.profile-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.4rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.65rem;
+}
+
+.profile-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.profile-item .profile-name {
+    flex: 1;
+    color: #aaa;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-item .profile-date {
+    font-size: 0.55rem;
+    color: #555;
+}
+
+.profile-item .btn-load-profile,
+.profile-item .btn-delete-profile {
+    padding: 0.1rem 0.25rem;
+    font-size: 0.55rem;
+}
+
+.profile-item.active {
+    border-color: rgba(74, 158, 255, 0.4);
+    background: rgba(74, 158, 255, 0.08);
+}
+
+.profile-item.active .profile-name {
+    color: #4a9eff;
+}
+
+.profile-item.active .profile-name::after {
+    content: ' ●';
+    font-size: 0.4rem;
+    vertical-align: middle;
+}
+
+.profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.profile-save-row {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.profile-save-row input {
+    flex: 1;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.65rem;
+}
+
+.profile-io-row {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.profile-io-row .btn {
+    flex: 1;
+    text-align: center;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.3rem;
+}
+
+.btn-import {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Prompts section - full width with 2x2 grid */
+.prompts-section .config-bar-content {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+
+@media (max-width: 700px) {
+    .prompts-section .config-bar-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.prompt-group {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.prompt-header {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+}
+
+.prompt-header label {
+    flex: 1;
+    font-size: 0.6rem;
+    color: #888;
+    text-transform: lowercase;
+    margin: 0;
+}
+
+.prompt-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.4rem;
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.65rem;
+    line-height: 1.3;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #ddd;
+    resize: vertical;
+    flex: 1;
+}
+
+.prompt-textarea:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.prompt-textarea::placeholder {
+    color: #444;
+    font-style: italic;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.btn {
+    position: relative;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 0.75rem;
+    font-family: 'Libertinus Mono', monospace;
+    text-transform: lowercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.05);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: rgba(255,255,255,0.15);
+}
+
+.btn-success {
+    background: rgba(74, 222, 128, 0.15);
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: rgba(74, 222, 128, 0.25);
+}
+
+.btn-warning {
+    background: rgba(250, 204, 21, 0.15);
+    border-color: rgba(250, 204, 21, 0.4);
+    color: #facc15;
+}
+
+.btn-danger {
+    background: rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #f87171;
+}
+
+.btn-small {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.65rem;
+}
+
+.btn-tiny {
+    padding: 0.15rem 0.35rem;
+    font-size: 0.55rem;
+}
+
+/* ============================================
+   Layout - Two Column (Below Config Bar)
+   ============================================ */
+.admin-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 1rem;
+    min-height: calc(100vh - 300px);
+}
+
+@media (max-width: 1200px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .io-panel {
+        order: -1;
+    }
+}
+
+/* ============================================
+   Live Panel (Left Side)
+   ============================================ */
+.live-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.live-panel section {
+    position: relative;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(180deg, 
+        rgba(18, 18, 22, 0.9) 0%, 
+        rgba(12, 12, 15, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.section-header h3 {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: lowercase;
+    color: #888;
+    letter-spacing: 0.05em;
+}
+
+.btn-expand {
+    color: #666;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.btn-expand:hover {
+    color: #888;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================
+   Progress Section
+   ============================================ */
+.progress-section {
+    padding: 0.5rem 1rem !important;
+}
+
+.progress-bar {
+    height: 5px;
+    background: rgba(255,255,255,0.1);
+    overflow: hidden;
+    margin-bottom: 0.4rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80, #60a5fa);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #888;
+}
+
+/* ============================================
+   Log Stream
+   ============================================ */
+.log-section {
+    flex: 0 0 auto;
+}
+
+.log-stream {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.5rem;
+    height: 120px;
+    overflow-y: auto;
+    color: #aaa;
+}
+
+.log-stream .log-entry {
+    padding: 0.1rem 0;
+}
+
+.log-stream .log-entry.debug {
+    color: #666;
+}
+
+.log-stream .log-entry.info {
+    color: #aaa;
+}
+
+.log-stream .log-entry.warning {
+    color: #facc15;
+}
+
+.log-stream .log-entry.error {
+    color: #f87171;
+}
+
+/* ============================================
+   Candidates Section - 2 columns, larger cards
+   ============================================ */
+.candidates-section {
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.candidates-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    min-height: 200px;
+}
+
+/* Empty state - don't take up extra space */
+.candidates-grid:empty {
+    min-height: 100px;
+}
+
+.candidates-grid:empty::before {
+    content: 'No candidates yet';
+    color: #555;
+    font-size: 0.7rem;
+    font-style: italic;
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+}
+
+.candidate-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    min-height: 150px;
+}
+
+.candidate-card:hover {
+    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+}
+
+.candidate-card.selected {
+    border-color: rgba(74, 222, 128, 0.5);
+    background: rgba(74, 222, 128, 0.1);
+}
+
+.candidate-card.winner {
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(167, 139, 250, 0.1);
+}
+
+.candidate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.candidate-number {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #fff;
+}
+
+.candidate-badges {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.candidate-badge {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.35rem;
+    background: rgba(255,255,255,0.05);
+    color: #888;
+}
+
+.candidate-badge.collapse {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+}
+
+.candidate-content {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: #999;
+    flex: 1;
+    overflow: hidden;
+    white-space: pre-wrap;
+    max-height: 150px;
+}
+
+.candidate-score {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: #666;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Candidate expand button */
+.candidate-card .btn-expand-candidate {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.candidate-card:hover .btn-expand-candidate {
+    opacity: 1;
+}
+
+/* ============================================
+   Waiting Indicator
+   ============================================ */
+.waiting-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(250, 204, 21, 0.1);
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    margin-top: 0.5rem;
+}
+
+.waiting-indicator.hidden {
+    display: none;
+}
+
+.waiting-text {
+    color: #facc15;
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+/* ============================================
+   Transcript Section
+   ============================================ */
+.transcript-section {
+    flex: 0 0 auto;
+}
+
+.transcript {
+    margin: 0;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.4);
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    overflow-y: auto;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #ccc;
+    height: 200px;
+    max-height: 300px;
+    resize: vertical;
+}
+
+.transcript .new-line {
+    background: rgba(74, 222, 128, 0.1);
+}
+
+/* ============================================
+   Stats & Export Section
+   ============================================ */
+.stats-export-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 1rem !important;
+}
+
+.stats-row {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.6rem;
+    text-transform: lowercase;
+    color: #666;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 0.4rem;
+}
+
+/* ============================================
+   I/O Panel (Right Side)
+   ============================================ */
+.io-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.io-section {
+    background: linear-gradient(180deg, 
+        rgba(18, 18, 22, 0.9) 0%, 
+        rgba(12, 12, 15, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 2px 10px rgba(0, 0, 0, 0.3);
+    padding: 0.75rem 1rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+}
+
+.io-section .section-header {
+    margin-bottom: 0.5rem;
+}
+
+.io-model-label {
+    font-size: 0.6rem;
+    color: #666;
+    font-family: 'Libertinus Mono', monospace;
+}
+
+.io-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow: hidden;
+}
+
+.io-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 80px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5rem;
+}
+
+.io-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.35rem;
+}
+
+.io-label {
+    font-size: 0.6rem;
+    color: #777;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+}
+
+.io-text {
+    flex: 1;
+    margin: 0;
+    padding: 0.5rem;
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.4);
+    color: #aaa;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.io-text.prompt-text {
+    color: #8be9fd;
+}
+
+.io-text.response-text {
+    color: #bd93f9;
+}
+
+/* Generator section accent */
+.generator-io {
+    border-left: 2px solid rgba(74, 222, 128, 0.3);
+}
+
+/* Judge section accent */
+.judge-io {
+    border-left: 2px solid rgba(250, 204, 21, 0.3);
+}
+
+/* ============================================
+   Expand Modal
+   ============================================ */
+.expand-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+}
+
+.expand-modal.hidden {
+    display: none;
+}
+
+.expand-modal-content {
+    background: linear-gradient(135deg, 
+        rgba(20, 20, 25, 0.98) 0%, 
+        rgba(12, 12, 15, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 1000px;
+    max-height: 85vh;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.expand-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.expand-modal-header h3 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 400;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    color: #aaa;
+}
+
+.expand-modal-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.expand-modal-close:hover {
+    color: #aaa;
+}
+
+.expand-modal-body {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.expand-modal-body pre,
+#expand-modal-text {
+    margin: 0;
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #ccc;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Candidate modal */
+.candidate-modal-content {
+    max-width: 800px;
+}
+
+.candidate-modal-body {
+    min-height: 300px;
+}
+
+.candidate-modal-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.candidate-modal-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+#candidate-modal-position {
+    font-size: 0.75rem;
+    color: #888;
+    font-family: 'Libertinus Mono', monospace;
+}
+
+/* ============================================
+   Prompt Modal (for viewing defaults)
+   ============================================ */
+.prompt-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+}
+
+.prompt-modal-content {
+    background: linear-gradient(135deg, 
+        rgba(20, 20, 25, 0.98) 0%, 
+        rgba(12, 12, 15, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 900px;
+    max-height: 80vh;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.prompt-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prompt-modal-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 400;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    color: #aaa;
+}
+
+.prompt-modal-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.prompt-modal-close:hover {
+    color: #aaa;
+}
+
+.prompt-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.prompt-modal-body pre {
+    margin: 0;
+    font-family: 'Libertinus Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #ccc;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.prompt-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.btn-copy-prompt {
+    color: #4a9eff;
+    border-color: rgba(74, 158, 255, 0.3);
+}
+
+.btn-copy-prompt:hover {
+    background: rgba(74, 158, 255, 0.1);
+}
+
+/* ============================================
+   Utility
+   ============================================ */
+.hidden {
+    display: none !important;
+}
+
+/* ============================================
+   Scrollbar styling
+   ============================================ */
+.irc-admin-page ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+.irc-admin-page ::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+}
+
+.irc-admin-page ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+}
+
+.irc-admin-page ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+/* ============================================
+   Responsive adjustments
+   ============================================ */
+@media (max-width: 1400px) {
+    .config-bar {
+        gap: 0.4rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+}
