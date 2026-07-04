@@ -3,15 +3,15 @@
 {% block title %}apeiron | æthera{% endblock %}
 
 {% block meta %}
-<meta name="description" content="Combinatorial prompt generator with real-time 3D ASCII hyperobject rendering">
+<meta name="description" content="apeiron — an addressable combinatorial prompt space with real-time 3D ASCII hyperobject rendering. Every generation is a permanent coordinate.">
 <meta property="og:title" content="apeiron | æthera">
-<meta property="og:description" content="Combinatorial prompt generator with real-time 3D ASCII hyperobject rendering">
+<meta property="og:description" content="An addressable combinatorial prompt space with real-time 3D ASCII hyperobject rendering.">
 <meta property="og:url" content="{{ request.url }}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="æthera">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="apeiron | æthera">
-<meta name="twitter:description" content="Combinatorial prompt generator with real-time 3D ASCII hyperobject rendering">
+<meta name="twitter:description" content="An addressable combinatorial prompt space with real-time 3D ASCII hyperobject rendering.">
 {% endblock %}
 
 {% block schema %}{% endblock %}
@@ -24,43 +24,65 @@
         src: url('/static/fonts/LibertinusMono-Regular.ttf') format('truetype');
         font-display: swap;
     }
+    /* apeiron owns the whole viewport: silence the site chrome on this page */
+    .video-bg, body > header, body > footer { display: none !important; }
+    main { max-width: none !important; padding: 0 !important; }
+    html, body { overflow: hidden; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div id="apeiron-app">
-    <div id="main-layout">
-        <div id="main-column">
-            <div id="viewport-container">
-                <canvas id="hyperobject-canvas"></canvas>
-            </div>
+    <div id="stage" aria-hidden="true">
+        <canvas id="hyperobject-canvas"></canvas>
+    </div>
+    <div id="crt-overlay" aria-hidden="true"></div>
 
-            <div id="prompt-container">
+    <div id="hud">
+        <header id="hud-top">
+            <div id="ap-brand">
+                <span class="ap-word">apeiron</span>
+                <span class="ap-sep">·</span>
+                <a href="/" class="ap-home">æthera</a>
+            </div>
+            <div id="ap-meta">
+                <span id="template-name"></span>
+                <span id="palette-name"></span>
+            </div>
+        </header>
+
+        <aside id="history-panel" aria-label="generation history">
+            <div id="history-tabs">
+                <button class="history-tab active" data-tab="recent">recent</button>
+                <button class="history-tab" data-tab="favorites">★ kept</button>
+            </div>
+            <div id="history-list"></div>
+        </aside>
+
+        <div id="hud-bottom">
+            <section id="inscription">
                 <div id="prompt-display"></div>
-            </div>
-
-            <div id="info-row">
                 <div id="negative-prompt"></div>
+            </section>
+
+            <div id="anatomy">
                 <div id="components-table"></div>
             </div>
 
-            <div id="entropy-container">
+            <!-- div, not footer: branding.css paints footer::before with a white glow -->
+            <div id="ap-status">
                 <div id="entropy-meter"></div>
+                <div id="controls-bar">
+                    <button class="control-btn" data-action="generate"><kbd>␣</kbd>generate</button>
+                    <button class="control-btn" data-action="template"><kbd>T</kbd>template</button>
+                    <button class="control-btn" data-action="favorite"><kbd>F</kbd>keep</button>
+                    <button class="control-btn" data-action="auto"><kbd>A</kbd>auto</button>
+                    <button class="control-btn" data-action="copy"><kbd>C</kbd>copy</button>
+                    <button class="control-btn" data-action="anatomy"><kbd>X</kbd>anatomy</button>
+                    <button class="control-btn" data-action="history"><kbd>H</kbd>history</button>
+                </div>
             </div>
         </div>
-
-        <div id="history-panel">
-            <div id="history-header">history</div>
-            <div id="history-list"></div>
-        </div>
-    </div>
-
-    <div id="controls-bar">
-        <button class="control-btn" data-action="generate"><kbd>Space</kbd> Generate</button>
-        <button class="control-btn" data-action="template"><kbd>T</kbd> Template</button>
-        <button class="control-btn" data-action="favorite"><kbd>F</kbd> Favorite</button>
-        <button class="control-btn" data-action="auto"><kbd>A</kbd> Auto</button>
-        <button class="control-btn" data-action="copy"><kbd>C</kbd> Copy</button>
     </div>
 </div>
 {% endblock %}

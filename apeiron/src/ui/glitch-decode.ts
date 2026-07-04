@@ -4,12 +4,18 @@ const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*<>{}[]|/\\~=+-
 const TOTAL_FRAMES = 14;
 const FRAME_MS = 1000 / 24;
 
+/** One live decode per element; a new run cancels the old one. */
+const activeRuns = new WeakMap<HTMLElement, number>();
+
 export function runGlitchDecode(
   el: HTMLElement,
   text: string,
   palette: Palette,
   highlightFn: (text: string) => string,
 ): void {
+  const prior = activeRuns.get(el);
+  if (prior !== undefined) clearTimeout(prior);
+
   let frame = 0;
   el.style.borderColor = palette.border;
 
@@ -20,6 +26,7 @@ export function runGlitchDecode(
     if (frame >= TOTAL_FRAMES) {
       el.innerHTML = highlightFn(text);
       el.style.borderColor = '';
+      activeRuns.delete(el);
       return;
     }
 
@@ -46,10 +53,10 @@ export function runGlitchDecode(
     const borderColors = [palette.rainMid, palette.border, palette.borderDim, palette.accent];
     el.style.borderColor = borderColors[(Math.random() * borderColors.length) | 0];
 
-    setTimeout(tick, FRAME_MS);
+    activeRuns.set(el, window.setTimeout(tick, FRAME_MS));
   };
 
-  setTimeout(tick, FRAME_MS);
+  activeRuns.set(el, window.setTimeout(tick, FRAME_MS));
 }
 
 function escapeChar(ch: string): string {

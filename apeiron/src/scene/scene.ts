@@ -103,6 +103,7 @@ export class Scene {
     this.surfaceSampler = null;
     this.fragmentGroups = [];
     this.dualMeshMode = 'overlay';
+    this.morphScratch = null;
   }
 
   render(rast: AsciiRasterizer): void {
@@ -254,7 +255,7 @@ export class Scene {
     this.anim.morphT = 0.5 + 0.5 * fastSin(this.anim.time * 0.7);
 
     if (this.transition.active) {
-      this.transition.tick();
+      this.transition.tick(dt);
       if (wasTransitioning && !this.transition.active) {
         this.transitionSource = null;
       }
@@ -449,13 +450,28 @@ export class Scene {
     return result;
   }
 
+  private morphScratch: Mesh | null = null;
+
   private morphMesh(a: Mesh, b: Mesh, t: number): Mesh {
     if (a.vertices.length !== b.vertices.length) return a;
     const st = smoothstep(0, 1, t);
-    const result = new Mesh();
-    result.vertices = a.vertices.map((va, i) => va.lerp(b.vertices[i], st));
-    result.faces = a.faces.map(f => [...f]);
-    result.computeNormals();
-    return result;
+    const u = 1.0 - st;
+
+    // reuse one scratch mesh: this runs every frame, so lerp in place
+    let scratch = this.morphScratch;
+    if (!scratch || scratch.vertices.length !== a.vertices.length) {
+      scratch = new Mesh();
+      scratch.vertices = a.vertices.map(v => new Vec3(v.x, v.y, v.z));
+      scratch.faces = a.faces.map(f => [...f]);
+      this.morphScratch = scratch;
+    }
+    for (let i = 0; i < a.vertices.length; i++) {
+      const va = a.vertices[i], vb = b.vertices[i], vs = scratch.vertices[i];
+      vs.x = va.x * u + vb.x * st;
+      vs.y = va.y * u + vb.y * st;
+      vs.z = va.z * u + vb.z * st;
+    }
+    scratch.computeNormals();
+    return scratch;
   }
 }

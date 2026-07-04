@@ -45,10 +45,24 @@ export const DEFAULT_LIGHT = new Light(
   1.2,
 );
 
+/**
+ * Perspective projection (near 0.1 / far 50) compresses the whole scene into
+ * NDC depth ≈ [0.90, 0.98]; styling on raw depth would paint everything with
+ * the dimmest color. Remap that working band to [0,1] first.
+ */
+const DEPTH_BAND_NEAR = 0.90;
+const DEPTH_BAND_INV = 1 / 0.09;
+
+export function normalizeSceneDepth(depth: number): number {
+  const dn = (depth - DEPTH_BAND_NEAR) * DEPTH_BAND_INV;
+  return dn < 0 ? 0 : dn > 1 ? 1 : dn;
+}
+
 export function depthToStyle(depth: number, bright: string, primary: string, mid: string, dim: string): string {
-  if (depth < 0.35) return bright;
-  if (depth < 0.55) return primary;
-  if (depth < 0.75) return mid;
+  const dn = normalizeSceneDepth(depth);
+  if (dn < 0.35) return bright;
+  if (dn < 0.55) return primary;
+  if (dn < 0.75) return mid;
   return dim;
 }
 
@@ -236,10 +250,11 @@ export class AsciiRasterizer {
         const depth = depth0 + depthDelta * (step / steps);
         const idx = y0 * width + x0;
         if (depth < zbuf[idx]) {
+          const dn = normalizeSceneDepth(depth);
           let style: string;
-          if (depth < 0.35) style = brightS;
-          else if (depth < 0.55) style = primaryS;
-          else if (depth < 0.75) style = midS;
+          if (dn < 0.35) style = brightS;
+          else if (dn < 0.55) style = primaryS;
+          else if (dn < 0.75) style = midS;
           else style = dimS;
           zbuf[idx] = depth;
           const cell = cells[idx];
@@ -312,16 +327,17 @@ export class AsciiRasterizer {
       const idx = row * width + col;
       if (depth >= zbuf[idx]) continue;
 
+      const dn = normalizeSceneDepth(depth);
       const ptBright = i < cloud.brightness.length ? cloud.brightness[i] : 0.5;
-      const combined = ptBright * (1.0 - depth * 0.5);
+      const combined = ptBright * (1.0 - dn * 0.5);
       let cIdx = (combined * lastCharIdx) | 0;
       if (cIdx < 0) cIdx = 0;
       else if (cIdx > lastCharIdx) cIdx = lastCharIdx;
 
       let style: string;
-      if (depth < 0.35) style = brightS;
-      else if (depth < 0.55) style = primaryS;
-      else if (depth < 0.75) style = midS;
+      if (dn < 0.35) style = brightS;
+      else if (dn < 0.55) style = primaryS;
+      else if (dn < 0.75) style = midS;
       else style = dimS;
 
       zbuf[idx] = depth;

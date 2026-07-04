@@ -1,5 +1,6 @@
 import type { Component, GeneratedPrompt, SlotSpec, Template } from './types';
-import { sha256hex } from './hash';
+import { fnv1a, sha256hex } from './hash';
+import { mulberry32, randomSeed, type Rng } from './math/rng';
 
 const SLOT_PATTERN = /\{(\w+)(?::(\d+))?(?::([^}]*))?\}/g;
 
@@ -28,11 +29,11 @@ function parseSlots(structure: string): SlotSpec[] {
   return slots;
 }
 
-function fisherYatesSample<T>(pool: readonly T[], n: number): T[] {
+function fisherYatesSample<T>(pool: readonly T[], n: number, rng: Rng): T[] {
   const copy = pool.slice();
   const count = Math.min(n, copy.length);
   for (let i = 0; i < count; i++) {
-    const j = i + Math.floor(Math.random() * (copy.length - i));
+    const j = i + Math.floor(rng() * (copy.length - i));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy.slice(0, count);
@@ -84,17 +85,26 @@ export class CombinatorialEngine {
     }
   }
 
-  generate(templateId?: string | null): GeneratedPrompt {
+  /**
+   * Deterministic generation: (resolved templateId, seed) fully determines
+   * the prompt. The component stream is seeded by seed^fnv1a(templateId) so
+   * that a forced template and a seed-picked template with the same id
+   * produce identical output — this is what makes share-links reproducible.
+   */
+  generate(templateId?: string | null, seed?: number): GeneratedPrompt {
     const templateList = Array.from(this.templates.values());
     if (templateList.length === 0) {
       throw new Error('No templates loaded');
     }
 
+    const resolvedSeed = (seed ?? randomSeed()) >>> 0;
+    const templateRng = mulberry32(resolvedSeed);
     const template =
       templateId && this.templates.has(templateId)
         ? this.templates.get(templateId)!
-        : templateList[Math.floor(Math.random() * templateList.length)];
+        : templateList[Math.floor(templateRng() * templateList.length)];
 
+    const rng = mulberry32((resolvedSeed ^ fnv1a(template.id)) >>> 0);
     const slots = this.slotsCache.get(template.id)!;
 
     const needs: Record<string, number> = {};
@@ -106,7 +116,7 @@ export class CombinatorialEngine {
     for (const [category, total] of Object.entries(needs)) {
       const pool = this.components.get(category);
       if (!pool || pool.length === 0) continue;
-      selections[category] = fisherYatesSample(pool, total);
+      selections[category] = fisherYatesSample(pool, total, rng);
     }
 
     let positive = template.structure;
@@ -163,6 +173,7 @@ export class CombinatorialEngine {
     return {
       hash: promptHash,
       templateId: template.id,
+      seed: resolvedSeed,
       positive,
       negative,
       components: compDict,
@@ -180,6 +191,16 @@ export class CombinatorialEngine {
     return prompt;
   }
 
+  /** Index of a template id in insertion order, for compact share-links. */
+  templateIndex(templateId: string): number {
+    return this.templateIds.indexOf(templateId);
+  }
+
+  templateIdAt(index: number): string | null {
+    const ids = this.templateIds;
+    return index >= 0 && index < ids.length ? ids[index] : null;
+  }
+
   get totalCombinations(): number {
     let total = 0;
     for (const [tid] of this.templates) {
@@ -191,11 +212,13 @@ export class CombinatorialEngine {
       let product = 1;
       for (const [cat, n] of Object.entries(catNeeds)) {
         const poolSize = this.components.get(cat)?.length ?? 0;
-        let perm = 1;
+        // Unordered draws: the prompt hash canonicalizes sorted components,
+        // so distinct states are C(pool, n), not permutations.
+        let comb = 1;
         for (let i = 0; i < n; i++) {
-          perm *= Math.max(1, poolSize - i);
+          comb = (comb * Math.max(1, poolSize - i)) / (i + 1);
         }
-        product *= perm;
+        product *= Math.round(comb);
       }
       total += product;
     }

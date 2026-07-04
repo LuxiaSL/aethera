@@ -46,10 +46,10 @@ export const FORM_STYLES: Record<string, TransitionStyle> = {
 export class TransitionState {
   phase = TransitionPhase.NONE;
   progress = 0;
-  totalFrames = 504;
-  currentFrame = 0;
+  /** Wall-clock duration in seconds — identical pacing on 60Hz and 144Hz. */
+  durationSec = 5.5;
   dissolveEnd = 0.20;
-  tesseractEnd = 0.75;
+  tesseractEnd = 0.72;
   dissolveStyle = TransitionStyle.SCATTER;
   formStyle = TransitionStyle.SCATTER;
 
@@ -58,15 +58,13 @@ export class TransitionState {
   start(dissolveStyle: TransitionStyle, formStyle: TransitionStyle): void {
     this.phase = TransitionPhase.DISSOLVE;
     this.progress = 0;
-    this.currentFrame = 0;
     this.dissolveStyle = dissolveStyle;
     this.formStyle = formStyle;
   }
 
-  tick(): void {
+  tick(dt: number): void {
     if (!this.active) return;
-    this.currentFrame++;
-    this.progress = Math.min(this.currentFrame / Math.max(this.totalFrames, 1), 1.0);
+    this.progress = Math.min(this.progress + dt / Math.max(this.durationSec, 0.1), 1.0);
 
     if (this.progress < this.dissolveEnd) this.phase = TransitionPhase.DISSOLVE;
     else if (this.progress < this.tesseractEnd) this.phase = TransitionPhase.TESSERACT;
@@ -75,7 +73,6 @@ export class TransitionState {
     if (this.progress >= 1.0) {
       this.phase = TransitionPhase.NONE;
       this.progress = 0;
-      this.currentFrame = 0;
     }
   }
 

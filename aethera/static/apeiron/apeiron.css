@@ -1,190 +1,381 @@
-/* apeiron — combinatorial prompt generator */
+/* ==========================================================================
+   apeiron — an instrument, not a dashboard.
+   The hyperobject owns the viewport; the chrome floats above it as glass.
+   Every color on this page flows from the prompt's own color_logic via
+   the --ap-* variables (set from JS on each generation).
+   ========================================================================== */
 
 #apeiron-app {
+    /* pre-JS defaults: quiet phosphor green */
     --ap-primary: #00ff41;
-    --ap-bright: #00ff00;
-    --ap-dim: #005500;
+    --ap-bright: #6dff8f;
+    --ap-dim: #0b3f1a;
     --ap-accent: #00ffff;
-    --ap-border: #00ff00;
-    --ap-border-dim: #006600;
+    --ap-border: #00cc35;
+    --ap-border-dim: #0d4d20;
+    --ap-negative: #8a5560;
+    --ap-negative-border: #4d2830;
 
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 1rem;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
     font-family: 'LibertinusMono', 'Consolas', 'Monaco', 'Liberation Mono', monospace;
     color: var(--ap-primary);
-}
-
-/* main layout: content + history sidebar */
-#main-layout {
-    display: grid;
-    grid-template-columns: 1fr 220px;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-#main-column {
-    min-width: 0;
-}
-
-/* viewport */
-#viewport-container {
-    width: 100%;
-    aspect-ratio: 5 / 3;
-    min-height: 400px;
-    margin-bottom: 0.75rem;
-    border: 1px solid var(--ap-border-dim);
-    border-radius: 2px;
+    background-color: #030309;
+    background: radial-gradient(
+        120% 90% at 50% 38%,
+        color-mix(in srgb, var(--ap-dim) 30%, #04040a) 0%,
+        #030309 68%,
+        #010104 100%
+    );
+    transition: background 0.8s ease;
     overflow: hidden;
-    background: #000;
+}
+
+#apeiron-app ::selection {
+    background: var(--ap-dim);
+    color: var(--ap-bright);
+}
+
+/* --------------------------------------------------------------------------
+   stage — the render is the room
+   -------------------------------------------------------------------------- */
+
+#stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
 }
 
 #hyperobject-canvas {
-    width: 100%;
-    height: 100%;
     display: block;
-    background: #000;
 }
 
-/* prompt */
-#prompt-container {
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-    border: 1px solid var(--ap-border-dim);
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.88);
-    min-height: 2rem;
-    transition: border-color 0.3s;
+/* --------------------------------------------------------------------------
+   CRT veil — scanlines and vignette over everything, touching nothing
+   -------------------------------------------------------------------------- */
+
+#crt-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.38) 100%),
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.10) 0px, rgba(0, 0, 0, 0.10) 1px, transparent 1px, transparent 3px);
 }
 
-#prompt-display {
-    font-size: 0.9rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
+/* --------------------------------------------------------------------------
+   HUD scaffolding
+   -------------------------------------------------------------------------- */
 
-/* info row */
-#info-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-#negative-prompt {
-    padding: 0.5rem;
-    border: 1px solid #1a0000;
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.88);
-    color: #662222;
-    font-size: 0.8rem;
-    font-style: italic;
-    transition: border-color 0.3s, color 0.3s;
-}
-
-#components-table {
-    padding: 0.5rem;
-    border: 1px solid var(--ap-border-dim);
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.88);
-    font-size: 0.75rem;
-    overflow-y: auto;
-    max-height: 10rem;
-}
-
-/* entropy meter */
-#entropy-container {
-    padding: 0.5rem;
-    border: 1px solid var(--ap-border-dim);
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.88);
-    font-size: 0.8rem;
-}
-
-/* history panel */
-#history-panel {
-    border: 1px solid var(--ap-border-dim);
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.88);
+#hud {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 120px);
-    min-height: 300px;
+    pointer-events: none;
 }
 
-#history-header {
-    padding: 0.4rem 0.5rem;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+#hud a,
+#hud button {
+    pointer-events: auto;
+}
+
+/* top strand ------------------------------------------------------------- */
+
+#hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.85rem 1.25rem;
+}
+
+.ap-word {
+    color: var(--ap-bright);
+    letter-spacing: 0.4em;
+    font-size: 0.95rem;
+    text-shadow: 0 0 10px color-mix(in srgb, var(--ap-bright) 55%, transparent);
+    animation: ap-phosphor 7s ease-in-out infinite;
+}
+
+.ap-sep {
+    color: var(--ap-border-dim);
+    margin: 0 0.4rem;
+}
+
+.ap-home {
     color: var(--ap-dim);
-    border-bottom: 1px solid var(--ap-border-dim);
+    text-decoration: none;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    transition: color 0.2s, text-shadow 0.2s;
+}
+
+.ap-home:hover {
+    color: var(--ap-bright);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--ap-bright) 50%, transparent);
+}
+
+#ap-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    font-size: 0.72rem;
+    text-align: right;
+}
+
+#template-name {
+    color: var(--ap-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+}
+
+#palette-name {
+    color: var(--ap-accent);
+    letter-spacing: 0.05em;
+}
+
+#palette-name::before {
+    content: '⌁ ';
+    color: var(--ap-border-dim);
+}
+
+@keyframes ap-phosphor {
+    0%, 100% { text-shadow: 0 0 10px color-mix(in srgb, var(--ap-bright) 55%, transparent); }
+    50%      { text-shadow: 0 0 16px color-mix(in srgb, var(--ap-bright) 80%, transparent); }
+}
+
+/* history rail ------------------------------------------------------------ */
+
+#history-panel {
+    position: absolute;
+    top: 3.2rem;
+    right: 0;
+    bottom: 3.2rem;
+    width: min(280px, 82vw);
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    background: rgba(2, 4, 8, 0.66);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    border: 1px solid var(--ap-border-dim);
+    border-right: none;
+    border-radius: 3px 0 0 3px;
+    transition: transform 0.28s ease;
+}
+
+#history-tabs {
+    display: flex;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--ap-border-dim);
+}
+
+.history-tab {
+    flex: 1;
+    padding: 0.42rem 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--ap-dim);
+    font-family: inherit;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.history-tab:hover { color: var(--ap-primary); }
+
+.history-tab.active {
+    color: var(--ap-accent);
+    background: color-mix(in srgb, var(--ap-dim) 25%, transparent);
 }
 
 #history-list {
     flex: 1;
     overflow-y: auto;
-    padding: 0.25rem;
-    font-size: 0.7rem;
+    padding: 0.3rem 0.25rem;
+    font-size: 0.68rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ap-border-dim) transparent;
 }
 
+#history-list::-webkit-scrollbar { width: 6px; }
+#history-list::-webkit-scrollbar-thumb { background: var(--ap-border-dim); border-radius: 3px; }
+
 .history-entry {
-    padding: 0.2rem 0.3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    cursor: default;
+    padding: 0.24rem 0.45rem;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.12s, border-color 0.12s;
+}
+
+.history-entry:hover {
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.history-entry.active {
+    border-left-color: var(--ap-accent);
+    color: var(--ap-bright);
+    background: color-mix(in srgb, var(--ap-dim) 30%, transparent);
+}
+
+.history-entry:first-child { color: var(--ap-bright); }
+.history-entry:nth-child(n+2):nth-child(-n+5) { color: var(--ap-primary); }
+.history-entry:nth-child(n+6) { color: var(--ap-dim); }
+
+.history-entry .star {
+    color: var(--ap-accent);
+    margin-right: 0.25rem;
+}
+
+.history-entry .template-label {
+    color: var(--ap-dim);
+    font-size: 0.58rem;
+    margin-left: 0.35rem;
+    letter-spacing: 0.06em;
+}
+
+.history-empty {
+    padding: 0.8rem 0.6rem;
+    color: var(--ap-dim);
+    font-style: italic;
+}
+
+/* bottom stack ------------------------------------------------------------ */
+
+#hud-bottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0 1.25rem 1rem;
+    width: min(880px, calc(100% - 320px));
+    box-sizing: border-box;
+}
+
+#inscription {
+    pointer-events: auto;
+    background: rgba(1, 3, 5, 0.58);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    border: 1px solid var(--ap-border-dim);
+    border-left: 3px solid var(--ap-border);
+    border-radius: 2px;
+    padding: 0.85rem 1.05rem;
+    transition: border-color 0.3s;
+}
+
+#prompt-display {
+    font-size: clamp(0.92rem, 1.5vw, 1.18rem);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 2.4em;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--ap-primary) 30%, transparent);
+}
+
+#negative-prompt {
+    margin-top: 0.45rem;
+    color: var(--ap-negative);
+    font-size: 0.76rem;
+    font-style: italic;
+    opacity: 0.9;
+}
+
+/* anatomy — the component breakdown, folded until asked for */
+
+#anatomy {
+    pointer-events: auto;
+    max-height: 0;
+    overflow: hidden;
+    background: rgba(1, 3, 5, 0.58);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    border: 1px solid transparent;
+    border-radius: 2px;
+    transition: max-height 0.3s ease, border-color 0.3s, padding 0.3s;
+    padding: 0 1.05rem;
+}
+
+#anatomy.open {
+    max-height: 38vh;
+    overflow-y: auto;
+    border-color: var(--ap-border-dim);
+    padding: 0.6rem 1.05rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ap-border-dim) transparent;
+}
+
+#components-table div {
+    font-size: 0.76rem;
+    line-height: 1.55;
+}
+
+#components-table strong {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+}
+
+/* status strand ------------------------------------------------------------ */
+
+#ap-status {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    background: rgba(1, 3, 5, 0.58);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    border: 1px solid var(--ap-border-dim);
+    border-radius: 2px;
+    padding: 0.42rem 0.8rem;
+}
+
+#entropy-meter {
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.history-entry:first-child {
-    color: var(--ap-bright);
-    font-weight: bold;
-}
+#entropy-meter .e-bar { color: var(--ap-bright); }
+#entropy-meter .e-count { color: var(--ap-primary); }
+#entropy-meter .e-pct { color: var(--ap-dim); }
+#entropy-meter .e-filter { color: var(--ap-accent); }
 
-.history-entry:nth-child(n+2):nth-child(-n+4) {
-    color: var(--ap-primary);
-}
-
-.history-entry:nth-child(n+5) {
-    color: var(--ap-dim);
-}
-
-.history-entry .star {
-    color: var(--ap-accent);
-}
-
-.history-entry .template-label {
-    color: var(--ap-dim);
-    font-size: 0.6rem;
-    margin-left: 0.3rem;
-}
-
-/* controls bar */
 #controls-bar {
     display: flex;
+    gap: 0.35rem;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: center;
-    padding: 0.5rem;
-    border: 1px solid var(--ap-border-dim);
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.88);
 }
 
 .control-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.35rem 0.6rem;
+    gap: 0.32rem;
+    padding: 0.28rem 0.55rem;
     border: 1px solid var(--ap-border-dim);
     border-radius: 2px;
-    background: rgba(0, 0, 0, 0.5);
+    background: transparent;
     color: var(--ap-dim);
     font-family: inherit;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s, background 0.15s;
     user-select: none;
@@ -194,12 +385,12 @@
 .control-btn:hover {
     border-color: var(--ap-primary);
     color: var(--ap-primary);
-    background: rgba(0, 255, 65, 0.05);
+    background: color-mix(in srgb, var(--ap-primary) 7%, transparent);
 }
 
 .control-btn:active {
-    background: rgba(0, 255, 65, 0.12);
     color: var(--ap-bright);
+    background: color-mix(in srgb, var(--ap-primary) 14%, transparent);
 }
 
 .control-btn.active {
@@ -207,51 +398,56 @@
     color: var(--ap-accent);
 }
 
+.control-btn:focus-visible {
+    outline: 1px dashed var(--ap-accent);
+    outline-offset: 2px;
+}
+
 .control-btn kbd {
     display: inline-block;
-    padding: 0.05rem 0.25rem;
+    padding: 0 0.28em;
     border: 1px solid var(--ap-border-dim);
     border-radius: 2px;
-    color: var(--ap-primary);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--ap-accent);
     font-family: inherit;
-    font-size: 0.7rem;
-    line-height: 1.2;
+    font-size: 0.64rem;
+    line-height: 1.35;
 }
 
-/* responsive */
-@media (max-width: 900px) {
-    #main-layout {
-        grid-template-columns: 1fr;
-    }
+/* --------------------------------------------------------------------------
+   responsive: rail folds away, stack goes full width
+   -------------------------------------------------------------------------- */
 
-    #history-panel {
-        max-height: 200px;
-        min-height: auto;
-    }
+@media (max-width: 1023px) {
+    #history-panel { transform: translateX(110%); }
+    #history-panel.user-toggled { transform: translateX(0); }
+
+    #hud-bottom { width: 100%; }
 }
 
-@media (max-width: 768px) {
-    #viewport-container {
-        min-height: 280px;
-        aspect-ratio: 3 / 2;
-    }
+@media (min-width: 1024px) {
+    /* visible by default; H folds it away */
+    #history-panel.user-toggled { transform: translateX(110%); }
 }
 
 @media (max-width: 640px) {
-    #info-row {
-        grid-template-columns: 1fr;
-    }
+    #hud-top { padding: 0.6rem 0.8rem; flex-wrap: wrap; }
+    #ap-meta { font-size: 0.62rem; gap: 0.6rem; }
+    #hud-bottom { padding: 0 0.6rem 0.6rem; gap: 0.4rem; }
+    #inscription { padding: 0.6rem 0.75rem; }
+    #prompt-display { font-size: 0.85rem; }
+    #entropy-meter { font-size: 0.6rem; }
+    .control-btn { padding: 0.24rem 0.45rem; font-size: 0.64rem; }
+}
 
-    #apeiron-app {
-        padding: 0.5rem;
+@media (prefers-reduced-motion: reduce) {
+    #apeiron-app,
+    #history-panel,
+    #anatomy,
+    .control-btn,
+    .ap-home {
+        transition: none;
     }
-
-    .control-btn {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.7rem;
-    }
-
-    #viewport-container {
-        min-height: 200px;
-    }
+    .ap-word { animation: none; }
 }

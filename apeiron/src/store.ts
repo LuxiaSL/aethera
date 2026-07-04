@@ -66,6 +66,40 @@ export class PromptStore {
     });
   }
 
+  async get(hash: string): Promise<GeneratedPrompt | null> {
+    if (!this.db) return null;
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.get(hash);
+      request.onsuccess = () => resolve((request.result as GeneratedPrompt | undefined) ?? null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /** All favorited prompts, newest first. */
+  async getFavorites(): Promise<GeneratedPrompt[]> {
+    if (!this.db) return [];
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const index = store.index('createdAt');
+      const request = index.openCursor(null, 'prev');
+      const results: GeneratedPrompt[] = [];
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) {
+          const p = cursor.value as GeneratedPrompt;
+          if (p.favorited) results.push(p);
+          cursor.continue();
+        } else {
+          resolve(results);
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   async getRecent(limit = 50): Promise<GeneratedPrompt[]> {
     if (!this.db) return [];
     return new Promise((resolve, reject) => {

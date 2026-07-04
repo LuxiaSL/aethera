@@ -19,6 +19,8 @@ export interface SlotSpec {
 export interface GeneratedPrompt {
   hash: string;
   templateId: string;
+  /** RNG seed that (with templateId) reproduces this prompt. Absent on old records. */
+  seed?: number;
   positive: string;
   negative: string;
   components: Record<string, string[]>;
@@ -42,17 +44,3 @@ export interface Palette {
   rainDim: string;
 }
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  subject_form: '#ffffff',
-  material_substance: '#ffcc00',
-  texture_density: '#00ff41',
-  light_behavior: '#00ffff',
-  color_logic: '#ff00ff',
-  atmosphere_field: '#6688ff',
-  phenomenon_pattern: '#ff6644',
-  spatial_logic: '#aaffaa',
-  scale_perspective: '#ffaa44',
-  temporal_state: '#ff88ff',
-  setting_location: '#44ffcc',
-  medium_render: '#ff8866',
-};
