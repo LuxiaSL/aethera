@@ -285,6 +285,33 @@
     text-shadow: 0 0 12px color-mix(in srgb, var(--ap-primary) 30%, transparent);
 }
 
+/* clickable words: pin a component and regenerate around it */
+#prompt-display .tok {
+    cursor: pointer;
+    border-bottom: 1px dotted transparent;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+#prompt-display .tok:hover {
+    border-bottom-color: currentColor;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#prompt-display .tok.pinned {
+    border-bottom: 1px solid currentColor;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border-radius: 2px;
+    padding: 0 0.15em;
+}
+
+#prompt-display .tok.pinned::after {
+    content: '⊙';
+    font-size: 0.6em;
+    vertical-align: super;
+    margin-left: 0.15em;
+    opacity: 0.8;
+}
+
 #negative-prompt {
     margin-top: 0.45rem;
     color: var(--ap-negative);
@@ -357,6 +384,7 @@
 #entropy-meter .e-count { color: var(--ap-primary); }
 #entropy-meter .e-pct { color: var(--ap-dim); }
 #entropy-meter .e-filter { color: var(--ap-accent); }
+#entropy-meter .e-pins { color: var(--ap-bright); }
 
 #controls-bar {
     display: flex;

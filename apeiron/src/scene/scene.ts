@@ -1,7 +1,10 @@
 import { Vec3, Vec4 } from '../math/vec';
 import { Mat4 } from '../math/mat4';
-import { fastSin } from '../math/lut';
+import { fastSin, fastCos } from '../math/lut';
 import { smoothstep } from '../math/lut';
+import type { ProcessInstance } from '../fx/process';
+import type { BackdropInstance } from './backdrop';
+import type { CharGrid } from '../render/chargrid';
 import { rotate4d, project4dTo3d } from '../math/project4d';
 import { AsciiRasterizer, Light, DEFAULT_LIGHT, DONUT_LUMINANCE_RAMP } from '../render/rasterizer';
 import type { StyleTuple, SurfaceSampler } from '../render/rasterizer';
@@ -13,6 +16,16 @@ import { TransitionState, TransitionPhase, applyDissolve, applyForm, TransitionS
 export enum GeomKind {
   MESH_FILLED, MESH_WIREFRAME, POINT_CLOUD, VOXEL_GRID,
   HEIGHTMAP, TESSERACT, DUAL_MESH, SURFACE_DIRECT,
+}
+
+export interface LightMotion {
+  /** radians/sec orbit of the light around Y */
+  orbitSpeed: number;
+  /** fractional intensity swell */
+  breatheAmp: number;
+  breatheSpeed: number;
+  /** 0..1 — probability-ish depth of deterministic intensity dips */
+  flicker: number;
 }
 
 export class AnimationState {
@@ -79,6 +92,12 @@ export class Scene {
   postfxNames: string[] = [];
   particleSystem: { tick(dt: number): void; particles: Array<{ pos: Vec3; brightness: number; char: string }> } | null = null;
 
+  lightBase: { x: number; y: number; z: number; intensity: number } | null = null;
+  lightMotion: LightMotion | null = null;
+  processInst: ProcessInstance | null = null;
+  backdropInst: BackdropInstance | null = null;
+  glint = false;
+
   fragmentGroups: number[][] = [];
   dualMeshMode = 'overlay';
   transitionSource: SceneSnapshot | null = null;
@@ -110,16 +129,40 @@ export class Scene {
     rast.clear();
     const w = rast.width, h = rast.height;
 
+    if (this.backdropInst) {
+      try { this.backdropInst.draw(rast.grid, this.anim.time, this.styles[3]); } catch { /* whisper, never crash */ }
+    }
+
     if (this.transition.active) {
       this.renderTransition(rast, w, h);
     } else {
       this.renderGeometry(rast, w, h);
+      if (this.processInst) {
+        try { this.processInst.apply(rast.grid, this.anim.time); } catch { /* ignore */ }
+      }
     }
+
+    if (this.glint) this.applyGlint(rast.grid);
 
     this.renderParticles(rast, w, h);
     rast.grid.time = this.anim.time;
     if (this.postfxNames.length > 0) {
       applyEffects(rast.grid, this.postfxNames);
+    }
+  }
+
+  /** Deterministic sparkle on reflective materials: rare '✦' pops. */
+  private applyGlint(grid: CharGrid): void {
+    const frame = (this.anim.time * 5) | 0;
+    const bright = this.styles[0];
+    const cells = grid.cells;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      if (cell.char === ' ' || cell.char === '·') continue;
+      if ((((i * 2654435761) ^ (frame * 40503)) >>> 0 & 0x3FF) < 5) {
+        cell.char = '✦';
+        cell.style = bright;
+      }
     }
   }
 
@@ -253,6 +296,7 @@ export class Scene {
     const wasTransitioning = this.transition.active;
     this.anim.tick(dt);
     this.anim.morphT = 0.5 + 0.5 * fastSin(this.anim.time * 0.7);
+    this.animateLight();
 
     if (this.transition.active) {
       this.transition.tick(dt);
@@ -269,6 +313,29 @@ export class Scene {
     else if (this.geomKind === GeomKind.VOXEL_GRID) this.animateVoxels(dt);
     else if (this.geomKind === GeomKind.POINT_CLOUD && this.cloud) this.animateCloud(dt);
     if (this.fragmentGroups.length > 0 && this.mesh) this.animateFragments(dt);
+  }
+
+  /** Orbit/breathe/flicker the scene's own light around its preset base. */
+  private animateLight(): void {
+    const m = this.lightMotion, b = this.lightBase;
+    if (!m || !b) return;
+    const t = this.anim.time;
+
+    if (m.orbitSpeed !== 0) {
+      const ang = t * m.orbitSpeed;
+      const c = fastCos(ang), s = fastSin(ang);
+      this.light.direction.x = c * b.x + s * b.z;
+      this.light.direction.y = b.y;
+      this.light.direction.z = -s * b.x + c * b.z;
+    }
+
+    let intensity = b.intensity * (1 + m.breatheAmp * fastSin(t * m.breatheSpeed));
+    if (m.flicker > 0) {
+      // deterministic pseudo-noise dips; no Math.random, no strobing
+      const n = fastSin(t * 13.7) * fastSin(t * 7.31 + 2.1);
+      if (n > 0.7) intensity *= 1 - m.flicker * 0.5;
+    }
+    this.light.intensity = intensity;
   }
 
   private animateHeightmap(dt: number): void {

@@ -2,10 +2,12 @@ import { Vec3 } from './math/vec';
 import { fnv1a } from './hash';
 import { Light } from './render/rasterizer';
 import { Camera } from './render/transform';
-import { GeomKind, Scene } from './scene/scene';
+import { GeomKind, Scene, type LightMotion } from './scene/scene';
 import { shaderForWord, DEFAULT_SHADER } from './shaders';
 import { particleSystemForWord } from './fx/particles';
 import { effectForWord } from './fx/postfx';
+import { ProcessInstance, processForWords } from './fx/process';
+import { BackdropInstance, backdropForWord } from './scene/backdrop';
 
 export const TEMPLATE_GEOM: Record<string, GeomKind> = {
   material_study: GeomKind.MESH_FILLED,
@@ -85,13 +87,58 @@ function interpretShader(words: string[]): string {
   return shaderForWord(words[0]).chars;
 }
 
+/** light_behavior → how the light moves, not just where it sits */
+const LIGHT_MOTION_TAGS: Array<[RegExp, LightMotion]> = [
+  [/shimmer|caustic|dapple|glint|sparkle|refract/, { orbitSpeed: 0.05, breatheAmp: 0.22, breatheSpeed: 5.5, flicker: 0 }],
+  [/flicker|strobe|sputter|arc-|neon|fluoresc|failing/, { orbitSpeed: 0.02, breatheAmp: 0.08, breatheSpeed: 2.0, flicker: 0.8 }],
+  [/sweep|scan|lighthouse|rotat|beacon|searchlight/, { orbitSpeed: 0.45, breatheAmp: 0.05, breatheSpeed: 1.0, flicker: 0 }],
+  [/airglow|ambient|glow|diffus|overcast|fog|hazy|soft/, { orbitSpeed: 0.03, breatheAmp: 0.12, breatheSpeed: 0.7, flicker: 0 }],
+  [/raking|kicker|slash|hard|louver|key grip|spotlight/, { orbitSpeed: 0, breatheAmp: 0.04, breatheSpeed: 1.2, flicker: 0 }],
+];
+
+function interpretLightMotion(words: string[]): LightMotion | null {
+  if (!words.length) return null;
+  const key = words[0].toLowerCase();
+  for (const [re, motion] of LIGHT_MOTION_TAGS) {
+    if (re.test(key)) return { ...motion };
+  }
+  // untagged words still drift a little — everything breathes
+  const h = fnv1a(key);
+  return {
+    orbitSpeed: ((h >>> 2) % 64) / 420,
+    breatheAmp: ((h >>> 8) % 48) / 320,
+    breatheSpeed: 0.5 + ((h >>> 14) % 32) / 14,
+    flicker: 0,
+  };
+}
+
+const GLINT_RE = /mercury|glass|chrome|mirror|opal|abalone|nacre|crystal|diamond|foil|pearl|silver|quartz|gem|prism|isinglass|ice\b/;
+
+function interpretGlint(words: string[]): boolean {
+  return words.some(w => GLINT_RE.test(w.toLowerCase()));
+}
+
 export function configureScene(
   scene: Scene,
   visualState: Record<string, string[]>,
   templateId: string,
+  promptHash = '',
 ): void {
   scene.geomKind = TEMPLATE_GEOM[templateId] ?? GeomKind.MESH_FILLED;
-  scene.light = interpretLight(visualState['light_behavior'] ?? []);
+
+  // the scene owns a private Light copy — presets are shared and the
+  // motion system mutates direction/intensity every frame
+  const lightWords = visualState['light_behavior'] ?? [];
+  const preset = interpretLight(lightWords);
+  scene.light = new Light(
+    new Vec3(preset.direction.x, preset.direction.y, preset.direction.z),
+    preset.intensity, preset.wrap, preset.ambient,
+  );
+  scene.lightBase = {
+    x: preset.direction.x, y: preset.direction.y, z: preset.direction.z,
+    intensity: preset.intensity,
+  };
+  scene.lightMotion = interpretLightMotion(lightWords);
 
   let camera = interpretCamera(visualState['spatial_logic'] ?? []);
   camera = interpretZoom(visualState['scale_perspective'] ?? [], camera);
@@ -105,4 +152,18 @@ export function configureScene(
 
   const atmosWords = visualState['atmosphere_field'] ?? [];
   scene.particleSystem = atmosWords.length > 0 ? particleSystemForWord(atmosWords[0]) : null;
+
+  // phenomenon × temporal: the process running on the object
+  const phenWord = (visualState['phenomenon_pattern'] ?? [])[0];
+  const tempWord = (visualState['temporal_state'] ?? [])[0] ?? '';
+  scene.processInst = phenWord
+    ? new ProcessInstance(processForWords(phenWord, tempWord, promptHash))
+    : null;
+
+  // setting_location: a whispered environment behind everything
+  const settingWord = (visualState['setting_location'] ?? [])[0];
+  scene.backdropInst = settingWord ? new BackdropInstance(backdropForWord(settingWord)) : null;
+
+  // reflective materials sparkle
+  scene.glint = interpretGlint(visualState['material_substance'] ?? []);
 }

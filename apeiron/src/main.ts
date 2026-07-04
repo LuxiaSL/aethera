@@ -13,9 +13,10 @@ import {
   makeIntersectingSolids, makeSplitMorphPair, makeMetaballs,
 } from './scene/primitives';
 import { TorusSampler, MobiusSampler } from './render/surface-samplers';
+import { textureForWord, displaceMesh, DEFAULT_TEXTURE, type TextureSpec } from './scene/displace';
 import { runGlitchDecode } from './ui/glitch-decode';
 import { PromptStore } from './store';
-import { encodePermalink, decodePermalink } from './permalink';
+import { encodePermalinkV1, encodePermalinkV2, decodePermalink, type Permalink } from './permalink';
 
 const INITIAL_STATE: Record<string, string[]> = {
   subject_form: ['sphere'], material_substance: ['glass'],
@@ -52,6 +53,8 @@ class ApeironApp {
   private favorites: HistoryEntry[] = [];
   private historyTab: HistoryTab = 'recent';
   private railIndex = 0;
+  /** category → words held constant across generations */
+  private pins = new Map<string, Set<string>>();
 
   private promptEl: HTMLElement | null = null;
   private negativeEl: HTMLElement | null = null;
@@ -115,13 +118,21 @@ class ApeironApp {
     this.bindControls();
     this.bindHistoryRail();
 
+    // click a word in the inscription to hold it across generations
+    this.promptEl?.addEventListener('click', (e) => {
+      const tok = (e.target as HTMLElement).closest<HTMLElement>('.tok');
+      if (tok?.dataset.cat && tok.dataset.word) {
+        this.togglePin(tok.dataset.cat, tok.dataset.word);
+      }
+    });
+
     // rail persists across visits
     await this.loadHistoryFromStore();
 
     // a fragment is an address: reconstruct that exact point in the space
     const link = decodePermalink(window.location.hash);
     if (link) {
-      await this.generateFromPermalink(link.templateIndex, link.seed);
+      await this.generateFromPermalink(link);
     } else {
       this.generate();
     }
@@ -142,23 +153,36 @@ class ApeironApp {
   // -------------------------------------------------------------------------
 
   private generate(): void {
-    const prompt = this.engine.generateUnique(this.seenHashes, this.templateFilter);
+    const prompt = this.engine.generateUnique(this.seenHashes, this.templateFilter, this.pinnedWords());
     this.present(prompt, true);
   }
 
-  private async generateFromPermalink(templateIndex: number, seed: number): Promise<void> {
+  private pinnedWords(): Record<string, string[]> | undefined {
+    if (this.pins.size === 0) return undefined;
+    const out: Record<string, string[]> = {};
+    for (const [cat, words] of this.pins) {
+      if (words.size > 0) out[cat] = [...words];
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  }
+
+  private async generateFromPermalink(link: Permalink): Promise<void> {
     try {
-      const templateId = this.engine.templateIdAt(templateIndex);
+      const templateId = this.engine.templateIdAt(link.templateIndex);
       if (!templateId) { this.generate(); return; }
-      const prompt = this.engine.generate(templateId, seed);
+
+      let prompt: GeneratedPrompt | null = null;
+      if (link.kind === 'indices') {
+        const words = this.engine.componentsFromIndices(templateId, link.indices);
+        if (words) prompt = this.engine.materialize(templateId, words);
+      } else {
+        prompt = this.engine.generate(templateId, link.seed);
+      }
+      if (!prompt) { this.generate(); return; }
+
       // if this address was visited before, keep its recorded state
       const stored = await this.store.get(prompt.hash).catch(() => null);
-      if (stored) {
-        stored.seed = stored.seed ?? seed;
-        this.present(stored, false);
-      } else {
-        this.present(prompt, true);
-      }
+      this.present(stored ?? prompt, stored === null);
     } catch (err) {
       console.warn('apeiron: bad permalink, generating fresh', err);
       this.generate();
@@ -206,7 +230,7 @@ class ApeironApp {
       this.scene.startTransition(ds, fs);
     }
 
-    configureScene(this.scene, this.visualState, prompt.templateId);
+    configureScene(this.scene, this.visualState, prompt.templateId, prompt.hash);
     const p = this.palette;
     this.scene.styles = [p.bright, p.primary, p.dim, p.borderDim];
 
@@ -236,10 +260,14 @@ class ApeironApp {
 
   private updateUrl(prompt: GeneratedPrompt): void {
     try {
-      if (prompt.seed === undefined) return;
       const idx = this.engine.templateIndex(prompt.templateId);
       if (idx < 0) return;
-      window.history.replaceState(null, '', `#${encodePermalink(idx, prompt.seed)}`);
+      const indices = this.engine.componentIndices(prompt);
+      if (indices) {
+        window.history.replaceState(null, '', `#${encodePermalinkV2(idx, indices)}`);
+      } else if (prompt.seed !== undefined) {
+        window.history.replaceState(null, '', `#${encodePermalinkV1(idx, prompt.seed)}`);
+      }
     } catch { /* address bar is a nicety, not a dependency */ }
   }
 
@@ -251,24 +279,33 @@ class ApeironApp {
     this.scene.clearGeometry();
     const kind = TEMPLATE_GEOM[templateId] ?? GeomKind.MESH_FILLED;
     const detail = interpretMeshDetail(this.visualState['subject_form'] ?? []);
+    const texWords = this.visualState['texture_density'] ?? [];
+    const tex: TextureSpec = texWords.length > 0 ? textureForWord(texWords[0]) : DEFAULT_TEXTURE;
 
     switch (templateId) {
       case 'material_study':
-        this.scene.mesh = makeIcosahedron(Math.min(detail, 2));
+        // displacement needs vertices to push: keep at least one subdivision
+        this.scene.mesh = makeIcosahedron(Math.max(Math.min(detail, 2), tex.amp > 0.02 ? 2 : 1));
+        displaceMesh(this.scene.mesh, tex);
         break;
       case 'process_state':
         this.scene.mesh = makeMetaballs();
+        displaceMesh(this.scene.mesh, tex);
         break;
       case 'ruin_state': {
         const { mesh, groups } = makeFragmentingSolid();
+        displaceMesh(mesh, tex);
         this.scene.mesh = mesh;
         this.scene.fragmentGroups = groups;
         break;
       }
       case 'specimen':
         this.scene.mesh = makeWireframeOrganism();
+        displaceMesh(this.scene.mesh, tex);
+        this.scene.mesh.computeEdgesFromFaces();
         break;
       case 'liminal':
+        // architecture stays clean; texture lives in the shader chars
         this.scene.mesh = makeCorridor();
         break;
       case 'minimal_object':
@@ -284,16 +321,18 @@ class ApeironApp {
         this.scene.cloud = makeLorenzAttractor();
         break;
       case 'textural_macro':
-        this.scene.heightmap = makeNoiseSurface();
+        this.scene.heightmap = makeNoiseSurface(24, 24, 0.3 * (tex.freq / 4), 0.4 * tex.heightScale);
         break;
       case 'environmental':
-        this.scene.heightmap = makeTerrain();
+        this.scene.heightmap = makeTerrain(32, 32, 0.15, 0.8 * tex.heightScale);
         break;
       case 'site_decay':
         this.scene.voxels = makeVoxelGrid();
         break;
       case 'material_collision': {
         const [a, b] = makeIntersectingSolids();
+        displaceMesh(a, tex);
+        displaceMesh(b, tex);
         this.scene.mesh = a;
         this.scene.meshB = b;
         this.scene.dualMeshMode = 'overlay';
@@ -301,13 +340,18 @@ class ApeironApp {
       }
       case 'temporal_diptych': {
         const [a, b] = makeSplitMorphPair();
+        displaceMesh(a, tex);
+        displaceMesh(b, tex);
         this.scene.mesh = a;
         this.scene.meshB = b;
         this.scene.dualMeshMode = 'morph';
         break;
       }
       default:
-        if (kind === GeomKind.MESH_FILLED) this.scene.mesh = makeIcosahedron(1);
+        if (kind === GeomKind.MESH_FILLED) {
+          this.scene.mesh = makeIcosahedron(1);
+          displaceMesh(this.scene.mesh, tex);
+        }
         break;
     }
   }
@@ -468,10 +512,41 @@ class ApeironApp {
       const color = this.tints[category] ?? this.palette?.primary ?? '#cccccc';
       for (const word of words) {
         const escaped = esc(word);
-        html = html.replace(escaped, `<span style="color:${color};font-weight:bold">${escaped}</span>`);
+        const pinned = this.pins.get(category)?.has(word) ? ' pinned' : '';
+        html = html.replace(
+          escaped,
+          `<span class="tok${pinned}" data-cat="${esc(category)}" data-word="${escaped}"` +
+          ` style="color:${color};font-weight:bold" title="${esc(category.replace(/_/g, ' '))} — click to pin">${escaped}</span>`,
+        );
       }
     }
     return html;
+  }
+
+  /** Redraw the inscription instantly (no glitch decode) — used after pin toggles. */
+  private redrawPrompt(): void {
+    if (this.promptEl && this.current) {
+      this.promptEl.innerHTML = this.highlightText(this.current.positive, this.current);
+    }
+    if (this.entropyEl) this.entropyEl.innerHTML = this.renderEntropy();
+  }
+
+  private togglePin(category: string, word: string): void {
+    let set = this.pins.get(category);
+    if (!set) { set = new Set(); this.pins.set(category, set); }
+    if (set.has(word)) {
+      set.delete(word);
+      if (set.size === 0) this.pins.delete(category);
+    } else {
+      set.add(word);
+    }
+    this.redrawPrompt();
+  }
+
+  private clearPins(): void {
+    if (this.pins.size === 0) return;
+    this.pins.clear();
+    this.redrawPrompt();
   }
 
   private renderComponentsTable(prompt: GeneratedPrompt): string {
@@ -490,11 +565,14 @@ class ApeironApp {
     const bar = '▓'.repeat(filled) + '░'.repeat(32 - filled);
     const filter = this.templateFilter ?? 'all';
     const auto = this.autoTimer !== null ? '  [AUTO]' : '';
+    let pinCount = 0;
+    for (const s of this.pins.values()) pinCount += s.size;
+    const pinNote = pinCount > 0 ? `  <span class="e-pins">[${pinCount} pinned · esc]</span>` : '';
     return `<span class="e-bar">${bar}</span>  ` +
       `<span class="e-count">#${this.count.toLocaleString()}</span>` +
       `  of  ~${total.toExponential(1)}  ` +
       `<span class="e-pct">${pct.toFixed(pct < 0.001 ? 6 : 3)}%</span>  ` +
-      `<span class="e-filter">[${esc(filter)}]</span>${auto}`;
+      `<span class="e-filter">[${esc(filter)}]</span>${pinNote}${auto}`;
   }
 
   /** 'user-toggled' inverts the default: shows on mobile, hides on desktop. */
@@ -534,6 +612,8 @@ class ApeironApp {
         e.preventDefault(); this.stepHistory(1); break;
       case 'ArrowRight':
         e.preventDefault(); this.stepHistory(-1); break;
+      case 'Escape':
+        this.clearPins(); break;
     }
   }
 

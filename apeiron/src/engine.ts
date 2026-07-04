@@ -86,12 +86,17 @@ export class CombinatorialEngine {
   }
 
   /**
-   * Deterministic generation: (resolved templateId, seed) fully determines
-   * the prompt. The component stream is seeded by seed^fnv1a(templateId) so
-   * that a forced template and a seed-picked template with the same id
-   * produce identical output — this is what makes share-links reproducible.
+   * Deterministic generation: (resolved templateId, seed, pins) fully
+   * determines the prompt. The component stream is seeded by
+   * seed^fnv1a(templateId) so that a forced template and a seed-picked
+   * template with the same id produce identical output.
+   * Pinned words are held in place; only the free slots reroll.
    */
-  generate(templateId?: string | null, seed?: number): GeneratedPrompt {
+  generate(
+    templateId?: string | null,
+    seed?: number,
+    pinned?: Record<string, string[]>,
+  ): GeneratedPrompt {
     const templateList = Array.from(this.templates.values());
     if (templateList.length === 0) {
       throw new Error('No templates loaded');
@@ -99,10 +104,24 @@ export class CombinatorialEngine {
 
     const resolvedSeed = (seed ?? randomSeed()) >>> 0;
     const templateRng = mulberry32(resolvedSeed);
+
+    // a pinned word is a promise: only roll templates that can honor it
+    const pinnedCats = pinned
+      ? Object.keys(pinned).filter(c => (pinned[c]?.length ?? 0) > 0)
+      : [];
+    let templatePool = templateList;
+    if (!templateId && pinnedCats.length > 0) {
+      const compatible = templateList.filter(t => {
+        const cats = new Set(this.slotsCache.get(t.id)!.map(s => s.category));
+        return pinnedCats.every(c => cats.has(c));
+      });
+      if (compatible.length > 0) templatePool = compatible;
+    }
+
     const template =
       templateId && this.templates.has(templateId)
         ? this.templates.get(templateId)!
-        : templateList[Math.floor(templateRng() * templateList.length)];
+        : templatePool[Math.floor(templateRng() * templatePool.length)];
 
     const rng = mulberry32((resolvedSeed ^ fnv1a(template.id)) >>> 0);
     const slots = this.slotsCache.get(template.id)!;
@@ -116,9 +135,48 @@ export class CombinatorialEngine {
     for (const [category, total] of Object.entries(needs)) {
       const pool = this.components.get(category);
       if (!pool || pool.length === 0) continue;
-      selections[category] = fisherYatesSample(pool, total, rng);
+
+      const wanted = pinned?.[category] ?? [];
+      const held: Component[] = [];
+      const heldWords = new Set<string>();
+      for (const w of wanted) {
+        if (held.length >= total) break;
+        if (heldWords.has(w)) continue;
+        const comp = pool.find(c => c.word === w);
+        if (comp) { held.push(comp); heldWords.add(w); }
+      }
+
+      const free = held.length > 0 ? pool.filter(c => !heldWords.has(c.word)) : pool;
+      selections[category] = [...held, ...fisherYatesSample(free, total - held.length, rng)];
     }
 
+    return this.assemble(template, selections, resolvedSeed);
+  }
+
+  /**
+   * Rebuild a prompt from explicit word selections (permalink v2 path).
+   * Words missing from the current pools still render, just with no
+   * opposite for the negative prompt.
+   */
+  materialize(templateId: string, words: Record<string, string[]>): GeneratedPrompt | null {
+    const template = this.templates.get(templateId);
+    if (!template) return null;
+    const selections: Record<string, Component[]> = {};
+    for (const [category, list] of Object.entries(words)) {
+      const pool = this.components.get(category) ?? [];
+      selections[category] = list.map(
+        w => pool.find(c => c.word === w) ?? { word: w, opposite: null },
+      );
+    }
+    return this.assemble(template, selections, undefined);
+  }
+
+  private assemble(
+    template: Template,
+    selections: Record<string, Component[]>,
+    seed: number | undefined,
+  ): GeneratedPrompt {
+    const slots = this.slotsCache.get(template.id)!;
     let positive = template.structure;
     const consumed: Record<string, number> = {};
 
@@ -173,7 +231,7 @@ export class CombinatorialEngine {
     return {
       hash: promptHash,
       templateId: template.id,
-      seed: resolvedSeed,
+      seed,
       positive,
       negative,
       components: compDict,
@@ -182,13 +240,63 @@ export class CombinatorialEngine {
     };
   }
 
-  generateUnique(seen: Set<string>, templateId?: string | null, maxAttempts = 100): GeneratedPrompt {
-    let prompt = this.generate(templateId);
+  generateUnique(
+    seen: Set<string>,
+    templateId?: string | null,
+    pinned?: Record<string, string[]>,
+    maxAttempts = 100,
+  ): GeneratedPrompt {
+    let prompt = this.generate(templateId, undefined, pinned);
     for (let i = 0; i < maxAttempts; i++) {
       if (!seen.has(prompt.hash)) return prompt;
-      prompt = this.generate(templateId);
+      prompt = this.generate(templateId, undefined, pinned);
     }
     return prompt;
+  }
+
+  /**
+   * Flatten a prompt's selections into pool indices (categories in sorted
+   * order) for permalink v2. Null if any word left the current data.
+   */
+  componentIndices(prompt: GeneratedPrompt): number[] | null {
+    const out: number[] = [];
+    for (const cat of Object.keys(prompt.components).sort()) {
+      const pool = this.components.get(cat);
+      if (!pool) return null;
+      for (const word of prompt.components[cat]) {
+        const i = pool.findIndex(c => c.word === word);
+        if (i < 0) return null;
+        out.push(i);
+      }
+    }
+    return out;
+  }
+
+  /** Inverse of componentIndices: rebuild per-category word lists. */
+  componentsFromIndices(templateId: string, flat: number[]): Record<string, string[]> | null {
+    const slots = this.slotsCache.get(templateId);
+    if (!slots) return null;
+
+    const needs: Record<string, number> = {};
+    for (const s of slots) {
+      needs[s.category] = (needs[s.category] ?? 0) + s.count;
+    }
+
+    const words: Record<string, string[]> = {};
+    let cursor = 0;
+    for (const cat of Object.keys(needs).sort()) {
+      const pool = this.components.get(cat);
+      if (!pool || pool.length === 0) continue;
+      const count = Math.min(needs[cat], pool.length);
+      const list: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const idx = flat[cursor++];
+        if (idx === undefined || idx < 0 || idx >= pool.length) return null;
+        list.push(pool[idx].word);
+      }
+      words[cat] = list;
+    }
+    return cursor === flat.length ? words : null;
   }
 
   /** Index of a template id in insertion order, for compact share-links. */
