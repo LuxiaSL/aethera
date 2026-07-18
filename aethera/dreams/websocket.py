@@ -41,6 +41,7 @@ MSG_FRAME = 0x01
 MSG_STATE = 0x02
 MSG_HEARTBEAT = 0x03
 MSG_STATUS = 0x04
+MSG_CHRONICLE = 0x05  # chronicle keyframe-record batches (see dreams/chronicle/)
 
 # Control message types (VPS -> GPU)
 CTRL_LOAD_STATE = 0x11  # VPS sends saved state to GPU for restoration
@@ -302,6 +303,12 @@ class DreamWebSocketHub:
 
         elif msg_type == MSG_HEARTBEAT:
             self._last_frame_time = time.time()
+
+        elif msg_type == MSG_CHRONICLE:
+            # Fire-and-forget: ingest never raises and runs its DB/disk
+            # work in a thread, so the stream hub is never blocked.
+            from .chronicle import get_chronicle_store
+            await get_chronicle_store().ingest(payload)
 
         elif msg_type == MSG_STATUS:
             try:

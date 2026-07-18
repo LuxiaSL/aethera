@@ -256,6 +256,26 @@ async def dreams_current_frame(request: Request):
     )
 
 
+@router.get("/api/dreams/chronicle/current")
+async def dreams_chronicle_current(request: Request):
+    """
+    Live chronicle snapshot - what the dream's memory has recorded from the
+    most recent GPU session (see dreams/chronicle/). Phase 1 surface: raw
+    recording stats only; eras/diary arrive in later phases.
+
+    NOTE: Monitoring endpoint - does NOT trigger GPU start.
+    """
+    check_rate_limit(request)
+
+    try:
+        from aethera.dreams.chronicle import get_chronicle_store
+        snapshot = await get_chronicle_store().current_snapshot()
+        return JSONResponse(snapshot)
+    except Exception:
+        logger.warning("Chronicle snapshot failed", exc_info=True)
+        return JSONResponse({"status": "error"}, status_code=500)
+
+
 @router.get("/api/dreams/embed")
 async def dreams_embed_code(request: Request):
     """

@@ -4,6 +4,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
+import logging
 from pathlib import Path
 from sqlmodel import Session
 from contextlib import asynccontextmanager
@@ -24,9 +25,25 @@ async def lifespan(app: FastAPI):
     # Initialize databases on startup
     init_db()      # Blog database (blog.sqlite)
     init_irc_db()  # IRC database (irc.sqlite) - separate for clean isolation
+
+    # Chronicle (dream memory) - separate DB + retention sweep.
+    # Failure here must never block the blog from starting.
+    try:
+        from aethera.dreams.chronicle import init_chronicle_db, get_chronicle_store
+        init_chronicle_db()
+        get_chronicle_store().start_retention_task()
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Chronicle init failed (continuing without)", exc_info=True
+        )
+
     yield
     # Clean up resources on shutdown
-    pass
+    try:
+        from aethera.dreams.chronicle import get_chronicle_store
+        get_chronicle_store().stop_retention_task()
+    except Exception:
+        pass
 
 
 app = FastAPI(lifespan=lifespan)
