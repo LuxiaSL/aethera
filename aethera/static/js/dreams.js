@@ -716,6 +716,104 @@ class DreamViewer {
     }
 }
 
+// ==================== Debug chip (?debug=1) ====================
+// Generation-side state readout polled from the chronicle. The chronicle
+// records at generation time, which runs roughly one display buffer (~60s)
+// ahead of the stream you're watching — read it for rhythm, not frame-sync.
+
+class DreamDebugChip {
+    static BEND_FRAMES = 8;   // mirrors fresh_generation.denoising.bend_frames
+    static POLL_MS = 5000;
+
+    constructor() {
+        this.el = document.getElementById('dream-debug-chip');
+        this.modeEl = document.getElementById('chip-mode');
+        this.templateEl = document.getElementById('chip-template');
+        this.kfEl = document.getElementById('chip-kf');
+        this.eventsEl = document.getElementById('chip-events');
+        this.lastKf = null;
+        this.timer = null;
+    }
+
+    start() {
+        if (!this.el) return;
+        this.el.classList.remove('hidden');
+        this.poll();
+        this.timer = setInterval(() => this.poll(), DreamDebugChip.POLL_MS);
+    }
+
+    async poll() {
+        if (document.hidden) return;
+        try {
+            const resp = await fetch('/api/dreams/chronicle/current');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            this.render(await resp.json());
+        } catch (err) {
+            this.setMode('chronicle offline', 'stale');
+        }
+    }
+
+    // recent_events is newest-first; find the keyframe of the last event
+    // whose kind matches
+    lastEventKf(records, kinds) {
+        for (const rec of records) {
+            for (const ev of (rec.events || [])) {
+                if (kinds.includes(ev.kind)) return rec.keyframe;
+            }
+        }
+        return null;
+    }
+
+    render(data) {
+        const s = data.session;
+        if (!s || data.status !== 'recording') {
+            this.setMode('no session', 'stale');
+            return;
+        }
+        const kf = s.latest_keyframe;
+        const records = data.recent_events || [];
+
+        const mutKf = this.lastEventKf(records, ['mutation', 'forced_mutation']);
+        const injKf = this.lastEventKf(records, ['cache_injection']);
+        const swapKf = this.lastEventKf(records, ['seed_injection', 'template_switch']);
+
+        // No new records since last poll -> generation stopped or ingest stalled
+        const stale = (this.lastKf !== null && kf === this.lastKf);
+        this.lastKf = kf;
+
+        if (stale) {
+            this.setMode('no new records', 'stale');
+        } else if (mutKf !== null) {
+            const phase = kf - mutKf;
+            if (phase < DreamDebugChip.BEND_FRAMES) {
+                this.setMode(`bending ${phase + 1}/${DreamDebugChip.BEND_FRAMES}`, 'bending');
+            } else {
+                this.setMode(`settling +${phase - DreamDebugChip.BEND_FRAMES}`, 'settling');
+            }
+        } else {
+            this.setMode('drifting', 'settling');
+        }
+
+        if (this.templateEl) this.templateEl.textContent = s.latest_template || '—';
+        if (this.kfEl) {
+            this.kfEl.textContent = s.lifetime_keyframe
+                ? `kf ${kf} · lt ${s.lifetime_keyframe}`
+                : `kf ${kf}`;
+        }
+        if (this.eventsEl) {
+            const ago = (k) => (k === null ? '—' : `-${kf - k}`);
+            this.eventsEl.textContent =
+                `mut ${ago(mutKf)} · inj ${ago(injKf)} · swap ${ago(swapKf)}`;
+        }
+    }
+
+    setMode(text, cls) {
+        if (!this.modeEl) return;
+        this.modeEl.textContent = text;
+        this.modeEl.className = `chip-mode ${cls}`;
+    }
+}
+
 // ==================== Init ====================
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(location.search);
@@ -725,4 +823,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.dreamViewer = new DreamViewer();
     window.dreamViewer.connect();
+
+    if (urlParams.get('debug') === '1') {
+        window.dreamDebugChip = new DreamDebugChip();
+        window.dreamDebugChip.start();
+    }
 });

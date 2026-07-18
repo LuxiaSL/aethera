@@ -276,6 +276,37 @@ async def dreams_chronicle_current(request: Request):
         return JSONResponse({"status": "error"}, status_code=500)
 
 
+@router.get("/api/dreams/chronicle/export")
+async def dreams_chronicle_export(
+    request: Request,
+    session_id: str | None = None,
+    since_id: int = 0,
+    limit: int = 500,
+    include_embeddings: bool = True,
+):
+    """
+    Paginated raw chronicle records for offline analysis (Phase 2 threshold
+    tuning). Cursor pagination: pass the returned next_since_id back as
+    since_id until count == 0. limit is capped at 2000.
+
+    NOTE: Monitoring endpoint - does NOT trigger GPU start.
+    """
+    check_rate_limit(request)
+
+    try:
+        from aethera.dreams.chronicle import get_chronicle_store
+        result = await get_chronicle_store().export_records(
+            session_id=session_id,
+            since_id=since_id,
+            limit=limit,
+            include_embeddings=include_embeddings,
+        )
+        return JSONResponse(result)
+    except Exception:
+        logger.warning("Chronicle export failed", exc_info=True)
+        return JSONResponse({"status": "error"}, status_code=500)
+
+
 @router.get("/api/dreams/embed")
 async def dreams_embed_code(request: Request):
     """

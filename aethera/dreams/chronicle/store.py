@@ -230,6 +230,27 @@ class ChronicleStore:
                 )
             ).one()
 
+            recent_events = [
+                {
+                    "keyframe": row.keyframe,
+                    "lifetime_keyframe": row.lifetime_keyframe,
+                    "ts": str(row.ts),
+                    "template_id": row.template_id,
+                    "events": json.loads(row.events_json or "[]"),
+                }
+                for row in session.exec(
+                    select(ChronicleKeyframe)
+                    .where(
+                        ChronicleKeyframe.session_id == sid,
+                        ChronicleKeyframe.has_events == True,  # noqa: E712
+                    )
+                    .order_by(ChronicleKeyframe.keyframe.desc())  # type: ignore[attr-defined]
+                    # window must reach back past one template_swap_interval
+                    # (mutations dominate event rows; ~62/1000 kf + swaps/injections)
+                    .limit(80)
+                )
+            ]
+
             return {
                 "status": "recording",
                 "session": {
@@ -245,11 +266,65 @@ class ChronicleStore:
                     "latest_components": json.loads(latest.components_json or "{}"),
                     "latest_thumb": latest.thumb_path,
                 },
+                "recent_events": recent_events,
                 "store": self.get_stats(),
             }
 
     async def current_snapshot(self) -> dict[str, Any]:
         return await asyncio.to_thread(self.current_snapshot_sync)
+
+    def export_records_sync(
+        self,
+        session_id: Optional[str] = None,
+        since_id: int = 0,
+        limit: int = 500,
+        include_embeddings: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Paginated raw-record export for offline analysis (Phase 2 threshold
+        tuning). Cursor on the autoincrement id: pass next_since_id back as
+        since_id until count == 0.
+        """
+        limit = max(1, min(int(limit), 2000))
+        with Session(get_chronicle_engine()) as session:
+            query = select(ChronicleKeyframe).where(ChronicleKeyframe.id > since_id)  # type: ignore[operator]
+            if session_id:
+                query = query.where(ChronicleKeyframe.session_id == session_id)
+            rows = session.exec(
+                query.order_by(ChronicleKeyframe.id).limit(limit)  # type: ignore[arg-type]
+            ).all()
+
+            records = []
+            for r in rows:
+                rec: dict[str, Any] = {
+                    "id": r.id,
+                    "session_id": r.session_id,
+                    "keyframe": r.keyframe,
+                    "lifetime_keyframe": r.lifetime_keyframe,
+                    "sequence": r.sequence,
+                    "ts": str(r.ts),
+                    "received_at": str(r.received_at),
+                    "prompt": r.prompt,
+                    "template_id": r.template_id,
+                    "components": json.loads(r.components_json or "{}"),
+                    "events": json.loads(r.events_json or "[]"),
+                    "thumb_path": r.thumb_path,
+                }
+                if include_embeddings:
+                    rec["phash"] = r.phash
+                    rec["color_hist"] = (
+                        json.loads(r.color_hist_json) if r.color_hist_json else None
+                    )
+                records.append(rec)
+
+            return {
+                "records": records,
+                "count": len(records),
+                "next_since_id": rows[-1].id if rows else since_id,
+            }
+
+    async def export_records(self, **kwargs) -> dict[str, Any]:
+        return await asyncio.to_thread(self.export_records_sync, **kwargs)
 
     def get_stats(self) -> dict[str, int]:
         return {

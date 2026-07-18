@@ -557,3 +557,58 @@ body:has(.dreams-page) footer {
 }
 
 
+
+/* ==================== Debug chip (?debug=1) ==================== */
+/* Generation-side state readout from the chronicle. Hidden unless opted in. */
+
+.dream-debug-chip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-top: 0.75rem;
+    padding: 0.35rem 1rem;
+    font-family: monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    opacity: 0.85;
+}
+
+.dream-debug-chip.hidden {
+    display: none;
+}
+
+.dream-debug-chip .chip-mode {
+    text-transform: lowercase;
+    padding: 0.1rem 0.5rem;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 3px;
+    color: #fff;
+    transition: border-color 0.4s, color 0.4s;
+}
+
+.dream-debug-chip .chip-mode.bending {
+    border-color: rgba(255,160,80,0.7);
+    color: rgb(255,190,130);
+}
+
+.dream-debug-chip .chip-mode.settling {
+    border-color: rgba(120,200,255,0.5);
+    color: rgb(160,215,255);
+}
+
+.dream-debug-chip .chip-mode.stale {
+    border-color: rgba(255,255,255,0.15);
+    color: #888;
+}
+
+.dream-debug-chip .chip-item {
+    color: #ccc;
+}
+
+.dream-debug-chip .chip-note {
+    opacity: 0.5;
+    font-size: 0.65rem;
+}

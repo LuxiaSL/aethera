@@ -99,6 +99,15 @@
             <span class="dream-stat-value">offline</span>
         </span>
     </div>
+
+    <!-- Debug chip (?debug=1) - generation-side state from the chronicle -->
+    <div id="dream-debug-chip" class="dream-debug-chip hidden">
+        <span class="chip-mode" id="chip-mode">…</span>
+        <span class="chip-item" id="chip-template">—</span>
+        <span class="chip-item" id="chip-kf">—</span>
+        <span class="chip-item" id="chip-events">—</span>
+        <span class="chip-note">gen-side · runs ~1 min ahead of display</span>
+    </div>
 </div>
 {% endblock %}
 
