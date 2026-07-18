@@ -74,6 +74,11 @@ class ChronicleStore:
                 ChronicleKeyframe(
                     session_id=str(rec.get("session_id", "unknown")),
                     keyframe=int(rec.get("keyframe", -1)),
+                    lifetime_keyframe=(
+                        int(rec["lifetime_keyframe"])
+                        if rec.get("lifetime_keyframe") is not None
+                        else None
+                    ),
                     sequence=int(rec.get("sequence", -1)),
                     ts=datetime.fromtimestamp(float(rec.get("ts", 0)), tz=timezone.utc),
                     received_at=now,
@@ -234,6 +239,7 @@ class ChronicleStore:
                     "keyframes_recorded": int(count),
                     "keyframes_with_events": int(event_count),
                     "latest_keyframe": latest.keyframe,
+                    "lifetime_keyframe": latest.lifetime_keyframe,
                     "latest_template": latest.template_id,
                     "latest_prompt": latest.prompt,
                     "latest_components": json.loads(latest.components_json or "{}"),

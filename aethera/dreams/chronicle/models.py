@@ -38,6 +38,7 @@ class ChronicleKeyframe(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     session_id: str = Field(index=True)
     keyframe: int
+    lifetime_keyframe: Optional[int] = Field(default=None, index=True)  # SPEC-resume.md
     sequence: int = -1
     ts: datetime = Field(index=True)  # GPU clock, UTC
     received_at: datetime = Field(index=True)  # VPS clock, UTC
@@ -80,5 +81,27 @@ def init_chronicle_db() -> None:
     # Only create THIS module's tables - metadata is shared across sqlmodel
     # models in the process, and blog/IRC tables must not be created here.
     ChronicleKeyframe.__table__.create(engine, checkfirst=True)
+    _migrate(engine)
     CHRONICLE_THUMBS_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("Chronicle database initialized")
+
+
+def _migrate(engine) -> None:
+    """
+    Additive column migrations for existing databases. checkfirst table
+    creation doesn't add columns, so new nullable columns are ALTERed in,
+    each guarded (already-present -> no-op).
+    """
+    from sqlalchemy import text
+
+    migrations = [
+        "ALTER TABLE chronicle_keyframe ADD COLUMN lifetime_keyframe INTEGER",
+    ]
+    with engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+                logger.info(f"Chronicle migration applied: {stmt}")
+            except Exception:
+                pass  # column already exists
