@@ -96,6 +96,11 @@ class ChronicleStore:
                         else None
                     ),
                     phash=rec.get("phash"),
+                    latent_pool_json=(
+                        json.dumps(rec["latent_pool"], separators=(",", ":"))
+                        if rec.get("latent_pool")
+                        else None
+                    ),
                     thumb_path=thumb_path,
                 )
             )
@@ -314,6 +319,9 @@ class ChronicleStore:
                     rec["phash"] = r.phash
                     rec["color_hist"] = (
                         json.loads(r.color_hist_json) if r.color_hist_json else None
+                    )
+                    rec["latent_pool"] = (
+                        json.loads(r.latent_pool_json) if r.latent_pool_json else None
                     )
                 records.append(rec)
 

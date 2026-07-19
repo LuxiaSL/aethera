@@ -50,6 +50,7 @@ class ChronicleKeyframe(SQLModel, table=True):
     has_events: bool = Field(default=False, index=True)
     color_hist_json: Optional[str] = None  # 96 floats, compact JSON
     phash: Optional[str] = None
+    latent_pool_json: Optional[str] = None  # 128 floats, pooled VAE latent
     thumb_path: Optional[str] = None  # relative to CHRONICLE_THUMBS_DIR
     era_id: Optional[int] = Field(default=None, index=True)  # filled in Phase 2
 
@@ -96,6 +97,7 @@ def _migrate(engine) -> None:
 
     migrations = [
         "ALTER TABLE chronicle_keyframe ADD COLUMN lifetime_keyframe INTEGER",
+        "ALTER TABLE chronicle_keyframe ADD COLUMN latent_pool_json VARCHAR",
     ]
     with engine.connect() as conn:
         for stmt in migrations:
