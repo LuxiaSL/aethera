@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>syrinx</title>
+    <style>
+      /* dev page only — on the site, base.html owns this */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #05070a;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Keep this skeleton in step with aethera/templates/syrinx/viewer.html.
+      It lives in the HTML rather than being built by main.ts so the wake
+      overlay paints before ~150kB of bundle has parsed.
+    -->
+    <div id="syrinx-root">
+      <div id="stage"></div>
+      <canvas id="slash"></canvas>
+      <div id="hud"></div>
+      <div id="murmur"></div>
+      <div id="hint">
+        click: feed · drag: prune · drag node→node: link<br />
+        right-drag: orbit · scroll: zoom · k: rhythm · [ ]: coupling<br />
+        m: mute · r r: let go
+      </div>
+      <div id="overlay"><div class="wake-text">something stirs — click to wake it</div></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

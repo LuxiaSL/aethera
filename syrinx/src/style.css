@@ -1,0 +1,115 @@
+/**
+ * style.css — the creature's own chrome.
+ *
+ * Imported by main.ts so vite emits it as a single `syrinx.css` for both the
+ * standalone dev page and the æthera template. Everything is scoped under
+ * #syrinx-root or an id the creature owns, because on the site this loads
+ * alongside tailwind and branding.css.
+ */
+
+:root {
+  color-scheme: dark;
+}
+
+#syrinx-root {
+  position: fixed;
+  inset: 0;
+  background: #05070a;
+  font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  cursor: crosshair;
+}
+
+#stage canvas {
+  display: block;
+}
+
+#slash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#hud {
+  position: fixed;
+  top: 14px;
+  left: 18px;
+  color: rgba(170, 190, 210, 0.55);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  user-select: none;
+  pointer-events: none;
+}
+
+#hint {
+  position: fixed;
+  bottom: 14px;
+  right: 18px;
+  color: rgba(170, 190, 210, 0.3);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-align: right;
+  user-select: none;
+  pointer-events: none;
+}
+
+#murmur {
+  position: fixed;
+  bottom: 14px;
+  left: 18px;
+  color: rgba(127, 219, 216, 0.75);
+  font-size: 12px;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 7, 10, 0.92);
+  cursor: pointer;
+  transition: opacity 1.4s ease;
+  z-index: 10;
+}
+
+#overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#syrinx-root .wake-text {
+  color: rgba(170, 190, 210, 0.7);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+
+/**
+ * The way back out. Deliberately faint — it is the one piece of site chrome
+ * the page keeps, and it should read as quieter than the hint text.
+ */
+#syrinx-home {
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  z-index: 11;
+  color: rgba(170, 190, 210, 0.28);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  user-select: none;
+  transition: color 0.6s ease;
+}
+
+#syrinx-home:hover {
+  color: rgba(170, 190, 210, 0.7);
+}

@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from aethera.models.base import init_db, get_session
-from aethera.api import posts, comments, seo, dreams, apeiron, irc, irc_admin
+from aethera.api import posts, comments, seo, dreams, apeiron, syrinx, irc, irc_admin
 from aethera.irc.database import init_irc_db
 from aethera.utils.security import SecurityHeadersMiddleware
 from aethera.utils.templates import templates
@@ -62,6 +62,7 @@ app.include_router(comments.router)
 app.include_router(seo.router)
 app.include_router(dreams.router)
 app.include_router(apeiron.router)
+app.include_router(syrinx.router)
 app.include_router(irc.router)
 app.include_router(irc_admin.router)
 

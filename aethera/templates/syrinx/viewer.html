@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}syrinx | æthera{% endblock %}
+
+{% block meta %}
+<meta name="description" content="syrinx — a small living instrument. A spring-graph organism whose every edge is a string tuned by its own length; its own life plays it.">
+<meta property="og:title" content="syrinx | æthera">
+<meta property="og:description" content="A small living instrument. Every edge is a string tuned by its own length onto a just-intonation lattice, so anything the body grows is consonant by construction.">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="æthera">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="syrinx | æthera">
+<meta name="twitter:description" content="A small living instrument. Its own life plays it.">
+{% endblock %}
+
+{% block schema %}{% endblock %}
+
+{% block extra_head %}
+<link href="/static/syrinx/syrinx.css" rel="stylesheet">
+<style>
+    /* syrinx owns the whole viewport: silence the site chrome on this page */
+    .video-bg, body > header, body > footer { display: none !important; }
+    main { max-width: none !important; padding: 0 !important; }
+    html, body { overflow: hidden; margin: 0; padding: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!--
+  Keep this skeleton in step with syrinx/index.html (the dev page).
+  It lives in the template rather than being built by main.ts so the wake
+  overlay paints before ~150kB of bundle has parsed.
+-->
+<div id="syrinx-root">
+    <div id="stage"></div>
+    <canvas id="slash"></canvas>
+    <div id="hud"></div>
+    <div id="murmur"></div>
+    <div id="hint">
+        click: feed · drag: prune · drag node→node: link<br>
+        right-drag: orbit · scroll: zoom · k: rhythm · [ ]: coupling<br>
+        m: mute · r r: let go
+    </div>
+    <div id="overlay"><div class="wake-text">something stirs — click to wake it</div></div>
+    <!--
+      hx-boost="false" is load-bearing, not incidental. base.html boosts the
+      whole body, and an htmx swap would leave this page's WebGL context,
+      AudioContext and rAF loop running underneath the next page — the creature
+      would follow you around the site, still playing. A real navigation fires
+      beforeunload, which main.ts already uses to save and tear down.
+    -->
+    <a id="syrinx-home" href="/" hx-boost="false">æthera</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/syrinx/syrinx.js"></script>
+{% endblock %}
