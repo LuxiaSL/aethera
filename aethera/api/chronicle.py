@@ -161,10 +161,18 @@ def build_era(era_id: int) -> Optional[dict[str, Any]]:
         scenes = session.exec(
             select(ChronicleScene).where(ChronicleScene.era_id == era.id).order_by(ChronicleScene.idx)
         ).all()
+        # ts bounds as well as ids: an era's frames are exactly its own
+        # even if row ids were ever handed out twice
         rows = session.execute(text(
             "SELECT ts, thumb_path, prompt FROM chronicle_keyframe"
-            " WHERE id BETWEEN :a AND :b AND thumb_path IS NOT NULL ORDER BY id"
-        ).bindparams(a=era.first_row_id, b=era.last_row_id)).all()
+            " WHERE id BETWEEN :a AND :b AND ts BETWEEN :t0 AND :t1"
+            " AND thumb_path IS NOT NULL ORDER BY id"
+        ).bindparams(a=era.first_row_id, b=era.last_row_id,
+                     t0=era.start_ts - timedelta(seconds=1),
+                     t1=era.end_ts + timedelta(seconds=1))).all()
+        first_left = session.execute(text(
+            "SELECT MIN(id) FROM chronicle_keyframe WHERE id BETWEEN :a AND :b"
+        ).bindparams(a=era.first_row_id, b=era.last_row_id)).scalar()
     prompts: list[str] = []
     index: dict[str, int] = {}
     moments = []
@@ -180,9 +188,20 @@ def build_era(era_id: int) -> Optional[dict[str, Any]]:
         "words": json.loads(era.words_json or "[]"),
         "recall_list": json.loads(era.recalls_json or "[]"),
         "moments": moments, "prompts": prompts,
-        "raw_note_days": RAW_RETENTION_NOTE_DAYS,
+        "raw_note_days": _retention_days(),
+        # some raw rows remain but the era's opening ones have aged out
+        "partly_faded": first_left is not None and first_left != era.first_row_id,
     })
     return detail
+
+
+def _retention_days() -> float:
+    """The raw window in force now (the disk guard can shorten it)."""
+    try:
+        from aethera.dreams.chronicle.store import get_chronicle_store
+        return get_chronicle_store().retention_days
+    except Exception:
+        return RAW_RETENTION_NOTE_DAYS
 
 
 @router.get("/dreams/chronicle", response_class=HTMLResponse)
