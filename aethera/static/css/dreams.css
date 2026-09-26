@@ -628,3 +628,21 @@ body:has(.dreams-page) footer {
     transition: color 0.2s;
 }
 .dreams-chronicle-link a:hover { color: #fff; }
+
+/* ============================================
+   Stage mode (?stage=1): DreamStage draws the stage and the dream together
+   on #dream-stage; the page's own canvases keep running underneath it.
+   ============================================ */
+#dream-stage {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+.stage-mode-root #dreams-video-canvas { visibility: hidden; }
+.stage-mode #dream-canvas { opacity: 0; }
+.stage-mode .dream-container { max-width: min(920px, 58vw); }
+@media (max-width: 768px), (orientation: portrait) {
+    .stage-mode .dream-container { max-width: 100%; }
+}

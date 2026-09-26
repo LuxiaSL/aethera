@@ -58,7 +58,7 @@
 {% endblock %}
 
 {% block extra_head %}
-<link href="/static/css/dreams.css" rel="stylesheet">
+<link href="/static/css/dreams.css?v=2" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
@@ -135,8 +135,12 @@
 <!-- jMuxer for Safari MSE fallback (H.264 NAL → fMP4) -->
 <script src="https://cdn.jsdelivr.net/npm/jmuxer@2.0.5/dist/jmuxer.min.js" defer></script>
 <script src="/static/js/dreams.js"></script>
+<script src="/static/js/dream-stage.js?v=1"></script>
 <script>
-// Frame-blended background video for smooth slow-motion
+// Frame-blended background video for smooth slow-motion. With ?stage=1 the
+// blended stage and the live dream are composited by DreamStage instead: the
+// dream's edges fold outward into the stage (falls back to this layout
+// without WebGL2).
 (function() {
     const video = document.getElementById('dreams-video-src');
     const canvas = document.getElementById('dreams-video-canvas');
@@ -168,23 +172,73 @@
         accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
     }
 
-    function render() {
+    // ---- the stage (opt-in while it's being tried on the live stream)
+    let stage = null;
+    const wantStage = new URLSearchParams(location.search).get('stage') === '1'
+        && new URLSearchParams(location.search).get('embed') !== '1'
+        && !document.body.classList.contains('embed-mode');
+    function startStage() {
+        const page = document.querySelector('.dreams-page');
+        const box = document.querySelector('.dream-container');
+        const dream = document.getElementById('dream-canvas');
+        if (!window.DreamStage || !page || !box || !dream) return null;
+        const out = document.createElement('canvas');
+        out.id = 'dream-stage';
+        out.setAttribute('aria-hidden', 'true');
+        canvas.after(out);
+        const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let ds = null;
+        try {
+            ds = DreamStage.create(out, {
+                stageSrc: accum, dreamSrc: dream, reducedMotion: reduced, liveLayout: true,
+                layout: () => { const r = box.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; },
+            });
+        } catch (e) {
+            console.warn('DreamStage failed, keeping the plain layout', e);
+        }
+        if (!ds) { out.remove(); return null; }
+        page.classList.add('stage-mode');
+        document.documentElement.classList.add('stage-mode-root');
+        const link = document.querySelector('.dreams-chronicle-link a');
+        if (link) link.textContent = 'chronicle →';
+        ds.resize();
+        window.addEventListener('resize', () => ds.resize());
+        return ds;
+    }
+
+    function render(now) {
         if (video.readyState >= 2) {
-            if (!accum) initAccum();
+            if (!accum) {
+                initAccum();
+                if (wantStage) stage = startStage();
+            }
 
             // Blend current video frame into accumulator
             accumCtx.globalAlpha = blendRate;
             accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
             accumCtx.globalAlpha = 1.0;
 
-            // Draw accumulator to display canvas
-            ctx.drawImage(accum, 0, 0, canvas.width, canvas.height);
+            if (stage) {
+                try {
+                    stage.frame(now || performance.now());
+                } catch (e) {
+                    // never leave the page blank: drop back to the plain layout
+                    console.warn('DreamStage frame failed, falling back', e);
+                    stage = null;
+                    document.querySelector('.dreams-page')?.classList.remove('stage-mode');
+                    document.documentElement.classList.remove('stage-mode-root');
+                    document.getElementById('dream-stage')?.remove();
+                }
+            } else {
+                // Draw accumulator to display canvas
+                ctx.drawImage(accum, 0, 0, canvas.width, canvas.height);
+            }
         }
         requestAnimationFrame(render);
     }
 
-    video.addEventListener('loadeddata', render);
-    if (video.readyState >= 2) render();
+    video.addEventListener('loadeddata', () => requestAnimationFrame(render), { once: true });
+    if (video.readyState >= 2) requestAnimationFrame(render);
 })();
 
 // Status bar soft fade background (black)
