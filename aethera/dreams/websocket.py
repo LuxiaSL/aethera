@@ -410,10 +410,10 @@ class DreamWebSocketHub:
             self._last_frame_time = time.time()
 
         elif msg_type == MSG_CHRONICLE:
-            # Fire-and-forget: ingest never raises and runs its DB/disk
-            # work in a thread, so the stream hub is never blocked.
+            # Fire-and-forget: submit() only queues; the store's own task
+            # does the DB/disk work, so frames never wait on the chronicle.
             from .chronicle import get_chronicle_store
-            await get_chronicle_store().ingest(payload)
+            get_chronicle_store().submit(payload)
 
         elif msg_type == MSG_STATUS:
             try:

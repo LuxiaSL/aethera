@@ -9,9 +9,10 @@ recorded sessions.
 
 import logging
 import os
+import struct
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlmodel import Field, Session, SQLModel, create_engine
 
@@ -48,11 +49,34 @@ class ChronicleKeyframe(SQLModel, table=True):
     components_json: str = "{}"  # {category: word}
     events_json: str = "[]"  # [{kind, detail}], "[]" if none
     has_events: bool = Field(default=False, index=True)
-    color_hist_json: Optional[str] = None  # 96 floats, compact JSON
+    # Embeddings are stored as little-endian float16 blobs (see pack_f16):
+    # as JSON text they were ~1.4 KB of every ~1.9 KB row.
+    color_hist_f16: Optional[bytes] = None  # 96 x f16 = 192 B
+    latent_pool_f16: Optional[bytes] = None  # 128 x f16 = 256 B, pooled VAE latent
+    # Legacy JSON columns: only rows written before the f16 columns existed
+    # use them, and the store's compaction step converts those rows.
+    color_hist_json: Optional[str] = None
+    latent_pool_json: Optional[str] = None
     phash: Optional[str] = None
-    latent_pool_json: Optional[str] = None  # 128 floats, pooled VAE latent
     thumb_path: Optional[str] = None  # relative to CHRONICLE_THUMBS_DIR
     era_id: Optional[int] = Field(default=None, index=True)  # filled in Phase 2
+
+
+def pack_f16(values: Optional[Sequence[float]]) -> Optional[bytes]:
+    """Pack a float vector as little-endian float16. None/empty/bad -> None."""
+    if not values:
+        return None
+    try:
+        return struct.pack(f"<{len(values)}e", *(float(v) for v in values))
+    except (struct.error, TypeError, ValueError, OverflowError):
+        return None
+
+
+def unpack_f16(blob: Optional[bytes]) -> Optional[list[float]]:
+    """Inverse of pack_f16, rounded to 4 dp (the precision the GPU sends)."""
+    if not blob or len(blob) % 2:
+        return None
+    return [round(v, 4) for v in struct.unpack(f"<{len(blob) // 2}e", blob)]
 
 
 def get_chronicle_engine():
@@ -62,8 +86,11 @@ def get_chronicle_engine():
         # Ensure data/ exists before sqlite tries to create the file
         db_path = CHRONICLE_DATABASE_URL.replace("sqlite:///", "")
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # timeout: ingest runs off the stream hub's loop, so waiting out a
+        # long write (retention sweep, one-time VACUUM) beats failing a batch
         _ENGINE = create_engine(
-            CHRONICLE_DATABASE_URL, connect_args={"check_same_thread": False}
+            CHRONICLE_DATABASE_URL,
+            connect_args={"check_same_thread": False, "timeout": 30},
         )
         logger.info(f"Chronicle database engine created: {CHRONICLE_DATABASE_URL}")
     return _ENGINE
@@ -98,6 +125,8 @@ def _migrate(engine) -> None:
     migrations = [
         "ALTER TABLE chronicle_keyframe ADD COLUMN lifetime_keyframe INTEGER",
         "ALTER TABLE chronicle_keyframe ADD COLUMN latent_pool_json VARCHAR",
+        "ALTER TABLE chronicle_keyframe ADD COLUMN color_hist_f16 BLOB",
+        "ALTER TABLE chronicle_keyframe ADD COLUMN latent_pool_f16 BLOB",
     ]
     with engine.connect() as conn:
         for stmt in migrations:
