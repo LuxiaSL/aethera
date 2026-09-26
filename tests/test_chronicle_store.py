@@ -224,7 +224,7 @@ def test_sweep_uses_the_shortened_window(chronicle_db, monkeypatch):
     from datetime import timedelta, timezone
     now = datetime.now(timezone.utc)
     with Session(chronicle_db) as s:
-        for age_days in (1, 5, 10):
+        for age_days in (10, 5, 1):  # oldest first, as ids grow in production
             t = now - timedelta(days=age_days)
             s.add(ChronicleKeyframe(session_id="x", keyframe=age_days, ts=t, received_at=t))
         s.commit()

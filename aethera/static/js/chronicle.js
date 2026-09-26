@@ -402,9 +402,11 @@
             return `<li><span class="t">${hhmm(t)}</span><span class="slot">recalled</span><span>${text}</span></li>`;
         }).join('');
         const moments = (d.moments || []);
+        const keptDays = +(d.raw_note_days || 14).toFixed(1);
         const frames = moments.length
-            ? `<div class="chr-moments">${moments.map(([t, url, p]) => `<img src="${esc(url)}" alt="" loading="lazy" title="${esc(hhmmss(t) + ' — ' + (d.prompts[p] || ''))}">`).join('')}</div>`
-            : `<p class="chr-faded">the raw frames of this era have faded (they are kept ${d.raw_note_days || 14} days). what remains: its strata, and one image per scene.</p>`;
+            ? (d.partly_faded ? `<p class="chr-faded">its first frames have already faded (raw frames are kept ${keptDays} days); these are the ones left.</p>` : '') +
+              `<div class="chr-moments">${moments.map(([t, url, p]) => `<img src="${esc(url)}" alt="" loading="lazy" title="${esc(hhmmss(t) + ' — ' + (d.prompts[p] || ''))}">`).join('')}</div>`
+            : `<p class="chr-faded">the raw frames of this era have faded (they are kept ${keptDays} days). what remains: its strata, and one image per scene.</p>`;
         return (
             `<div class="chr-d-when">${esc(dayName(d.t0))} · ${hhmm(d.t0)} – ${d.open ? 'now' : hhmm(d.t1)}</div>` +
             `<h2 class="chr-d-title">${esc(d.title)}</h2>` +

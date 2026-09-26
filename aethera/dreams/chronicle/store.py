@@ -315,30 +315,37 @@ class ChronicleStore:
         days = self._retention_days_for_disk()
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-        # Phase 2 note: once eras exist, representative thumbnails must be
-        # excluded from deletion here. In Phase 1 nothing is permanent yet.
+        # Permanent memory (keep/, strata/, era and scene rows) lives outside
+        # thumbs/ and chronicle_keyframe, so nothing here can reach it.
         deleted_thumbs = 0
         with Session(get_chronicle_engine()) as session:
+            # The newest row always survives. Row ids are plain rowids, which
+            # SQLite reuses from 1 once the table empties (a dream off for
+            # longer than the window); the segmenter/strata cursors and
+            # era.first_row_id..last_row_id all assume ids only grow.
+            newest = session.execute(text("SELECT MAX(id) FROM chronicle_keyframe")).scalar()
+            if newest is None:
+                return 0, 0
+            aged = (ChronicleKeyframe.received_at < cutoff) & (ChronicleKeyframe.id != newest)
             old = session.exec(
                 select(ChronicleKeyframe.thumb_path).where(
-                    ChronicleKeyframe.received_at < cutoff,
-                    ChronicleKeyframe.thumb_path.is_not(None),  # type: ignore[union-attr]
+                    aged, ChronicleKeyframe.thumb_path.is_not(None),  # type: ignore[union-attr]
                 )
             ).all()
-            for rel in old:
-                try:
-                    path = models.CHRONICLE_THUMBS_DIR / rel
-                    if path.is_file():
-                        path.unlink()
-                        deleted_thumbs += 1
-                except Exception:
-                    pass
-
-            result = session.exec(
-                delete(ChronicleKeyframe).where(ChronicleKeyframe.received_at < cutoff)  # type: ignore[arg-type]
-            )
+            # Rows go first: a segmenter pass that still sees a row must still
+            # find its thumbnail, or it re-derives the era with blank scenes.
+            result = session.exec(delete(ChronicleKeyframe).where(aged))  # type: ignore[arg-type]
             session.commit()
             deleted_rows = result.rowcount or 0
+
+        for rel in old:
+            try:
+                path = models.CHRONICLE_THUMBS_DIR / rel
+                if path.is_file():
+                    path.unlink()
+                    deleted_thumbs += 1
+            except Exception:
+                pass
 
         # Remove any now-empty day directories
         try:

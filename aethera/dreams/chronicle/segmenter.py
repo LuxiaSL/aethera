@@ -167,6 +167,12 @@ def _split_eras(rows: Iterator[Row], first_opened_by: str = "session_start") -> 
         opened = None
         if cur is None:
             opened = first_opened_by
+            if opened == "continued":
+                # after an aged-out open era: the first new row's own event, if any, wins
+                for kind in ("template_switch", "session_start"):
+                    if kind in row.kinds:
+                        opened = kind
+                        break
         else:
             prev = cur.rows[-1]
             kinds = row.kinds
@@ -308,19 +314,29 @@ class Segmenter:
                 select(ChronicleEra).where(ChronicleEra.closed == False)  # noqa: E712
                 .order_by(ChronicleEra.first_row_id)
             ).first()
+            aged_reason: Optional[str] = None
             if open_era is not None and session.execute(
                 text("SELECT 1 FROM chronicle_keyframe WHERE id = :i").bindparams(i=open_era.first_row_id)
             ).first() is None:
-                # its rows aged out while the dream rested: nothing left to re-derive
+                # its first rows aged out while it was still open: freeze it as
+                # last derived, and let what follows carry on as the same era
                 open_era.closed = True
                 session.add(open_era)
+                aged_reason = "continued"
                 open_era = None
+            newest = session.execute(text("SELECT MAX(id) FROM chronicle_keyframe")).scalar() or 0
+            if newest <= cursor and aged_reason is None:
+                # nothing new since the last pass (the dream is resting):
+                # don't re-derive the open era or rewrite its keep images
+                self.passes += 1
+                return {"closed": 0, "open": 0, "cursor": cursor}
             start_id = open_era.first_row_id if open_era else cursor + 1
 
             closed = updated = 0
             last_id = cursor
             pending: Optional[EraBuild] = None
-            first_reason = open_era.opened_by if open_era and open_era.opened_by else "session_start"
+            first_reason = (open_era.opened_by if open_era and open_era.opened_by
+                            else aged_reason or "session_start")
             for build in _split_eras(_iter_rows(session, start_id), first_reason):
                 if pending is not None:
                     self._write_era(session, pending, closed=True, reuse=open_era)
@@ -407,7 +423,15 @@ class Segmenter:
             return rel, palette
         except Exception:
             logger.debug(f"Chronicle keep failed for {src}", exc_info=True)
-            return None, []
+        # The thumbnail is gone (aged out mid-pass) but this scene already has
+        # a kept image: keep that rather than blanking a permanent record.
+        try:
+            if dst.is_file():
+                with Image.open(dst) as im:
+                    return rel, palette_of(im.convert("RGB"))
+        except Exception:
+            logger.debug(f"Chronicle keep fallback failed for {dst}", exc_info=True)
+        return None, []
 
     def _drop_stale_keeps(self, era: ChronicleEra, keep: set) -> None:
         folder = models.keep_dir() / self._keep_folder(era)
