@@ -643,7 +643,8 @@ body:has(.chronicle-page) footer { filter: invert(1); }
     .chr-era { gap: 8px; }
     .chr-era-title { font-size: 0.74rem; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .chr-era-meta { font-size: 0.6rem; }
-    .chr-era-meta .x, .chr-era-meta .x + i, .chr-era-meta i:has(+ .x) { display: none; }
+    .chr-era-meta { white-space: normal; }
+    .chr-era-meta .x, .chr-era-meta i:has(+ .x) { display: none; }
     .chr-era.line .chr-era-title { font-size: 0.66rem; -webkit-line-clamp: 1; }
     .chr-reel { height: 22px; }
     .chr-loupe { width: min(300px, 62vw); }
