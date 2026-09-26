@@ -630,7 +630,7 @@ body:has(.dreams-page) footer {
 .dreams-chronicle-link a:hover { color: #fff; }
 
 /* ============================================
-   Stage mode (?stage=1): DreamStage draws the stage and the dream together
+   Stage mode (default; ?stage=0 opts out): DreamStage draws the stage and the dream together
    on #dream-stage; the page's own canvases keep running underneath it.
    ============================================ */
 #dream-stage {

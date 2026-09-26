@@ -118,7 +118,7 @@
         </span>
     </div>
 
-    <p class="dreams-chronicle-link"><a href="/dreams/chronicle" hx-boost="false">what it remembers →</a></p>
+    <p class="dreams-chronicle-link"><a href="/dreams/chronicle" hx-boost="false">chronicle →</a></p>
 
     <!-- Debug chip (?debug=1) - generation-side state from the chronicle -->
     <div id="dream-debug-chip" class="dream-debug-chip hidden">
@@ -137,10 +137,10 @@
 <script src="/static/js/dreams.js"></script>
 <script src="/static/js/dream-stage.js?v=1"></script>
 <script>
-// Frame-blended background video for smooth slow-motion. With ?stage=1 the
-// blended stage and the live dream are composited by DreamStage instead: the
-// dream's edges fold outward into the stage (falls back to this layout
-// without WebGL2).
+// Frame-blended background video for smooth slow-motion. By default the
+// blended stage and the live dream are composited by DreamStage: the dream's
+// edges fold outward into the stage. ?stage=0, embeds, and browsers without
+// WebGL2 get the plain layout.
 (function() {
     const video = document.getElementById('dreams-video-src');
     const canvas = document.getElementById('dreams-video-canvas');
@@ -172,9 +172,9 @@
         accumCtx.drawImage(video, 0, 0, accum.width, accum.height);
     }
 
-    // ---- the stage (opt-in while it's being tried on the live stream)
+    // ---- the stage
     let stage = null;
-    const wantStage = new URLSearchParams(location.search).get('stage') === '1'
+    const wantStage = new URLSearchParams(location.search).get('stage') !== '0'
         && new URLSearchParams(location.search).get('embed') !== '1'
         && !document.body.classList.contains('embed-mode');
     function startStage() {
@@ -199,8 +199,6 @@
         if (!ds) { out.remove(); return null; }
         page.classList.add('stage-mode');
         document.documentElement.classList.add('stage-mode-root');
-        const link = document.querySelector('.dreams-chronicle-link a');
-        if (link) link.textContent = 'chronicle →';
         ds.resize();
         window.addEventListener('resize', () => ds.resize());
         return ds;
