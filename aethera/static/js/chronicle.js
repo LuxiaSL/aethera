@@ -219,7 +219,8 @@
             }
         }
         if (state.blocks.length) {
-            depth.push(`<div class="chr-day" style="top:14px">${esc(dayName(state.blocks[0].tTop, narrow()))}</div>`);
+            // the newest day's name sits just above the core, clear of the first hour tick
+            depth.push(`<div class="chr-day" style="top:-4px">${esc(dayName(state.blocks[0].tTop, narrow()))}</div>`);
         }
         for (const [t, text] of state.notes) {
             depth.push(`<div class="chr-note" style="top:${timeToY(t)}px">${esc(text)}</div>`);
