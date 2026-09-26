@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block boost %}false{% endblock %}
+
 {% block title %}chronicle | æthera{% endblock %}
 
 {% block meta %}
@@ -48,7 +50,8 @@
 {% block content %}
 {# repeated here: boosted navigation swaps the body, not the head #}
 <link href="/static/css/chronicle.css?v=3" rel="stylesheet">
-<div class="chronicle-page" id="chronicle">
+{# hx-boost="false" is load-bearing: /dreams must load for real (see base.html) #}
+<div class="chronicle-page" id="chronicle" hx-boost="false">
     <header class="chr-head">
         <h1 class="chr-title">chronicle</h1>
         <p class="chr-sub">what the dream remembers</p>
@@ -64,7 +67,7 @@
 
         <div></div>
         <div class="chr-deposit" id="chr-deposit" hidden>
-            <a href="/dreams" id="chr-deposit-link" aria-label="the dream, live"><img id="chr-deposit-img" alt="the dream's latest frame"></a>
+            <a href="/dreams" hx-boost="false" id="chr-deposit-link" aria-label="the dream, live"><img id="chr-deposit-img" alt="the dream's latest frame"></a>
             <div class="chr-fall"></div>
         </div>
         <div class="chr-caption" id="chr-caption"></div>
@@ -93,7 +96,7 @@
     <div class="chr-foot">
         <p>the chronicle keeps each day as strata and one image per scene, for good; the raw frames fade after fourteen days.
             titles are mechanical: the template, then the words that held longest.</p>
-        <p><a href="/dreams">the dream, live</a></p>
+        <p><a href="/dreams" hx-boost="false">the dream, live</a></p>
     </div>
 
     <div class="chr-scrim" id="chr-scrim" hidden></div>
@@ -105,5 +108,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/chronicle.js?v=2"></script>
+<script src="/static/js/chronicle.js?v=3"></script>
 {% endblock %}

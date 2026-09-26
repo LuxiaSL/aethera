@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block boost %}false{% endblock %}
+
 {% block title %}Dreams | æthera{% endblock %}
 
 {% block description %}Live AI-generated morphing art. Watch ethereal digital dreams evolve in real-time.{% endblock %}
@@ -64,7 +66,7 @@
     <source src="/static/uploads/dreams_bg.mp4?v=2" type="video/mp4">
 </video>
 <canvas id="dreams-video-canvas" class="dreams-video-bg"></canvas>
-<div class="dreams-page">
+<div class="dreams-page" hx-boost="false">
     <!-- Page header -->
     <header class="dreams-header">
         <h1 class="dreams-title">dreams</h1>
@@ -116,7 +118,7 @@
         </span>
     </div>
 
-    <p class="dreams-chronicle-link"><a href="/dreams/chronicle">what it remembers →</a></p>
+    <p class="dreams-chronicle-link"><a href="/dreams/chronicle" hx-boost="false">what it remembers →</a></p>
 
     <!-- Debug chip (?debug=1) - generation-side state from the chronicle -->
     <div id="dream-debug-chip" class="dream-debug-chip hidden">
