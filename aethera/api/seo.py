@@ -95,6 +95,13 @@ def sitemap(request: Request, session: Session = Depends(get_session)):
     ET.SubElement(url, "changefreq").text = "daily"
     ET.SubElement(url, "priority").text = "1.0"
     
+    # The dream and its memory (both change continuously)
+    for path, freq, prio in (("dreams", "always", "0.7"), ("dreams/chronicle", "hourly", "0.7")):
+        url = ET.SubElement(urlset, "url")
+        ET.SubElement(url, "loc").text = f"{request.base_url}{path}"
+        ET.SubElement(url, "changefreq").text = freq
+        ET.SubElement(url, "priority").text = prio
+
     # Add posts
     for post in posts:
         url = ET.SubElement(urlset, "url")
@@ -359,6 +366,10 @@ def llms_txt(request: Request, session: Session = Depends(get_session)):
         "/urls.txt             Plain list of all URLs",
         "/robots.txt           Crawler directives",
         "/llms.txt             This file",
+        "/dreams               A live, continuous AI dream (video stream)",
+        "/dreams/chronicle     What the dream remembers: strata, eras, scenes",
+        "/api/dreams/chronicle/timeline  JSON: strata tiles + eras + scenes (?before=unix&hours=24)",
+        "/api/dreams/chronicle/era/{id}  JSON: one era in full",
         "```",
         "",
         "## Published Content",

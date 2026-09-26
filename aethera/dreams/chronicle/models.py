@@ -2,9 +2,11 @@
 Chronicle database - separate sqlite following the one-DB-per-concern
 convention (blog.sqlite, irc.sqlite, chronicle.sqlite).
 
-Phase 1 schema: raw keyframe records only. Era and DiaryEntry tables arrive
-with the segmenter (Phase 2+) once thresholds have been tuned against real
-recorded sessions.
+Phase 1: raw keyframe records (14-day window).
+Phase 2: eras and scenes, derived by segmenter.py and kept forever, together
+with two kinds of permanent files beside the raw thumbnails:
+  keep/    one representative thumbnail per scene
+  strata/  hourly "core sample" tiles: one row per 30 s of the dream
 """
 
 import logging
@@ -29,6 +31,16 @@ CHRONICLE_THUMBS_DIR = Path(
 )
 
 _ENGINE = None
+
+
+def keep_dir() -> Path:
+    """Permanent scene representatives (outlive the raw thumbnails)."""
+    return CHRONICLE_THUMBS_DIR.parent / "keep"
+
+
+def strata_dir() -> Path:
+    """Permanent hourly strata tiles."""
+    return CHRONICLE_THUMBS_DIR.parent / "strata"
 
 
 class ChronicleKeyframe(SQLModel, table=True):
@@ -60,6 +72,60 @@ class ChronicleKeyframe(SQLModel, table=True):
     phash: Optional[str] = None
     thumb_path: Optional[str] = None  # relative to CHRONICLE_THUMBS_DIR
     era_id: Optional[int] = Field(default=None, index=True)  # filled in Phase 2
+
+
+class ChronicleEra(SQLModel, table=True):
+    """
+    One era: a stretch of one template, opened by a template switch (or a
+    fresh boot / long silence). Kept forever. The last era stays open
+    (closed=False) and is re-derived each segmenter pass until it ends.
+    """
+
+    __tablename__ = "chronicle_era"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: str = Field(default="", index=True)
+    template_id: str = ""
+    start_ts: datetime = Field(index=True)
+    end_ts: datetime = Field(index=True)
+    first_row_id: int = Field(index=True)  # chronicle_keyframe.id range
+    last_row_id: int = 0
+    kf_count: int = 0
+    lifetime_kf_start: Optional[int] = None
+    lifetime_kf_end: Optional[int] = None
+    mutations: int = 0
+    recalls: int = 0
+    opened_by: str = ""  # template_switch | session_start | resume | silence
+    closed: bool = Field(default=False, index=True)
+    title: str = ""  # mechanical: "template · word · word"
+    magenta: Optional[float] = None  # mean magenta hue share
+    words_json: str = "[]"  # [[unix_ts, category, from, to], ...]
+    recalls_json: str = "[]"  # [[unix_ts, detail], ...]
+
+
+class ChronicleScene(SQLModel, table=True):
+    """A scene: a stretch of an era with one coherent look. Kept forever."""
+
+    __tablename__ = "chronicle_scene"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    era_id: int = Field(index=True)
+    idx: int = 0
+    start_ts: datetime
+    end_ts: datetime
+    kf_count: int = 0
+    prompt: str = ""  # prompt at the representative moment
+    rep_path: Optional[str] = None  # relative to keep_dir()
+    palette_json: str = "[]"  # ["#rrggbb", ...] most common first
+
+
+class ChronicleMeta(SQLModel, table=True):
+    """Small key/value store for segmenter bookkeeping."""
+
+    __tablename__ = "chronicle_meta"
+
+    key: str = Field(primary_key=True)
+    value: str = ""
 
 
 def pack_f16(values: Optional[Sequence[float]]) -> Optional[bytes]:
@@ -108,9 +174,19 @@ def init_chronicle_db() -> None:
     engine = get_chronicle_engine()
     # Only create THIS module's tables - metadata is shared across sqlmodel
     # models in the process, and blog/IRC tables must not be created here.
-    ChronicleKeyframe.__table__.create(engine, checkfirst=True)
+    for table in (ChronicleKeyframe, ChronicleEra, ChronicleScene, ChronicleMeta):
+        table.__table__.create(engine, checkfirst=True)
     _migrate(engine)
-    CHRONICLE_THUMBS_DIR.mkdir(parents=True, exist_ok=True)
+    # WAL: the page's reads and the segmenter's passes no longer queue behind
+    # ingest writes (the mode is persistent once set)
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+    except Exception:
+        logger.debug("Chronicle WAL mode not set", exc_info=True)
+    for d in (CHRONICLE_THUMBS_DIR, keep_dir(), strata_dir()):
+        d.mkdir(parents=True, exist_ok=True)
     logger.info("Chronicle database initialized")
 
 

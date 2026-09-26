@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from aethera.models.base import init_db, get_session
-from aethera.api import posts, comments, seo, dreams, apeiron, syrinx, irc, irc_admin
+from aethera.api import posts, comments, seo, dreams, chronicle, apeiron, syrinx, irc, irc_admin
 from aethera.irc.database import init_irc_db
 from aethera.utils.security import SecurityHeadersMiddleware
 from aethera.utils.templates import templates
@@ -32,6 +32,8 @@ async def lifespan(app: FastAPI):
         from aethera.dreams.chronicle import init_chronicle_db, get_chronicle_store
         init_chronicle_db()
         get_chronicle_store().start_retention_task()
+        from aethera.dreams.chronicle import tasks as chronicle_tasks
+        chronicle_tasks.start()  # eras, scenes, strata (Phase 2)
     except Exception:
         logging.getLogger(__name__).warning(
             "Chronicle init failed (continuing without)", exc_info=True
@@ -42,6 +44,8 @@ async def lifespan(app: FastAPI):
     try:
         from aethera.dreams.chronicle import get_chronicle_store
         get_chronicle_store().stop_retention_task()
+        from aethera.dreams.chronicle import tasks as chronicle_tasks
+        chronicle_tasks.stop()
     except Exception:
         pass
 
@@ -61,6 +65,7 @@ app.include_router(posts.router)
 app.include_router(comments.router)
 app.include_router(seo.router)
 app.include_router(dreams.router)
+app.include_router(chronicle.router)
 app.include_router(apeiron.router)
 app.include_router(syrinx.router)
 app.include_router(irc.router)

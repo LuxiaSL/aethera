@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}chronicle | æthera{% endblock %}
+
+{% block meta %}
+<meta name="description" content="What the dream remembers: every thirty seconds of a live, never-ending AI dream, laid down as strata of its own colour, with each era and scene written up beside it.">
+<link rel="canonical" href="https://aetherawi.red/dreams/chronicle">
+<meta name="license" content="CC BY 4.0">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml" />
+
+<meta property="og:title" content="chronicle | æthera">
+<meta property="og:description" content="What the dream remembers: a live AI dream laid down as strata of its own colour, era by era.">
+<meta property="og:url" content="https://aetherawi.red/dreams/chronicle">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="æthera">
+<meta property="og:image" content="https://aetherawi.red/static/images/chronicle-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The dream's core sample: a column of fine coloured strata beside a log of its eras.">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@slLuxia">
+<meta name="twitter:creator" content="@slLuxia">
+<meta name="twitter:title" content="chronicle | æthera">
+<meta name="twitter:description" content="What the dream remembers, laid down as strata of its own colour.">
+<meta name="twitter:image" content="https://aetherawi.red/static/images/chronicle-preview.jpg">
+<meta name="theme-color" content="#050505">
+{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "CreativeWorkSeries",
+    "name": "chronicle",
+    "description": "The live memory of a continuous AI dream: strata of its own colour, eras and scenes, recorded as it happens.",
+    "url": "https://aetherawi.red/dreams/chronicle",
+    "author": { "@type": "Person", "name": "Luxia", "url": "https://aetherawi.red/" }
+}
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<link href="/static/css/chronicle.css?v=1" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+{# repeated here: boosted navigation swaps the body, not the head #}
+<link href="/static/css/chronicle.css?v=1" rel="stylesheet">
+<div class="chronicle-page" id="chronicle">
+    <header class="chr-head">
+        <h1 class="chr-title">chronicle</h1>
+        <p class="chr-sub">what the dream remembers</p>
+        <div class="chr-status" id="chr-status"><span class="chr-dot"></span><span id="chr-status-text">reading the core…</span></div>
+        <p class="chr-legend">every fifteen seconds of the dream settles here as one line of its own colour.
+            newest on top; older days press down and compact. read the core to see what it was dreaming.</p>
+    </header>
+
+    <div class="chr-sheet">
+        <div class="chr-colhead depth">time</div>
+        <div class="chr-colhead">core</div>
+        <div class="chr-colhead">eras</div>
+
+        <div></div>
+        <div class="chr-deposit" id="chr-deposit" hidden>
+            <a href="/dreams" id="chr-deposit-link" aria-label="the dream, live"><img id="chr-deposit-img" alt="the dream's latest frame"></a>
+            <div class="chr-fall"></div>
+        </div>
+        <div class="chr-caption" id="chr-caption"></div>
+
+        <div class="chr-log" id="chr-log">
+            <div class="chr-depth" id="chr-depth"></div>
+            <div class="chr-core" id="chr-core" aria-label="the dream's core sample">
+                <div class="chr-tiles" id="chr-tiles"></div>
+                <div class="chr-core-shade"></div>
+                <div class="chr-core-grain"></div>
+                <div class="chr-band" id="chr-band"></div>
+                <div class="chr-hair" id="chr-hair"><span class="chr-hair-t" id="chr-hair-t"></span></div>
+            </div>
+            <div class="chr-eras" id="chr-eras"></div>
+            <aside class="chr-loupe" id="chr-loupe" aria-hidden="true">
+                <div class="chr-loupe-img" id="chr-loupe-img"></div>
+                <div class="chr-loupe-when" id="chr-loupe-when"></div>
+                <div class="chr-loupe-title" id="chr-loupe-title"></div>
+                <p class="chr-loupe-prompt" id="chr-loupe-prompt"></p>
+            </aside>
+        </div>
+    </div>
+
+    <div class="chr-more" id="chr-more"></div>
+
+    <div class="chr-foot">
+        <p>the chronicle keeps each day as strata and one image per scene, for good; the raw frames fade after fourteen days.
+            titles are mechanical: the template, then the words that held longest.</p>
+        <p><a href="/dreams">the dream, live</a></p>
+    </div>
+
+    <div class="chr-scrim" id="chr-scrim" hidden></div>
+    <aside class="chr-drawer" id="chr-drawer" hidden aria-label="era">
+        <button class="chr-x" type="button" aria-label="close">×</button>
+        <div id="chr-drawer-body"></div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/chronicle.js?v=1"></script>
+{% endblock %}
