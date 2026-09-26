@@ -22,19 +22,116 @@ Metadata JSON:
 
 H.264 frames are passed through directly to viewers (no buffering/pacing).
 The VideoDecoder on the client side handles its own buffering natively.
+
+Fan-out: every viewer has its own small send queue and sender task
+(_ViewerChannel), so a slow or stalled viewer can only ever delay itself.
+A viewer whose queue overflows drops what it had queued and resyncs at the
+next I-frame; one that keeps overflowing, or whose send fails, is closed so
+its page reconnects instead of freezing on a stale frame.
 """
 
 import asyncio
 import json
 import logging
+import os
 import time
-from typing import Optional, Set
+from collections import deque
+from typing import Dict, Optional, Set
 from fastapi import WebSocket, WebSocketDisconnect
 
 from .frame_cache import FrameCache
 from .presence import ViewerPresenceTracker
 
 logger = logging.getLogger(__name__)
+
+# Viewers beyond this get an "at capacity" status and a clean close (0 = no cap).
+# Each viewer costs ~2.7 Mbps (4 Mbps cap) of VPS upload.
+MAX_VIEWERS = int(os.environ.get("DREAMS_MAX_VIEWERS", "200"))
+# Per-viewer queue: ~3 s of frames at ~29 fps (each entry = meta + frame).
+VIEWER_QUEUE_FRAMES = 90
+VIEWER_SEND_TIMEOUT = 10.0
+# A viewer that overflows this many times within the window is closed.
+VIEWER_MAX_OVERFLOWS = 5
+VIEWER_OVERFLOW_WINDOW = 60.0
+# The stream counts as live if a frame arrived this recently.
+STREAM_LIVE_SECONDS = 5.0
+
+CLOSE_TOO_SLOW = 4002      # viewer could not keep up; client reconnects
+CLOSE_AT_CAPACITY = 4003   # viewer cap reached; client retries later
+
+
+class _ViewerChannel:
+    """One viewer's outbound queue + sender task. Never blocks the hub."""
+
+    def __init__(self, websocket: WebSocket, hub: "DreamWebSocketHub", needs_keyframe: bool):
+        self.ws = websocket
+        self.hub = hub
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=VIEWER_QUEUE_FRAMES)
+        self.needs_keyframe = needs_keyframe
+        self.overflows: deque = deque()
+        self.closed = False
+        self.task = asyncio.create_task(self._run())
+
+    def offer_frame(self, meta_text: str, frame_bytes: bytes, is_keyframe: bool) -> None:
+        if self.closed:
+            return
+        if self.needs_keyframe:
+            if not is_keyframe:
+                return  # P-frames are useless until the viewer has an I-frame
+            self.needs_keyframe = False
+        try:
+            self.queue.put_nowait(("frame", meta_text, frame_bytes))
+        except asyncio.QueueFull:
+            self._overflow()
+
+    def offer_text(self, text: str) -> None:
+        """Control/status JSON: must get through, so make room if needed."""
+        if self.closed:
+            return
+        try:
+            self.queue.put_nowait(("text", text, None))
+        except asyncio.QueueFull:
+            self._overflow()
+            try:
+                self.queue.put_nowait(("text", text, None))
+            except asyncio.QueueFull:
+                pass
+
+    def _overflow(self) -> None:
+        # Drop the backlog and resync at the next I-frame.
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        self.needs_keyframe = True
+        now = time.monotonic()
+        self.overflows.append(now)
+        while self.overflows and now - self.overflows[0] > VIEWER_OVERFLOW_WINDOW:
+            self.overflows.popleft()
+        if len(self.overflows) >= VIEWER_MAX_OVERFLOWS:
+            logger.info("Viewer too slow (%d overflows in %.0fs) — closing",
+                        len(self.overflows), VIEWER_OVERFLOW_WINDOW)
+            asyncio.create_task(self.hub._drop_viewer(self.ws, CLOSE_TOO_SLOW, "too slow"))
+
+    async def _run(self) -> None:
+        try:
+            while True:
+                kind, text, data = await self.queue.get()
+                await asyncio.wait_for(self.ws.send_text(text), timeout=VIEWER_SEND_TIMEOUT)
+                if kind == "frame":
+                    await asyncio.wait_for(self.ws.send_bytes(data), timeout=VIEWER_SEND_TIMEOUT)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:  # timeout, closed socket, network error
+            if not self.closed:
+                logger.debug(f"Viewer send failed ({type(e).__name__}) — dropping viewer")
+                asyncio.create_task(self.hub._drop_viewer(self.ws, 1011, "send failed"))
+
+    def stop(self) -> None:
+        self.closed = True
+        if not self.task.done():
+            self.task.cancel()
 
 # Message type bytes (GPU -> VPS)
 MSG_FRAME = 0x01
@@ -71,6 +168,7 @@ class DreamWebSocketHub:
         self.presence = presence_tracker
 
         self._viewers: Set[WebSocket] = set()
+        self._channels: Dict[WebSocket, _ViewerChannel] = {}
         self._gpu_websocket: Optional[WebSocket] = None
         self._lock = asyncio.Lock()
 
@@ -118,12 +216,40 @@ class DreamWebSocketHub:
 
     # ==================== Viewer Connections ====================
 
-    async def connect_viewer(self, websocket: WebSocket) -> None:
-        """Handle a new browser viewer connection."""
+    @property
+    def stream_live(self) -> bool:
+        return self._last_frame_time > 0 and time.time() - self._last_frame_time < STREAM_LIVE_SECONDS
+
+    async def connect_viewer(self, websocket: WebSocket) -> bool:
+        """
+        Handle a new browser viewer connection. Returns False (socket closed)
+        when the viewer cap is reached.
+        """
         await websocket.accept()
 
         async with self._lock:
-            self._viewers.add(websocket)
+            at_capacity = MAX_VIEWERS > 0 and len(self._channels) >= MAX_VIEWERS
+            if not at_capacity:
+                # While the stream is live, start the viewer at the next live
+                # I-frame (<= ~2 s): the cached I-frame would be followed by
+                # P-frames that reference frames this viewer never got (smear).
+                live = self.stream_live
+                channel = _ViewerChannel(websocket, self, needs_keyframe=live)
+                self._channels[websocket] = channel
+                self._viewers.add(websocket)
+
+        if at_capacity:
+            logger.info(f"Viewer refused: at capacity ({MAX_VIEWERS})")
+            try:
+                await asyncio.wait_for(websocket.send_json({
+                    "type": "status",
+                    "status": "full",
+                    "message": "the dream is full right now — trying again in a minute",
+                }), timeout=5.0)
+                await websocket.close(code=CLOSE_AT_CAPACITY, reason="at capacity")
+            except Exception:
+                pass
+            return False
 
         # Track presence (may trigger GPU start)
         await self.presence.on_viewer_connect(websocket)
@@ -131,30 +257,34 @@ class DreamWebSocketHub:
         # Send current status
         await self._send_status_to_viewer(websocket)
 
-        # Send cached I-frame so viewer can start decoding immediately
-        if self._last_keyframe_nal:
-            try:
-                meta_msg = {
-                    "type": "frame_meta",
-                    **(self._last_keyframe_meta or {}),
-                    "vk": True,
-                }
-                await asyncio.wait_for(websocket.send_json(meta_msg), timeout=5.0)
-                await asyncio.wait_for(
-                    websocket.send_bytes(
-                        bytes([MSG_FRAME]) + self._last_keyframe_nal
-                    ),
-                    timeout=5.0
-                )
-            except (asyncio.TimeoutError, Exception) as e:
-                logger.warning(f"Failed to send initial I-frame: {e}")
+        # Stream not live (GPU resting/restarting): show the last I-frame as a
+        # still so the page isn't blank.
+        if not live and self._last_keyframe_nal:
+            meta_msg = {
+                "type": "frame_meta",
+                **(self._last_keyframe_meta or {}),
+                "vk": True,
+            }
+            channel.offer_frame(json.dumps(meta_msg), bytes([MSG_FRAME]) + self._last_keyframe_nal, True)
+        return True
 
     async def disconnect_viewer(self, websocket: WebSocket) -> None:
-        """Handle viewer disconnection."""
+        """Handle viewer disconnection (idempotent)."""
         async with self._lock:
+            channel = self._channels.pop(websocket, None)
             self._viewers.discard(websocket)
 
-        await self.presence.on_viewer_disconnect(websocket)
+        if channel is not None:
+            channel.stop()
+            await self.presence.on_viewer_disconnect(websocket)
+
+    async def _drop_viewer(self, websocket: WebSocket, code: int, reason: str) -> None:
+        """Remove a viewer and close its socket, so its page reconnects."""
+        await self.disconnect_viewer(websocket)
+        try:
+            await websocket.close(code=code, reason=reason)
+        except Exception:
+            pass
 
     async def handle_viewer_message(self, websocket: WebSocket, data: str) -> None:
         """Handle message from viewer."""
@@ -163,26 +293,26 @@ class DreamWebSocketHub:
             msg_type = msg.get("type")
 
             if msg_type == "ping":
-                await websocket.send_json({"type": "pong"})
+                # Through the viewer's queue: its sender task owns the socket's send side.
+                channel = self._channels.get(websocket)
+                if channel is not None:
+                    channel.offer_text('{"type": "pong"}')
 
         except json.JSONDecodeError:
             logger.warning(f"Invalid JSON from viewer: {data[:100]}")
 
     async def _send_status_to_viewer(self, websocket: WebSocket) -> None:
-        """Send current status to a specific viewer."""
-        try:
-            await asyncio.wait_for(
-                websocket.send_json({
-                    "type": "status",
-                    "status": self._status,
-                    "message": self._status_message,
-                    "frame_count": self.frame_cache.total_frames_received,
-                    "viewer_count": self.viewer_count,
-                }),
-                timeout=5.0
-            )
-        except (asyncio.TimeoutError, Exception) as e:
-            logger.warning(f"Failed to send status: {e}")
+        """Queue the current status for a specific viewer."""
+        channel = self._channels.get(websocket)
+        if channel is None:
+            return
+        channel.offer_text(json.dumps({
+            "type": "status",
+            "status": self._status,
+            "message": self._status_message,
+            "frame_count": self.frame_cache.total_frames_received,
+            "viewer_count": self.viewer_count,
+        }))
 
     async def broadcast_status(self, status: str, message: str) -> None:
         """Broadcast status update to all viewers."""
@@ -242,37 +372,12 @@ class DreamWebSocketHub:
 
         logger.info("GPU connected")
 
-        # Send saved state if available (for resume after pod restart)
-        await self._send_saved_state_to_gpu(websocket)
+        # No saved state is pushed back to the GPU any more: it resumes from
+        # its own local checkpoint (dream_gen SPEC-resume), and it read this
+        # message type (0x11) as RESUME and discarded the payload, while the
+        # send held "ready" back by up to 30 s on every reconnect.
 
         await self.broadcast_status("ready", "Dreams flowing...")
-
-    async def _send_saved_state_to_gpu(self, websocket: WebSocket) -> None:
-        """Send any saved state to GPU for restoration."""
-        from .state_storage import load_state, get_state_info
-
-        try:
-            state_info = await get_state_info()
-            if state_info is None:
-                logger.info("No saved state to restore")
-                return
-
-            saved_state = await load_state()
-            if saved_state is None:
-                logger.warning("State metadata exists but load failed")
-                return
-
-            logger.info(f"Sending saved state to GPU: {len(saved_state)} bytes (age: {state_info.get('age_seconds', '?')}s)")
-            await asyncio.wait_for(
-                websocket.send_bytes(bytes([CTRL_LOAD_STATE]) + saved_state),
-                timeout=30.0
-            )
-            logger.info("Saved state sent to GPU for restoration")
-
-        except asyncio.TimeoutError:
-            logger.error("Timeout sending saved state to GPU")
-        except Exception as e:
-            logger.error(f"Failed to send saved state to GPU: {e}")
 
     async def disconnect_gpu(self) -> None:
         """Handle GPU disconnection."""
@@ -433,7 +538,7 @@ class DreamWebSocketHub:
         The metadata includes the video keyframe flag so the client's
         VideoDecoder knows whether this is an I-frame or P-frame.
         """
-        if not self._viewers:
+        if not self._channels:
             return
 
         meta_msg: dict = {
@@ -445,45 +550,19 @@ class DreamWebSocketHub:
         if prompt:
             meta_msg["p"] = prompt
 
+        # Encoded once, queued per viewer without awaiting anyone.
+        meta_text = json.dumps(meta_msg)
         frame_message = bytes([MSG_FRAME]) + nal_data
-        dead_viewers: set[WebSocket] = set()
-
-        async with self._lock:
-            viewers = set(self._viewers)
-
-        for viewer in viewers:
-            try:
-                await asyncio.wait_for(viewer.send_json(meta_msg), timeout=5.0)
-                await asyncio.wait_for(viewer.send_bytes(frame_message), timeout=5.0)
-            except (asyncio.TimeoutError, Exception):
-                dead_viewers.add(viewer)
-
-        if dead_viewers:
-            async with self._lock:
-                self._viewers -= dead_viewers
-
-            for viewer in dead_viewers:
-                await self.presence.on_viewer_disconnect(viewer)
+        for channel in list(self._channels.values()):
+            channel.offer_frame(meta_text, frame_message, is_video_keyframe)
 
     async def _broadcast_json(self, data: dict) -> None:
-        """Broadcast JSON message to all viewers."""
-        if not self._viewers:
+        """Broadcast JSON message to all viewers (queued, never blocking)."""
+        if not self._channels:
             return
-
-        dead_viewers: set[WebSocket] = set()
-
-        async with self._lock:
-            viewers = set(self._viewers)
-
-        for viewer in viewers:
-            try:
-                await asyncio.wait_for(viewer.send_json(data), timeout=5.0)
-            except (asyncio.TimeoutError, Exception):
-                dead_viewers.add(viewer)
-
-        if dead_viewers:
-            async with self._lock:
-                self._viewers -= dead_viewers
+        text = json.dumps(data)
+        for channel in list(self._channels.values()):
+            channel.offer_text(text)
 
     # ==================== GPU Control ====================
 
@@ -505,9 +584,8 @@ class DreamWebSocketHub:
             logger.error(f"Failed to send to GPU: {e}")
             return False
 
-    async def request_gpu_shutdown(self) -> bool:
-        """Request GPU to save state and shutdown."""
-        return await self.send_to_gpu(CTRL_SHUTDOWN)
+    # (request_gpu_shutdown removed: nothing called it, and the GPU would obey
+    # it. The dream's lifecycle belongs to its scheduler, not the web server.)
 
     async def request_gpu_save_state(self) -> bool:
         """Request GPU to save current state."""

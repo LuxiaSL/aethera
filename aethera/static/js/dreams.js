@@ -44,6 +44,17 @@ class DreamViewer {
         this.frameCount = 0;
         this.lastFrameTime = 0;
 
+        // Stream health: lastDataTime is stamped whenever frame data arrives
+        // (either decode path); the watchdog reconnects if a stream that
+        // should be flowing goes quiet. streamStatus mirrors the server.
+        this.lastDataTime = 0;
+        this.openTime = 0;
+        this.readyTime = 0;
+        this.streamStatus = 'unknown';
+        this.live = false;
+        this.fullRetry = false;
+        this.watchdog = null;
+
         // Decode path: 'webcodecs' | 'mse' | null
         this.decodePath = null;
         this.videoDecoder = null;        // WebCodecs
@@ -528,7 +539,12 @@ class DreamViewer {
         console.log(`Dream WebSocket connected (decode: ${this.decodePath})`);
         this.connected = true;
         this.reconnectAttempts = 0;
-        this.setConnectionState('connected');
+        this.openTime = Date.now();
+        this.lastDataTime = 0;
+        this.live = false;
+        // "live" only once frames actually arrive (see handleBinaryMessage)
+        this.setConnectionState('connecting', 'waiting');
+        this.startWatchdog();
 
         // Reset state
         this._resetDecoder();
@@ -564,6 +580,12 @@ class DreamViewer {
     handleBinaryMessage(data) {
         const view = new Uint8Array(data);
         if (view[0] !== MSG_FRAME) return;
+
+        this.lastDataTime = Date.now();
+        if (!this.live) {
+            this.live = true;
+            this.setConnectionState('connected');
+        }
 
         const nalData = data.slice(1);
 
@@ -607,12 +629,33 @@ class DreamViewer {
     }
 
     handleStatusMessage(msg) {
-        this.setStatus(msg.status, msg.message);
+        if (msg.status === 'ready' && this.streamStatus !== 'ready') {
+            this.readyTime = Date.now();  // watchdog grace starts now
+        }
+        this.streamStatus = msg.status;
         if (msg.viewer_count !== undefined && this.viewerCountEl) {
             this.viewerCountEl.textContent = msg.viewer_count;
         }
         if (msg.target_fps > 0) this.targetFps = msg.target_fps;
 
+        if (msg.status === 'idle') {
+            // The dream's GPU side is away (restart, maintenance). Say so
+            // plainly instead of freezing on the last frame labelled "live".
+            this.live = false;
+            this.setStatus('idle', 'the dream is resting — it will be back soon');
+            this.setConnectionState('offline', 'resting');
+            this.showLoading();
+            return;
+        }
+        if (msg.status === 'full') {
+            this.fullRetry = true;
+            this.setStatus('full', msg.message || 'the dream is full right now — trying again in a minute');
+            this.setConnectionState('connecting', 'full');
+            this.showLoading();
+            return;
+        }
+
+        this.setStatus(msg.status, msg.message);
         if (msg.status === 'starting' || msg.status === 'loading_models') {
             this.showLoading();
         } else if (msg.status === 'error') {
@@ -622,7 +665,9 @@ class DreamViewer {
 
     handleClose(event) {
         this.connected = false;
+        this.live = false;
         this.stopPingInterval();
+        this.stopWatchdog();
 
         // Clean up decoders
         this._resetDecoder();
@@ -632,7 +677,37 @@ class DreamViewer {
             this.setConnectionState('offline');
             return;
         }
+        if (this.fullRetry || event.code === 4003) {
+            // At capacity: wait a minute, don't burn reconnect attempts.
+            this.fullRetry = false;
+            this.setConnectionState('connecting', 'full');
+            setTimeout(() => { if (!document.hidden) this.connect(); }, 60000);
+            return;
+        }
         this.scheduleReconnect();
+    }
+
+    // Reconnect if the stream should be flowing but no frame data has
+    // arrived for a while (dropped server-side, half-open mobile socket...).
+    startWatchdog() {
+        this.stopWatchdog();
+        this.watchdog = setInterval(() => {
+            if (!this.connected || this.streamStatus !== 'ready' || document.hidden) return;
+            const since = Date.now() - Math.max(this.lastDataTime, this.openTime, this.readyTime || 0);
+            if (since > 12000) {
+                console.warn(`No frames for ${Math.round(since / 1000)}s — reconnecting`);
+                this.live = false;
+                this.setConnectionState('connecting', 'reconnecting');
+                try { this.ws.close(4000, 'stalled'); } catch (e) { /* already closing */ }
+            }
+        }, 3000);
+    }
+
+    stopWatchdog() {
+        if (this.watchdog) {
+            clearInterval(this.watchdog);
+            this.watchdog = null;
+        }
     }
 
     handleError(error) {
@@ -665,7 +740,7 @@ class DreamViewer {
         }
     }
 
-    setConnectionState(state) {
+    setConnectionState(state, label) {
         if (this.connectionIndicator) {
             this.connectionIndicator.className =
                 `dream-stat-indicator ${state}`;
@@ -675,7 +750,7 @@ class DreamViewer {
                 connected: 'live', connecting: 'connecting',
                 offline: 'offline', error: 'error'
             };
-            this.connectionStatus.textContent = labels[state] || state;
+            this.connectionStatus.textContent = label || labels[state] || state;
         }
     }
 

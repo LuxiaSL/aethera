@@ -121,10 +121,14 @@ def get_hub() -> DreamWebSocketHub:
 
 
 async def _on_gpu_should_start() -> None:
-    """Callback when viewers arrive — broadcast waiting status"""
+    """
+    Callback when a viewer arrives and no GPU is connected. The web server
+    cannot start the dream (its scheduler owns it), so say it is resting
+    rather than "Waiting for GPU connection..." forever.
+    """
     global _websocket_hub
-    if _websocket_hub:
-        await _websocket_hub.broadcast_status("starting", "Waiting for GPU connection...")
+    if _websocket_hub and not _websocket_hub.gpu_connected:
+        await _websocket_hub.broadcast_status("idle", "the dream is resting — it will be back soon")
 
 
 async def _on_gpu_should_stop() -> None:
@@ -661,10 +665,11 @@ async def dreams_websocket(websocket: WebSocket):
     - Binary frame data (0x01 + WebP bytes)
     """
     hub = get_hub()
-    
+
     try:
-        await hub.connect_viewer(websocket)
-        
+        if not await hub.connect_viewer(websocket):
+            return  # refused (at capacity); socket already closed
+
         while True:
             try:
                 # Handle text messages (JSON)
@@ -707,10 +712,10 @@ def verify_gpu_token(auth_header: str | None) -> bool:
     
     token = parts[1].strip()  # Strip any whitespace
     
-    # Debug logging (show partial tokens for troubleshooting)
-    logger.info(f"GPU auth attempt: provided={token[:8]}...{token[-4:]} (len={len(token)})")
-    logger.info(f"GPU auth expected: expected={GPU_AUTH_TOKEN[:8]}...{GPU_AUTH_TOKEN[-4:]} (len={len(GPU_AUTH_TOKEN)})")
-    
+    # Lengths only: logging token characters (it used to log 12 of the
+    # *expected* token on every attempt, triggerable by anyone) narrows it.
+    logger.info(f"GPU auth attempt: provided len={len(token)} (expected len={len(GPU_AUTH_TOKEN)})")
+
     # Constant-time comparison to prevent timing attacks
     result = secrets.compare_digest(token, GPU_AUTH_TOKEN)
     if not result:

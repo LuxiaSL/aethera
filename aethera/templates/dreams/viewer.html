@@ -5,19 +5,35 @@
 {% block description %}Live AI-generated morphing art. Watch ethereal digital dreams evolve in real-time.{% endblock %}
 
 {% block meta %}
-{{ super() }}
-<!-- Dreams-specific Open Graph -->
-<meta property="og:title" content="Dreams | æthera">
-<meta property="og:description" content="Live AI-generated morphing art. Watch ethereal digital dreams evolve in real-time.">
-<meta property="og:image" content="{{ request.base_url }}static/images/dreams-preview.png">
+{# Full replacement, not {{ super() }}: link unfurlers take the FIRST og:/twitter:
+   tags, so appending after the site defaults showed the generic æthera card. #}
+<meta name="description" content="A dream that never stops: a live, continuous AI image stream, drifting through its own latent space in real time.">
+<link rel="canonical" href="https://aetherawi.red/dreams">
+<meta name="license" content="CC BY 4.0">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="dreams | æthera">
+<meta property="og:description" content="A dream that never stops: a live, continuous AI image stream, drifting through its own latent space in real time.">
+<meta property="og:url" content="https://aetherawi.red/dreams">
 <meta property="og:type" content="website">
-<link rel="canonical" href="{{ request.base_url }}dreams">
+<meta property="og:site_name" content="æthera">
+<meta property="og:image" content="https://aetherawi.red/static/images/dreams-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A lone drive-in screen in a pale fog, a marquee reading NOW SHOWING A DREAM ALL NIGHT, and a spiral of glowing screens overhead.">
 
 <!-- Twitter/X Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Dreams | æthera">
-<meta name="twitter:description" content="Live AI-generated morphing art">
-<meta name="twitter:image" content="{{ request.base_url }}static/images/dreams-preview.png">
+<meta name="twitter:site" content="@slLuxia">
+<meta name="twitter:creator" content="@slLuxia">
+<meta name="twitter:title" content="dreams | æthera">
+<meta name="twitter:description" content="A dream that never stops: a live, continuous AI image stream.">
+<meta name="twitter:image" content="https://aetherawi.red/static/images/dreams-preview.jpg">
+<meta name="twitter:image:alt" content="A lone drive-in screen in a pale fog, a marquee reading NOW SHOWING A DREAM ALL NIGHT, and a spiral of glowing screens overhead.">
+
+<meta name="theme-color" content="#000000">
 {% endblock %}
 
 {% block schema %}

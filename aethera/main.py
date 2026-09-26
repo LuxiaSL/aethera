@@ -104,4 +104,12 @@ if __name__ == "__main__":
     import os
     # Only enable reload in development (when AETHERA_DEV is set)
     reload = os.environ.get("AETHERA_DEV", "").lower() in ("1", "true", "yes")
-    uvicorn.run("aethera.main:app", host="0.0.0.0", port=2222, reload=reload)
+    # Behind Caddy every connection arrives from the docker bridge, so without
+    # proxy headers request.client.host is the same for all visitors (one
+    # shared rate-limit bucket) and request.base_url says http://. The port is
+    # published on 127.0.0.1 only, so trusting forwarded headers is safe.
+    uvicorn.run(
+        "aethera.main:app", host="0.0.0.0", port=2222, reload=reload,
+        proxy_headers=True,
+        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "*"),
+    )
