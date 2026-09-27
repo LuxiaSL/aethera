@@ -630,8 +630,9 @@ body:has(.dreams-page) footer {
 .dreams-chronicle-link a:hover { color: #fff; }
 
 /* ============================================
-   Stage mode (default; ?stage=0 opts out): DreamStage draws the stage and the dream together
-   on #dream-stage; the page's own canvases keep running underneath it.
+   Stage mode (default; ?stage=0 opts out): DreamStage draws the stage and the
+   dream together on #dream-stage; the page's own canvases keep running
+   underneath it. Nothing else is on screen: the rest is under the rug.
    ============================================ */
 #dream-stage {
     position: fixed;
@@ -642,7 +643,88 @@ body:has(.dreams-page) footer {
 }
 .stage-mode-root #dreams-video-canvas { visibility: hidden; }
 .stage-mode #dream-canvas { opacity: 0; }
-.stage-mode .dream-container { max-width: min(920px, 58vw); }
-@media (max-width: 768px), (orientation: portrait) {
-    .stage-mode .dream-container { max-width: 100%; }
+
+/* the page is only the stage: no site header, footer, title or status line, no scrolling */
+.stage-mode-root, .stage-mode-root body { height: 100%; overflow: hidden; }
+.stage-mode-root body { touch-action: none; }
+.stage-mode-root body > header,
+.stage-mode-root body > footer,
+.stage-mode-root .video-bg,
+.stage-mode .dream-status-bar,
+.stage-mode .dreams-chronicle-link { display: none; }
+.stage-mode .dreams-header {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+body.rug-near { cursor: grab; }
+body.rug-dragging { cursor: grabbing; }
+
+/* the viewer, front and centre (DreamStage reads this box every frame) */
+.stage-mode .dream-container {
+    position: fixed;
+    left: 50%;
+    top: 47%;
+    transform: translate(-50%, -50%);
+    width: min(1100px, 60vw, calc((100vh - 170px) * 2));
+    max-width: none;
+    aspect-ratio: 2 / 1;
+    margin: 0;
+}
+/* portrait screens: the box turns tall and the dream lies on its side */
+@media (max-aspect-ratio: 10 / 11) {
+    .stage-mode .dream-container {
+        width: min(calc(100vw - 40px), 37vh);
+        aspect-ratio: 1 / 2;
+    }
+}
+
+/* backstage: exists only in stage mode, clipped by DreamRug to the lifted corner */
+.backstage, .rug-door { display: none; }
+.stage-mode .backstage {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    clip-path: polygon(0 0, 0 0, 0 0);
+    font-family: 'Libertinus Mono', monospace;
+}
+.stage-mode .backstage a { pointer-events: auto; }
+.bs-list {
+    position: absolute;
+    left: 22px;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    display: grid;
+    gap: 0.55rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    color: rgba(242, 236, 223, 0.6);
+}
+.bs-list a { color: rgba(242, 236, 223, 0.6); text-decoration: none; }
+.bs-list a:hover, .bs-list a:focus-visible { color: #f2ecdf; outline: none; text-decoration: underline; text-underline-offset: 3px; }
+.bs-list .bs-chronicle { color: #efe2c6; font-size: 0.92rem; }
+.bs-live.is-live::before {
+    content: ''; display: inline-block; width: 0.5em; height: 0.5em; margin-right: 0.5em; background: #57d68d;
+}
+.bs-small { display: flex; gap: 0.9em; font-size: 0.72rem; }
+.bs-count { position: absolute; display: block; }
+.bs-count:focus-visible { outline: 1px dashed #efe2c6; outline-offset: 4px; }
+
+/* for keyboards: the first tab stop, visible only when focused */
+.stage-mode .rug-door {
+    display: block;
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 6;
+    font: 0.75rem 'Libertinus Mono', monospace;
+    letter-spacing: 0.1em;
+    color: #f2ecdf;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(239, 226, 198, 0.3);
+    padding: 0.4rem 0.7rem;
+    cursor: pointer;
+}
+.stage-mode .rug-door:not(:focus-visible) {
+    width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0;
 }

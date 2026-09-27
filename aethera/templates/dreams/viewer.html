@@ -58,7 +58,7 @@
 {% endblock %}
 
 {% block extra_head %}
-<link href="/static/css/dreams.css?v=2" rel="stylesheet">
+<link href="/static/css/dreams.css?v=3" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
@@ -120,6 +120,21 @@
 
     <p class="dreams-chronicle-link"><a href="/dreams/chronicle" hx-boost="false">chronicle →</a></p>
 
+    <!-- Stage mode: everything but the stage and the dream lives under the rug (DreamRug) -->
+    <button class="rug-door" id="rug-door" type="button" aria-expanded="false" aria-controls="backstage">backstage</button>
+    <div class="backstage" id="backstage" inert>
+        <a class="bs-count" id="bs-count" href="/dreams/chronicle" hx-boost="false" aria-label="the chronicle"></a>
+        <div class="bs-list">
+            <a class="bs-chronicle" href="/dreams/chronicle" hx-boost="false">chronicle →</a>
+            <span class="bs-live" id="bs-live">—</span>
+            <span class="bs-small">
+                <a href="/feed.xml">rss</a>
+                <a href="/llms.txt">llms.txt</a>
+                <a href="https://creativecommons.org/licenses/by/4.0/">cc by 4.0</a>
+            </span>
+        </div>
+    </div>
+
     <!-- Debug chip (?debug=1) - generation-side state from the chronicle -->
     <div id="dream-debug-chip" class="dream-debug-chip hidden">
         <span class="chip-mode" id="chip-mode">…</span>
@@ -135,7 +150,8 @@
 <!-- jMuxer for Safari MSE fallback (H.264 NAL → fMP4) -->
 <script src="https://cdn.jsdelivr.net/npm/jmuxer@2.0.5/dist/jmuxer.min.js" defer></script>
 <script src="/static/js/dreams.js"></script>
-<script src="/static/js/dream-stage.js?v=1"></script>
+<script src="/static/js/dream-stage.js?v=2"></script>
+<script src="/static/js/dream-rug.js?v=1"></script>
 <script>
 // Frame-blended background video for smooth slow-motion. By default the
 // blended stage and the live dream are composited by DreamStage: the dream's
@@ -174,6 +190,8 @@
 
     // ---- the stage
     let stage = null;
+    let rug = null;
+    let lastNow = 0;
     const wantStage = new URLSearchParams(location.search).get('stage') !== '0'
         && new URLSearchParams(location.search).get('embed') !== '1'
         && !document.body.classList.contains('embed-mode');
@@ -201,7 +219,42 @@
         document.documentElement.classList.add('stage-mode-root');
         ds.resize();
         window.addEventListener('resize', () => ds.resize());
+
+        // under the rug
+        const backstage = document.getElementById('backstage');
+        const door = document.getElementById('rug-door');
+        if (window.DreamRug && backstage && door) {
+            rug = new DreamRug({ backstage, door, reduced });
+            const list = backstage.querySelector('.bs-list');
+            const count = document.getElementById('bs-count');
+            const placeCount = () => {
+                const cw = 170, ch = cw * 180 / 640;
+                const r = [18, list.getBoundingClientRect().top - ch - 10, cw, ch];
+                ds.countRect = r;
+                Object.assign(count.style, { left: r[0] + 'px', top: r[1] + 'px', width: r[2] + 'px', height: r[3] + 'px' });
+            };
+            placeCount();
+            window.addEventListener('resize', placeCount);
+        }
         return ds;
+    }
+
+    // the numbers dreams.js keeps in the (hidden) status bar, read for the backstage
+    const statText = id => document.querySelector(`#${id} .dream-stat-value`)?.textContent || '';
+    let lastMirror = 0;
+    function mirrorStats(now) {
+        const n = parseInt(statText('dream-frame-count').replace(/[^0-9]/g, ''), 10);
+        stage.count = Number.isFinite(n) ? n : null;
+        if (now - lastMirror < 1000) return;
+        lastMirror = now;
+        const viewers = statText('dream-viewer-count'), state = statText('dream-connection-status');
+        const live = document.getElementById('bs-live');
+        if (live) {
+            live.textContent = `${viewers && viewers !== '—' ? viewers + ' watching' : 'watching'} · ${state || 'offline'}`;
+            live.classList.toggle('is-live', state === 'live');
+        }
+        const count = document.getElementById('bs-count');
+        if (count && stage.count != null) count.setAttribute('aria-label', `frame ${stage.count.toLocaleString('en-US')}: the chronicle`);
     }
 
     function render(now) {
@@ -218,7 +271,12 @@
 
             if (stage) {
                 try {
-                    stage.frame(now || performance.now());
+                    now = now || performance.now();
+                    const dt = Math.min(0.1, lastNow ? (now - lastNow) / 1000 : 0.016);
+                    lastNow = now;
+                    mirrorStats(now);
+                    stage.fold = rug ? rug.fold(now, dt) : null;
+                    stage.frame(now);
                 } catch (e) {
                     // never leave the page blank: drop back to the plain layout
                     console.warn('DreamStage frame failed, falling back', e);
@@ -226,6 +284,7 @@
                     document.querySelector('.dreams-page')?.classList.remove('stage-mode');
                     document.documentElement.classList.remove('stage-mode-root');
                     document.getElementById('dream-stage')?.remove();
+                    rug = null;
                 }
             } else {
                 // Draw accumulator to display canvas
