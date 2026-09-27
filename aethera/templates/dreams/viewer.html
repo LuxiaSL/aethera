@@ -153,6 +153,25 @@
 <script src="/static/js/dream-stage.js?v=2"></script>
 <script src="/static/js/dream-rug.js?v=1"></script>
 <script>
+// The tab title: ornaments flow outward from "dreams", mirrored, like the tendrils.
+// (The server-rendered <title> stays plain for search engines and link previews.)
+(function() {
+    const ORN = Array.from('¸,ø¤º✧º¤ø,¸.');
+    const SIDE = 9;
+    const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { document.title = '¸,ø¤º✧ dreams ✧º¤ø,¸'; return; }
+    let t = 0;
+    function tick() {
+        const left = [];
+        for (let i = 0; i < SIDE; i++) left.push(ORN[(i + t) % ORN.length]);
+        document.title = left.join('') + ' dreams ' + left.slice().reverse().join('');
+        t = (t + 1) % ORN.length;
+    }
+    tick();
+    setInterval(tick, 200);
+})();
+</script>
+<script>
 // Frame-blended background video for smooth slow-motion. By default the
 // blended stage and the live dream are composited by DreamStage: the dream's
 // edges fold outward into the stage. ?stage=0, embeds, and browsers without
