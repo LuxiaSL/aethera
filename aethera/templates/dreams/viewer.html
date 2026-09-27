@@ -157,7 +157,7 @@
 // (The server-rendered <title> stays plain for search engines and link previews.)
 (function() {
     const ORN = Array.from('¸,ø¤º✧º¤ø,¸.');
-    const SIDE = 9;
+    const SIDE = 7;
     const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) { document.title = '¸,ø¤º✧ dreams ✧º¤ø,¸'; return; }
     let t = 0;
@@ -168,7 +168,7 @@
         t = (t + 1) % ORN.length;
     }
     tick();
-    setInterval(tick, 200);
+    setInterval(tick, 500);
 })();
 </script>
 <script>
