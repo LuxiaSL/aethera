@@ -17,6 +17,14 @@
  * the order of operations are the original's, down to its quirks (the old
  * style's drone advances the shared phases a second buffer during a style
  * crossfade, as it does in Python).
+ *
+ * Where numpy made a fresh array per expression, the port writes into scratch
+ * buffers the engine and each voice own, sized to a block and reused, so the
+ * audio thread renders a block without allocating (a garbage-collection pause
+ * there is a glitch). Each keeps the element type numpy's array had — float64
+ * for phases, float32 for signals — so every intermediate rounds where the
+ * original's did. A scratch buffer may be longer than the block it holds;
+ * only the first n samples mean anything.
  */
 
 export const SAMPLE_RATE = 44100;
@@ -161,9 +169,9 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * Math.max(0.0, Math.min(1.0, t));
 }
 
-/** np.linspace(a, b, n) as float32 (endpoint included) */
-function linspace(a: number, b: number, n: number): Float32Array {
-  const out = new Float32Array(n);
+/** np.linspace(a, b, n) as float32 (endpoint included), into `out` */
+function linspace(a: number, b: number, n: number, out: Float32Array): Float32Array {
+  if (n <= 0) return out;
   if (n === 1) {
     out[0] = a;
     return out;
@@ -190,11 +198,11 @@ class CachedLPF {
     this.alpha = dt / (rc + dt);
   }
 
-  apply(signal: Float32Array): Float32Array {
-    const out = new Float32Array(signal.length);
+  /** Filter the first n samples of `signal` into `out` (which may be `signal`). */
+  apply(signal: Float32Array, n: number, out: Float32Array): Float32Array {
     const a = this.alpha;
     let prev = this.z;
-    for (let i = 0; i < signal.length; i++) {
+    for (let i = 0; i < n; i++) {
       prev = a * (signal[i] ?? 0) + (1.0 - a) * prev;
       out[i] = prev;
     }
@@ -205,21 +213,26 @@ class CachedLPF {
   reset(): void {
     this.z = 0;
   }
+
+  /** Forget a state that has gone NaN or infinite (it would never recover). */
+  heal(): void {
+    if (!Number.isFinite(this.z)) this.z = 0;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Oscillator primitives
 // ═══════════════════════════════════════════════════════════════════════
 
-function sineWave(phase: Float64Array): Float32Array {
-  const out = new Float32Array(phase.length);
-  for (let i = 0; i < phase.length; i++) out[i] = Math.sin(phase[i] ?? 0);
+// Each writes the first n samples of its wave into `out` and returns it.
+
+function sineWave(phase: Float64Array, n: number, out: Float32Array): Float32Array {
+  for (let i = 0; i < n; i++) out[i] = Math.sin(phase[i] ?? 0);
   return out;
 }
 
-function triangleWave(phase: Float64Array): Float32Array {
-  const out = new Float32Array(phase.length);
-  for (let i = 0; i < phase.length; i++) {
+function triangleWave(phase: Float64Array, n: number, out: Float32Array): Float32Array {
+  for (let i = 0; i < n; i++) {
     const p = pmod(phase[i] ?? 0, TWO_PI) / TWO_PI;
     out[i] = 2.0 * Math.abs(2.0 * p - 1.0) - 1.0;
   }
@@ -234,9 +247,7 @@ function polyblep(t: number): number {
 }
 
 /** Square wave with polyBLEP antialiasing. */
-function squareWave(phase: Float64Array, duty: number, freqHz: number): Float32Array {
-  const n = phase.length;
-  const out = new Float32Array(n);
+function squareWave(phase: Float64Array, n: number, duty: number, freqHz: number, out: Float32Array): Float32Array {
   let dt = freqHz / SAMPLE_RATE;
   if (!(freqHz > 0)) {
     // np.mean(np.diff(p)) fallback
@@ -275,9 +286,8 @@ class ADSREnvelope {
     this.release = Math.max(0.001, release);
   }
 
-  /** Envelope shape for n samples starting at `elapsed` seconds. */
-  generate(n: number, gate: boolean, elapsed: number, releaseTime = -1.0): Float32Array {
-    const env = new Float32Array(n);
+  /** Envelope shape for n samples starting at `elapsed` seconds, into `env`. */
+  generate(n: number, gate: boolean, elapsed: number, releaseTime: number, env: Float32Array): Float32Array {
     for (let i = 0; i < n; i++) {
       const t = elapsed + i / SAMPLE_RATE;
       if (gate) {
@@ -287,6 +297,8 @@ class ADSREnvelope {
       } else if (releaseTime >= 0) {
         const rel = t - releaseTime;
         env[i] = rel < 0 ? this.sustain : this.sustain * Math.max(0.0, 1.0 - rel / this.release);
+      } else {
+        env[i] = 0;
       }
     }
     return env;
@@ -309,6 +321,14 @@ class Voice {
   gate = false;
   elapsed = 0.0;
   release_time = -1.0;
+
+  // Scratch for render(): phases (float64, as numpy's cumsum), and the
+  // oscillator and envelope (float32). render() returns `osc`, which holds
+  // the voice's samples until its next render.
+  private phases = new Float64Array(BUFFER_SIZE);
+  private phasesDet = new Float64Array(BUFFER_SIZE);
+  private osc = new Float32Array(BUFFER_SIZE);
+  private env = new Float32Array(BUFFER_SIZE);
 
   constructor(
     freq = 440.0,
@@ -349,16 +369,35 @@ class Voice {
     this.release_time = this.elapsed;
   }
 
+  /** Silence a voice whose pitch, phase or clock has gone NaN or infinite. */
+  heal(): void {
+    const ok = [this.freq, this.target_freq, this.phase, this.phase_det, this.elapsed, this.release_time].every(Number.isFinite);
+    if (ok) return;
+    this.freq = this.target_freq = 440.0;
+    this.phase = this.phase_det = 0.0;
+    this.active = this.gate = false;
+    this.elapsed = 0.0;
+    this.release_time = -1.0;
+  }
+
+  /** The next n samples. The returned buffer is the voice's own: read it before the next render. */
   render(n: number): Float32Array {
-    if (!this.active) return new Float32Array(n);
+    if (this.osc.length < n) {
+      this.phases = new Float64Array(n);
+      this.phasesDet = new Float64Array(n);
+      this.osc = new Float32Array(n);
+      this.env = new Float32Array(n);
+    }
+    const osc = this.osc;
+    if (!this.active) return osc.fill(0, 0, n);
     const dt = 1.0 / SAMPLE_RATE;
 
     // Per-sample frequency ramp for buffer-size-independent portamento.
     // Time constant in seconds: ambient slides slowly, chiptune snaps fast.
     const slideTc = this.style === STYLE_AMBIENT ? 0.15 : 0.02;
     const alpha = 1.0 - Math.exp(-dt / slideTc);
-    const phases = new Float64Array(n);
-    const phasesDet = new Float64Array(n);
+    const phases = this.phases;
+    const phasesDet = this.phasesDet;
     let f = this.freq;
     let ph = this.phase;
     let phd = this.phase_det;
@@ -377,22 +416,20 @@ class Voice {
       this.phase = pmod(ph, TWO_PI);
     }
 
-    let osc: Float32Array;
     let adsr: ADSREnvelope;
     if (this.style === STYLE_CHIPTUNE) {
-      osc = squareWave(phases, 0.25, this.freq);
+      squareWave(phases, n, 0.25, this.freq, osc);
       adsr = ENV_CHIPTUNE;
     } else {
       // Ambient: sine + chorus with a dedicated detuned phase accumulator
       if (n > 0) this.phase_det = pmod(phd, TWO_PI);
-      osc = new Float32Array(n);
       for (let i = 0; i < n; i++) {
         osc[i] = Math.fround(Math.sin(phases[i] ?? 0)) * 0.7 + Math.fround(Math.sin(phasesDet[i] ?? 0)) * 0.3;
       }
       adsr = ENV_AMBIENT;
     }
 
-    const env = adsr.generate(n, this.gate, this.elapsed, this.release_time);
+    const env = adsr.generate(n, this.gate, this.elapsed, this.release_time, this.env);
     this.elapsed += n * dt;
 
     // Check if voice has fully released
@@ -419,6 +456,78 @@ function randn(n: number): Float32Array {
     if (i + 1 < n) out[i + 1] = r * Math.sin(TWO_PI * v);
   }
   return out;
+}
+
+/**
+ * The engine's per-block scratch, one buffer per array numpy would have made
+ * fresh, allocated once for a block of `size` frames. Buffers that live
+ * across stages (the layers and ramps, read by the mix) each have their own;
+ * the drone's phases, oscillators and LFO are consumed inside one
+ * renderDrone() call, so both drones of a style crossfade share them.
+ */
+class Scratch {
+  // Mix output (renderStereo returns these)
+  readonly left: Float32Array;
+  readonly right: Float32Array;
+  readonly stereo: [Float32Array, Float32Array];
+  // Layers, and their per-sample volume and pan ramps
+  readonly drone: Float32Array;
+  readonly droneOld: Float32Array; // the outgoing style's drone during a crossfade
+  readonly melody: Float32Array;
+  readonly arp: Float32Array;
+  readonly noise: Float32Array;
+  cadence: Float32Array | null = null; // the cadence voice's own buffer
+  readonly droneRamp: Float32Array;
+  readonly melodyRamp: Float32Array;
+  readonly arpRamp: Float32Array;
+  readonly noiseRamp: Float32Array;
+  readonly melTheta: Float32Array;
+  readonly arpTheta: Float32Array;
+  // Inside renderDrone()
+  readonly lfo: Float32Array;
+  readonly ph1: Float64Array;
+  readonly ph1d: Float64Array;
+  readonly ph2: Float64Array;
+  readonly ph2d: Float64Array;
+  readonly phs: Float64Array;
+  readonly osc0: Float32Array;
+  readonly osc1: Float32Array;
+  readonly osc2: Float32Array;
+  readonly osc3: Float32Array;
+  // Inside renderNoise()
+  readonly noiseRaw: Float32Array;
+  readonly noiseEnv: Float32Array;
+
+  constructor(readonly size: number) {
+    const f32 = (): Float32Array => new Float32Array(size);
+    const f64 = (): Float64Array => new Float64Array(size);
+    this.left = f32();
+    this.right = f32();
+    this.stereo = [this.left, this.right];
+    this.drone = f32();
+    this.droneOld = f32();
+    this.melody = f32();
+    this.arp = f32();
+    this.noise = f32();
+    this.droneRamp = f32();
+    this.melodyRamp = f32();
+    this.arpRamp = f32();
+    this.noiseRamp = f32();
+    this.melTheta = f32();
+    this.arpTheta = f32();
+    this.lfo = f32();
+    this.ph1 = f64();
+    this.ph1d = f64();
+    this.ph2 = f64();
+    this.ph2d = f64();
+    this.phs = f64();
+    this.osc0 = f32();
+    this.osc1 = f32();
+    this.osc2 = f32();
+    this.osc3 = f32();
+    this.noiseRaw = f32();
+    this.noiseEnv = f32();
+  }
 }
 
 export class LifeMusicEngine {
@@ -476,6 +585,9 @@ export class LifeMusicEngine {
   private lpfMelody = new CachedLPF(3500.0);
   private lpfArp = new CachedLPF(4500.0);
   private lpfNoise = new CachedLPF(600.0);
+
+  // Per-block scratch, reused block after block (regrown if a block is longer)
+  private buf = new Scratch(BUFFER_SIZE);
 
   // Stereo: melody pans with the playhead; arpeggio drifts on a slow LFO.
   private prevMelodyPan = 0.5;
@@ -646,10 +758,12 @@ export class LifeMusicEngine {
     let l: Float32Array;
     let r: Float32Array;
     try {
-      [l, r] = this.renderStereo(n);
+      this.mixStereo(n);
+      l = this.buf.left;
+      r = this.buf.right;
     } catch {
-      l = new Float32Array(n);
-      r = new Float32Array(n);
+      l = this.buf.left.fill(0);
+      r = this.buf.right.fill(0);
     }
     const g = this.muted ? 0 : this.masterVolume;
     for (let i = 0; i < n; i++) {
@@ -658,17 +772,42 @@ export class LifeMusicEngine {
     }
   }
 
-  /** Render all layers + per-sample volume ramps (shared by the mix paths). */
-  private renderLayers(n: number): {
-    drone: Float32Array;
-    melody: Float32Array;
-    arp: Float32Array;
-    noise: Float32Array;
-    cadence: Float32Array | null;
-    ramps: [Float32Array, Float32Array, Float32Array, Float32Array];
-  } {
+  /**
+   * After a block came out NaN: put back every piece of carried state that
+   * has gone NaN or infinite, since each one feeds the next block (a filter,
+   * a phase, a smoothed volume) and would otherwise hold the engine silent
+   * or screaming for good. Finite state is left alone, so nothing clicks.
+   */
+  recover(): void {
+    const fin = (x: number, d: number): number => (Number.isFinite(x) ? x : d);
+    for (const f of [this.lpfDrone, this.lpfMelody, this.lpfArp, this.lpfNoise]) f.heal();
+    for (const v of [...this.melodyVoices, this.arpVoice, this.cadenceVoice]) v.heal();
+    this.dronePhase1 = fin(this.dronePhase1, 0);
+    this.dronePhase1Det = fin(this.dronePhase1Det, 0);
+    this.dronePhase2 = fin(this.dronePhase2, 0);
+    this.dronePhase2Det = fin(this.dronePhase2Det, 0);
+    this.dronePhaseSub = fin(this.dronePhaseSub, 0);
+    this.droneLfoPhase = fin(this.droneLfoPhase, 0);
+    this.smoothDroneVol = fin(this.smoothDroneVol, 0);
+    this.smoothMelodyVol = fin(this.smoothMelodyVol, 0);
+    this.smoothArpVol = fin(this.smoothArpVol, 0);
+    this.smoothNoiseVol = fin(this.smoothNoiseVol, 0);
+    this.currentRootHz = fin(this.currentRootHz, fin(this.targetRootHz, midiToHz(DEFAULT_ROOT)));
+    this.prevMelodyPan = fin(this.prevMelodyPan, 0.5);
+    this.prevArpPan = fin(this.prevArpPan, 0.5);
+    this.autopanPhase = fin(this.autopanPhase, 0);
+    this.arpSamplesInNote = fin(this.arpSamplesInNote, 0);
+    this.noiseBurstAmp = fin(this.noiseBurstAmp, 0);
+    this.noiseBurstPhase = fin(this.noiseBurstPhase, 1.0);
+    this.noiseBurstDuration = fin(this.noiseBurstDuration, 0.15);
+    this.noiseBurstCooldown = fin(this.noiseBurstCooldown, 0);
+  }
+
+  /** Render all layers + per-sample volume ramps (shared by the mix paths) into `buf`. */
+  private renderLayers(n: number): void {
     const ms = this.musical;
     const dt = n / SAMPLE_RATE;
+    const b = this.buf;
 
     // Smooth volume transitions — per-sample linear ramp to avoid step
     // discontinuities at buffer boundaries (audible as ~43 Hz buzz)
@@ -681,40 +820,35 @@ export class LifeMusicEngine {
     this.smoothMelodyVol = lerp(pm, ms.melody_volume, smooth);
     this.smoothArpVol = lerp(pa, ms.arp_volume, smooth);
     this.smoothNoiseVol = lerp(pn, ms.noise_volume, smooth);
-    const ramps: [Float32Array, Float32Array, Float32Array, Float32Array] = [
-      linspace(pd, this.smoothDroneVol, n),
-      linspace(pm, this.smoothMelodyVol, n),
-      linspace(pa, this.smoothArpVol, n),
-      linspace(pn, this.smoothNoiseVol, n),
-    ];
+    linspace(pd, this.smoothDroneVol, n, b.droneRamp);
+    linspace(pm, this.smoothMelodyVol, n, b.melodyRamp);
+    linspace(pa, this.smoothArpVol, n, b.arpRamp);
+    linspace(pn, this.smoothNoiseVol, n, b.noiseRamp);
 
     // Root portamento
     this.currentRootHz = lerp(this.currentRootHz, this.targetRootHz, 0.05);
 
-    let drone: Float32Array;
     if (this.crossfadeRemaining > 0) {
       // During style crossfade: render with both styles and blend
       const progress = 1.0 - this.crossfadeRemaining / Math.max(1, this.crossfadeTotal);
       this.crossfadeRemaining = Math.max(0, this.crossfadeRemaining - n);
-      const droneNew = this.renderDrone(n);
+      const droneNew = this.renderDrone(n, b.drone);
       const saved = this.style;
       this.style = this.oldStyle;
-      const droneOld = this.renderDrone(n);
+      const droneOld = this.renderDrone(n, b.droneOld);
       this.style = saved;
-      // Crossfade: equal-power curve
+      // Crossfade: equal-power curve (in place over the new style's drone)
       const fNew = Math.fround(Math.sqrt(progress));
       const fOld = Math.fround(Math.sqrt(1.0 - progress));
-      drone = new Float32Array(n);
-      for (let i = 0; i < n; i++) drone[i] = (droneOld[i] ?? 0) * fOld + (droneNew[i] ?? 0) * fNew;
+      for (let i = 0; i < n; i++) droneNew[i] = (droneOld[i] ?? 0) * fOld + (droneNew[i] ?? 0) * fNew;
     } else {
-      drone = this.renderDrone(n);
+      this.renderDrone(n, b.drone);
     }
 
-    const melody = this.renderMelody(n);
-    const arp = this.renderArpeggio(n);
-    const noise = this.renderNoise(n, dt);
-    const cadence = this.renderCadence(n);
-    return { drone, melody, arp, noise, cadence, ramps };
+    this.renderMelody(n);
+    this.renderArpeggio(n);
+    this.renderNoise(n, dt);
+    b.cadence = this.renderCadence(n);
   }
 
   /**
@@ -725,10 +859,22 @@ export class LifeMusicEngine {
    * changing, with a slow LFO wobble. Drone, noise and cadence stay centered.
    * Constant-power panning, with per-sample gain ramps so pan moves never
    * click.
+   *
+   * The two buffers are the engine's own and hold the mix only until the
+   * next render; copy them to keep them.
    */
   renderStereo(n: number): [Float32Array, Float32Array] {
-    const { drone, melody, arp, noise, cadence, ramps } = this.renderLayers(n);
-    const [droneRamp, melodyRamp, arpRamp, noiseRamp] = ramps;
+    this.mixStereo(n);
+    const b = this.buf;
+    return b.left.length === n ? b.stereo : [b.left.subarray(0, n), b.right.subarray(0, n)];
+  }
+
+  /** renderStereo(), into buf.left/buf.right. */
+  private mixStereo(n: number): void {
+    if (this.buf.size < n) this.buf = new Scratch(n);
+    this.renderLayers(n);
+    const b = this.buf;
+    const { drone, melody, arp, noise, cadence, droneRamp, melodyRamp, arpRamp, noiseRamp } = b;
     const snap = this.snapshot;
 
     const melodyPan = Math.min(1.0, Math.max(0.0, snap.playhead_position));
@@ -736,13 +882,13 @@ export class LifeMusicEngine {
     const arpPan = Math.min(1.0, Math.max(0.0, snap.activity_x + 0.12 * Math.sin(this.autopanPhase)));
 
     const halfPi = Math.PI / 2.0;
-    const melTheta = linspace(this.prevMelodyPan, melodyPan, n);
-    const arpTheta = linspace(this.prevArpPan, arpPan, n);
+    const melTheta = linspace(this.prevMelodyPan, melodyPan, n, b.melTheta);
+    const arpTheta = linspace(this.prevArpPan, arpPan, n, b.arpTheta);
     this.prevMelodyPan = melodyPan;
     this.prevArpPan = arpPan;
 
-    const left = new Float32Array(n);
-    const right = new Float32Array(n);
+    const left = b.left;
+    const right = b.right;
     for (let i = 0; i < n; i++) {
       const mv = (melody[i] ?? 0) * (melodyRamp[i] ?? 0);
       const av = (arp[i] ?? 0) * (arpRamp[i] ?? 0);
@@ -754,10 +900,9 @@ export class LifeMusicEngine {
       left[i] = center + mv * Math.cos(mt) + av * Math.cos(at);
       right[i] = center + mv * Math.sin(mt) + av * Math.sin(at);
     }
-    return [left, right];
   }
 
-  /** Render the resolving cadence voice, or null while inactive. */
+  /** Render the resolving cadence voice (its own buffer), or null while inactive. */
   private renderCadence(n: number): Float32Array | null {
     if (this.cadenceCooldown > 0) this.cadenceCooldown -= n;
     if (this.cadenceIdx < 0) return null;
@@ -783,15 +928,19 @@ export class LifeMusicEngine {
 
   // ── Drone layer ────────────────────────────────────────────────────
 
-  /** Continuous drone bed — always present, breathes with LFO. */
-  private renderDrone(n: number): Float32Array {
+  /**
+   * Continuous drone bed — always present, breathes with LFO. Written into
+   * `out`: a style crossfade renders it twice, into two buffers.
+   */
+  private renderDrone(n: number, out: Float32Array): Float32Array {
+    const b = this.buf;
     const rootHz = this.currentRootHz;
     const fifthHz = rootHz * 1.5; // Perfect fifth
     const tInc = 1.0 / SAMPLE_RATE;
 
     // LFO for breathing (very slow: ~0.1 Hz)
     const lfoFreq = 0.08;
-    const lfo = new Float32Array(n);
+    const lfo = b.lfo;
     let lastLfo = this.droneLfoPhase;
     for (let i = 0; i < n; i++) {
       lastLfo = this.droneLfoPhase + TWO_PI * lfoFreq * (i / SAMPLE_RATE);
@@ -805,11 +954,7 @@ export class LifeMusicEngine {
     const p2d = TWO_PI * (fifthHz * 1.002) * tInc; // Detuned fifth
     const ps = TWO_PI * (rootHz * 0.5) * tInc; // Sub-octave
 
-    const ph1 = new Float64Array(n);
-    const ph1d = new Float64Array(n);
-    const ph2 = new Float64Array(n);
-    const ph2d = new Float64Array(n);
-    const phs = new Float64Array(n);
+    const { ph1, ph1d, ph2, ph2d, phs } = b;
     for (let i = 0; i < n; i++) {
       ph1[i] = this.dronePhase1 + i * p1;
       ph1d[i] = this.dronePhase1Det + i * p1d;
@@ -824,24 +969,24 @@ export class LifeMusicEngine {
     this.dronePhase2Det = pmod((ph2d[n - 1] ?? 0) + p2d, TWO_PI);
     this.dronePhaseSub = pmod((phs[n - 1] ?? 0) + ps, TWO_PI);
 
-    let drone: Float32Array = new Float32Array(n);
+    const drone = out;
     if (this.style === STYLE_CHIPTUNE) {
       // Detuned square waves + triangle sub
-      const osc1 = squareWave(ph1, 0.5, rootHz);
-      const osc2 = squareWave(ph2d, 0.5, fifthHz * 1.002);
-      const sub = triangleWave(phs);
+      const osc1 = squareWave(ph1, n, 0.5, rootHz, b.osc0);
+      const osc2 = squareWave(ph2d, n, 0.5, fifthHz * 1.002, b.osc1);
+      const sub = triangleWave(phs, n, b.osc2);
       for (let i = 0; i < n; i++) drone[i] = (osc1[i] ?? 0) * 0.35 + (osc2[i] ?? 0) * 0.25 + (sub[i] ?? 0) * 0.4;
     } else {
       // Ambient: detuned sines + filtered fifth
-      const osc1 = sineWave(ph1);
-      const osc1d = sineWave(ph1d);
-      const osc2 = sineWave(ph2);
-      const sub = sineWave(phs);
+      const osc1 = sineWave(ph1, n, b.osc0);
+      const osc1d = sineWave(ph1d, n, b.osc1);
+      const osc2 = sineWave(ph2, n, b.osc2);
+      const sub = sineWave(phs, n, b.osc3);
       for (let i = 0; i < n; i++) {
         drone[i] = (osc1[i] ?? 0) * 0.4 + (osc1d[i] ?? 0) * 0.15 + (osc2[i] ?? 0) * 0.25 + (sub[i] ?? 0) * 0.2;
       }
       // Low-pass filter for warmth
-      drone = this.lpfDrone.apply(drone);
+      this.lpfDrone.apply(drone, n, drone);
     }
     // Apply LFO breathing
     for (let i = 0; i < n; i++) drone[i] = (drone[i] ?? 0) * (0.85 + (lfo[i] ?? 0));
@@ -850,14 +995,16 @@ export class LifeMusicEngine {
 
   // ── Melody layer ───────────────────────────────────────────────────
 
-  /** Grid-scanning playhead: alive cells at current column → pitches. */
-  private renderMelody(n: number): Float32Array {
+  /** Grid-scanning playhead: alive cells at current column → pitches (into buf.melody). */
+  private renderMelody(n: number): void {
     const target = this.musical.playhead_notes;
 
     // Update voice assignments — portamento for small pitch changes to avoid
     // ADSR retriggering at 30Hz (audible flutter). Only hard-retrigger for
     // large intervals (> ~1 semitone = 6% freq change).
-    this.melodyVoices.forEach((voice, i) => {
+    for (let i = 0; i < this.melodyVoices.length; i++) {
+      const voice = this.melodyVoices[i];
+      if (!voice) continue;
       const freq = target[i];
       if (freq !== undefined) {
         if (!voice.active) voice.noteOn(freq);
@@ -866,32 +1013,34 @@ export class LifeMusicEngine {
       } else if (voice.gate) {
         voice.noteOff();
       }
-    });
+    }
 
     // Ambient gets a per-voice boost (sines have ~3dB less RMS than squares)
     const gain = this.style === STYLE_AMBIENT ? 0.5 : 0.3;
-    let buf: Float32Array = new Float32Array(n);
+    const buf = this.buf.melody.fill(0, 0, n);
     for (const voice of this.melodyVoices) {
       if (!voice.active) continue;
       const v = voice.render(n);
       for (let i = 0; i < n; i++) buf[i] = (buf[i] ?? 0) + (v[i] ?? 0) * gain;
     }
     // Chiptune melody benefits from a slight LPF to tame square harmonics
-    if (this.style === STYLE_CHIPTUNE) buf = this.lpfMelody.apply(buf);
-    return buf;
+    if (this.style === STYLE_CHIPTUNE) this.lpfMelody.apply(buf, n, buf);
   }
 
   // ── Arpeggio layer ─────────────────────────────────────────────────
 
-  /** Rhythmic arpeggiated texture, speed tied to cycle detection. */
-  private renderArpeggio(n: number): Float32Array {
+  /** Rhythmic arpeggiated texture, speed tied to cycle detection (into buf.arp). */
+  private renderArpeggio(n: number): void {
     const ms = this.musical;
     const pattern = ms.arp_pattern;
-    if (!pattern.length) return new Float32Array(n);
+    const buf = this.buf.arp;
+    if (!pattern.length) {
+      buf.fill(0, 0, n);
+      return;
+    }
     const root = ms.target_root_midi;
     const noteDur = Math.max(1, Math.trunc(SAMPLE_RATE / Math.max(0.5, ms.arp_speed)));
 
-    let buf: Float32Array = new Float32Array(n);
     let done = 0;
     while (done < n) {
       // Samples remaining in current note
@@ -914,14 +1063,15 @@ export class LifeMusicEngine {
       }
     }
     // Tame chiptune square harmonics; ambient sines don't need filtering
-    if (this.style === STYLE_CHIPTUNE) buf = this.lpfArp.apply(buf);
-    return buf;
+    if (this.style === STYLE_CHIPTUNE) this.lpfArp.apply(buf, n, buf);
   }
 
   // ── Noise layer ────────────────────────────────────────────────────
 
-  /** Percussive noise bursts triggered by population delta spikes. */
-  private renderNoise(n: number, dt: number): Float32Array {
+  /** Percussive noise bursts triggered by population delta spikes (into buf.noise). */
+  private renderNoise(n: number, dt: number): void {
+    const b = this.buf;
+    const out = b.noise;
     const absDelta = Math.abs(this.snapshot.pop_delta);
     // Trigger a new burst when pop_delta exceeds threshold. Require full
     // completion + cooldown to prevent chain-firing flutter.
@@ -935,12 +1085,15 @@ export class LifeMusicEngine {
       this.noiseBurstCooldown = this.noiseBurstDuration + 0.1;
     }
     // If no burst active, return silence
-    if (this.noiseBurstPhase >= 1.0) return new Float32Array(n);
+    if (this.noiseBurstPhase >= 1.0) {
+      out.fill(0, 0, n);
+      return;
+    }
 
     // Read from the pre-generated noise pool (circular buffer)
     const pool = this.noisePool;
     const idx = this.noisePoolIdx % pool.length;
-    const noise = new Float32Array(n);
+    const noise = b.noiseRaw;
     for (let i = 0; i < n; i++) noise[i] = pool[(idx + i) % pool.length] ?? 0;
     this.noisePoolIdx = (idx + n) % pool.length;
 
@@ -948,7 +1101,7 @@ export class LifeMusicEngine {
     const burst = Math.max(0.01, this.noiseBurstDuration);
     const attackEnd = burst * 0.1;
     const t0 = this.noiseBurstPhase * burst;
-    const env = new Float32Array(n);
+    const env = b.noiseEnv;
     for (let i = 0; i < n; i++) {
       const t = Math.fround(t0 + (i * (n / SAMPLE_RATE)) / n);
       env[i] = t < attackEnd ? t / Math.max(0.001, attackEnd) : Math.exp((-6.0 * (t - attackEnd)) / burst);
@@ -957,16 +1110,14 @@ export class LifeMusicEngine {
     // Advance burst phase
     this.noiseBurstPhase = Math.min(1.0, this.noiseBurstPhase + dt / burst);
 
-    const out = new Float32Array(n);
     if (this.style === STYLE_CHIPTUNE) {
       // NES-style: downsample for lo-fi crunch
       for (let i = 0; i < n; i++) out[i] = (noise[i - (i % 8)] ?? 0) * (env[i] ?? 0) * this.noiseBurstAmp;
     } else {
-      // Ambient: low-pass filtered wash
-      const filtered = this.lpfNoise.apply(noise);
+      // Ambient: low-pass filtered wash (in place: the raw noise isn't needed after)
+      const filtered = this.lpfNoise.apply(noise, n, noise);
       for (let i = 0; i < n; i++) out[i] = (filtered[i] ?? 0) * (env[i] ?? 0) * this.noiseBurstAmp * 0.6;
     }
-    return out;
   }
 
   // ── Status string for display ──────────────────────────────────────
