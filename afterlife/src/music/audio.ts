@@ -17,6 +17,8 @@ export class Music {
   private ctx: AudioContext | null = null;
   private node: AudioWorkletNode | null = null;
   private starting: Promise<boolean> | null = null;
+  /** failed starts so far; past a few, stop building contexts on every key */
+  private failures = 0;
   muted = false;
   volume = 0.5;
   style: Style = STYLES[1]; // Start with ambient
@@ -28,12 +30,18 @@ export class Music {
   /** Must be called from a user gesture. Resolves false when there's no audio to be had. */
   start(): Promise<boolean> {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => undefined);
+      // iOS parks a context as 'interrupted' (a call, Siri, another app's
+      // audio); like 'suspended', a gesture is what brings it back
+      const state: string = this.ctx.state;
+      if (state === 'suspended' || state === 'interrupted') void this.ctx.resume().catch(() => undefined);
       return this.starting ?? Promise.resolve(this.running);
     }
-    this.starting = (async () => {
+    if (this.failures >= 3) return Promise.resolve(false);
+    Music.preferPlayback();
+    let ctx: AudioContext | null = null;
+    const attempt = (async () => {
       try {
-        const ctx = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'playback' });
+        ctx = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'playback' });
         this.ctx = ctx;
         const url = URL.createObjectURL(new Blob([workletSource], { type: 'text/javascript' }));
         try {
@@ -49,11 +57,34 @@ export class Music {
         return true;
       } catch (err) {
         console.warn('afterlife: no music tonight', err);
-        this.node = null;
+        this.failures++;
+        // a failed start isn't final: let the context go, so a later gesture
+        // tries afresh instead of finding a half-built one
+        if (ctx) void (ctx as AudioContext).close().catch(() => undefined);
+        if (this.ctx === ctx) {
+          this.ctx = null;
+          this.node = null;
+          this.starting = null;
+        }
         return false;
       }
     })();
-    return this.starting;
+    // a synchronous failure has already reset us; don't pin its promise
+    if (this.ctx) this.starting = attempt;
+    return attempt;
+  }
+
+  /**
+   * iOS plays web audio as 'ambient' by default, which the silent switch
+   * mutes; 'playback' is what music is. Safari 17+ only, so looked up loosely.
+   */
+  private static preferPlayback(): void {
+    try {
+      const session = (navigator as Navigator & { audioSession?: { type?: string } }).audioSession;
+      if (session && session.type !== 'playback') session.type = 'playback';
+    } catch {
+      // not ours to insist on
+    }
   }
 
   private post(m: ToWorklet): void {
