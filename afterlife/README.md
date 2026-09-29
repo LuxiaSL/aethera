@@ -21,20 +21,43 @@ method-for-method ports of `life.py` and `life_music.py`. Two scripts replay
 the Python original and compare the results:
 
 ```bash
-# needs the afterlife checkout and a Python with numpy + scipy
-python scripts/parity.py /path/to/afterlife > /tmp/parity.json
+# from the afterlife checkout (a uv project; scipy is an optional extra there)
+cd /path/to/afterlife
+uv run --with scipy python /path/to/scripts/parity.py . > /tmp/parity.json
 npm run parity -- /tmp/parity.json          # "the same universe ✓"
 
 python scripts/parity_music.py /path/to/afterlife > /tmp/music.json
 npm run parity-music -- /tmp/music.json     # "the same music ✓"
 ```
 
-`parity` seeds `life.py`'s `InfiniteLife` and takes out the dice (the
-injections are the only randomness a replay can't share). Then it checks the
-port step by step: population, pop floor, spread, cycle detection, engine
-events, camera, auto-zoom, mood and time dilation. At the end it checks the
-final ages, the display maps at all five zooms, the census (the original's is
-scipy), auto-focus, a pan/zoom, and haunted mode. All of it matches exactly.
+`parity.py` refuses to run without scipy: `life.py` quietly turns its census
+off without it, and the recording would be of the wrong universe. Recording
+takes about two minutes, and so does the replay.
+
+`parity` replays 22 cases, in three kinds:
+
+- **still** (16): `life.py`'s `InfiniteLife` from a seeded genesis with the
+  dice taken out, so the physics and every read-out are deterministic. Nine
+  seeds; tiny, absurdly tiny, odd and 1080p terminals; travellers crossing
+  every seam of the torus; haunted mode; pan, zoom, toggle, focus and home;
+  and resizes, where a new world adopts the old one.
+- **live** (4): the dice stay in. `life.py`'s `random` and `np.random` are
+  swapped for one mulberry32 stream that the port draws from too. Genesis,
+  every injection, a garden at generation 5000, and on-cue provokes and
+  collisions then have to draw the same numbers in the same order. One thing
+  is pinned: `_find_quiet_spot` orders tied scores by
+  `np.argpartition`, which is numpy's implementation detail, so the live
+  cases give it a stable sort, as the port uses.
+- **focus** (2): hundreds of small worlds of stamped clumps, for
+  `auto_focus`'s hotspot (scipy's `uniform_filter` breaks exact ties by its
+  own rounding, and the port reproduces it) and its percentiles.
+
+Every step is checked: population, pop floor, spread, cycle detection, engine
+events, camera, auto-zoom, mood, time dilation, the activity centroid, a
+checksum of every age, the smoothed ages and activity, the display maps every
+seventh step, the census and its sites every 150, and, in live cases, the
+draw count. At the end it checks the final ages, the display maps at all five
+zooms, the sparkline, the epoch and auto-focus. All of it matches exactly.
 `parity-music` feeds both engines the same scripted evening: a boom, a broken
 cycle and its cadence, two style crossfades, noise bursts, and epoch roots.
 Every sample matches within float32 rounding (worst |Δ| ≈ 2e-7).

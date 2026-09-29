@@ -49,7 +49,9 @@ const clampi = (v: number, lo: number, hi: number): number => Math.max(lo, Math.
 const F85 = Math.fround(0.85);
 const F15 = Math.fround(0.15);
 
-/** np.percentile's default (linear) on a sorted array, then int() */
+/** np.percentile's default (linear) on a sorted array, then int().
+ *  numpy's _lerp interpolates from the nearer end: a + (b-a)·t below the
+ *  midpoint, b - (b-a)·(1-t) from it on, and the two can round apart. */
 function percentileInt(sorted: ArrayLike<number>, p: number): number {
   const n = sorted.length;
   const pos = (p / 100) * (n - 1);
@@ -57,7 +59,39 @@ function percentileInt(sorted: ArrayLike<number>, p: number): number {
   const hi = Math.min(n - 1, lo + 1);
   const a = sorted[lo] ?? 0;
   const b = sorted[hi] ?? 0;
-  return Math.trunc(a + (b - a) * (pos - lo));
+  const t = pos - lo;
+  return Math.trunc(t >= 0.5 ? b - (b - a) * (1 - t) : a + (b - a) * t);
+}
+
+/**
+ * scipy.ndimage.uniform_filter(size=3, mode="constant") on an h×w map, to
+ * the bit. scipy filters axis 0 then axis 1, each as a running sum (add the
+ * cell entering, subtract the one leaving) divided by 3 at every step, so
+ * equal neighbourhoods can round apart; argmax breaks those near-ties by
+ * whatever scipy's rounding says, and so must we.
+ */
+function uniformFilter3(src: Float64Array, h: number, w: number): Float64Array {
+  const at = (a: Float64Array, i: number): number => a[i] ?? 0;
+  const mid = new Float64Array(h * w);
+  for (let x = 0; x < w; x++) {
+    let t = at(src, x) + (h > 1 ? at(src, w + x) : 0);
+    mid[x] = t / 3;
+    for (let y = 1; y < h; y++) {
+      t += (y + 1 < h ? at(src, (y + 1) * w + x) : 0) - (y >= 2 ? at(src, (y - 2) * w + x) : 0);
+      mid[y * w + x] = t / 3;
+    }
+  }
+  const out = new Float64Array(h * w);
+  for (let y = 0; y < h; y++) {
+    const r = y * w;
+    let t = at(mid, r) + (w > 1 ? at(mid, r + 1) : 0);
+    out[r] = t / 3;
+    for (let x = 1; x < w; x++) {
+      t += (x + 1 < w ? at(mid, r + x + 1) : 0) - (x >= 2 ? at(mid, r + x - 2) : 0);
+      out[r + x] = t / 3;
+    }
+  }
+  return out;
 }
 
 /** A view-sized map: rows × cols, row-major. */
@@ -193,11 +227,11 @@ export class InfiniteLife {
 
     for (const name of METHUSELAHS) {
       for (let i = 0; i < 2; i++) {
-        this.place(name, cy + randint(-fdiv(vh, 3), fdiv(vh, 3)), cx + randint(-fdiv(vw, 3), fdiv(vw, 3)));
+        this.place(name, cy + randint(fdiv(-vh, 3), fdiv(vh, 3)), cx + randint(fdiv(-vw, 3), fdiv(vw, 3)));
       }
     }
     for (let i = 0; i < 2; i++) {
-      this.place('gosper_gun', cy + randint(-fdiv(vh, 4), fdiv(vh, 4)), cx + randint(-fdiv(vw, 4), fdiv(vw, 4)));
+      this.place('gosper_gun', cy + randint(fdiv(-vh, 4), fdiv(vh, 4)), cx + randint(fdiv(-vw, 4), fdiv(vw, 4)));
     }
     for (let i = 0; i < 20; i++) {
       const y = clampi(cy + randint(-vh, vh), 10, this.worldH - 10);
@@ -205,7 +239,10 @@ export class InfiniteLife {
       this.place(choice(TRAVELLERS), y, x);
     }
     for (let i = 0; i < 4; i++) {
-      this.place(choice(OSCILLATORS), cy + randint(-fdiv(vh, 3), fdiv(vh, 3)), cx + randint(-fdiv(vw, 3), fdiv(vw, 3)));
+      // python draws y, x, then the oscillator
+      const y = cy + randint(fdiv(-vh, 3), fdiv(vh, 3));
+      const x = cx + randint(fdiv(-vw, 3), fdiv(vw, 3));
+      this.place(choice(OSCILLATORS), y, x);
     }
 
     const y0 = cy - fdiv(vh, 2);
@@ -537,16 +574,19 @@ export class InfiniteLife {
   private injectFromEdge(): void {
     const cy = this.camY + fdiv(this.viewH, 2);
     const cx = this.camX + fdiv(this.viewW, 2);
+    // python's -v // 3 is (-v) // 3: the low bound floors away from zero
     const vh3 = fdiv(this.viewH, 3);
     const vw3 = fdiv(this.viewW, 3);
+    const vh3lo = fdiv(-this.viewH, 3);
+    const vw3lo = fdiv(-this.viewW, 3);
     const edge = choice(['top', 'bottom', 'left', 'right'] as const);
     let y: number;
     let x: number;
     let rot: number;
-    if (edge === 'top') [y, x, rot] = [this.camY + 2, cx + randint(-vw3, vw3), 2];
-    else if (edge === 'bottom') [y, x, rot] = [this.camY + this.viewH - 5, cx + randint(-vw3, vw3), 0];
-    else if (edge === 'left') [y, x, rot] = [cy + randint(-vh3, vh3), this.camX + 2, 1];
-    else [y, x, rot] = [cy + randint(-vh3, vh3), this.camX + this.viewW - 10, 3];
+    if (edge === 'top') [y, x, rot] = [this.camY + 2, cx + randint(vw3lo, vw3), 2];
+    else if (edge === 'bottom') [y, x, rot] = [this.camY + this.viewH - 5, cx + randint(vw3lo, vw3), 0];
+    else if (edge === 'left') [y, x, rot] = [cy + randint(vh3lo, vh3), this.camX + 2, 1];
+    else [y, x, rot] = [cy + randint(vh3lo, vh3), this.camX + this.viewW - 10, 3];
     this.place(choice(TRAVELLERS), y, x, rot);
   }
 
@@ -556,8 +596,8 @@ export class InfiniteLife {
     const cx = this.camX + fdiv(this.viewW, 2);
     const garden = choice(GARDENS);
     // Offset slightly from dead center for visual interest
-    const oy = randint(-fdiv(this.viewH, 6), fdiv(this.viewH, 6));
-    const ox = randint(-fdiv(this.viewW, 6), fdiv(this.viewW, 6));
+    const oy = randint(fdiv(-this.viewH, 6), fdiv(this.viewH, 6));
+    const ox = randint(fdiv(-this.viewW, 6), fdiv(this.viewW, 6));
     for (const [dy, dx] of garden) {
       const ny = cy + oy + dy;
       const nx = cx + ox + dx;
@@ -605,6 +645,10 @@ export class InfiniteLife {
       }
     }
     const k = Math.max(1, fdiv(score.length, 5));
+    // life.py takes np.argpartition(flat, k-1)[:k], whose order among equal
+    // scores (and which ties make the cut) is numpy's implementation detail:
+    // introselect, or SIMD on AVX-512 builds. A stable sort gives the same
+    // darkest quintile with its ties in index order.
     const order = Array.from(score.keys()).sort((a, b) => (score[a] ?? 0) - (score[b] ?? 0));
     const pick = choice(order.slice(0, k));
     const by = fdiv(pick, bw);
@@ -1023,23 +1067,16 @@ export class InfiniteLife {
       }
     }
 
-    // Find the hottest 3×3 neighbourhood (not just one block)
+    // Find the hottest 3×3 neighbourhood (not just one block). argmax takes
+    // the first maximum of scipy's filter, rounding and all.
+    const smoothHeat = uniformFilter3(heat, bh, bw);
     let best = -1;
     let hot = 0;
-    for (let by = 0; by < bh; by++) {
-      for (let bx = 0; bx < bw; bx++) {
-        let s = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const yy = by + dy;
-            const xx = bx + dx;
-            if (yy >= 0 && yy < bh && xx >= 0 && xx < bw) s += heat[yy * bw + xx] ?? 0;
-          }
-        }
-        if (s / 9 > best) {
-          best = s / 9;
-          hot = by * bw + bx;
-        }
+    for (let k = 0; k < smoothHeat.length; k++) {
+      const v = smoothHeat[k] ?? 0;
+      if (v > best) {
+        best = v;
+        hot = k;
       }
     }
     const focusCy = fdiv(hot, bw) * block + fdiv(block, 2);
