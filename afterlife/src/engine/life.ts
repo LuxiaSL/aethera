@@ -77,6 +77,12 @@ export interface UniverseState {
   totalInjections: number;
 }
 
+/** The smallest world an InfiniteLife may have (see its constructor). */
+export interface WorldFloor {
+  minH?: number;
+  minW?: number;
+}
+
 export class InfiniteLife {
   // view_h/view_w = the display grid at zoom 0 (half-block doubles vertical)
   readonly viewH: number;
@@ -154,11 +160,17 @@ export class InfiniteLife {
   private actBaseline = 0;
   dilation = 1;
 
-  constructor(termRows: number, termCols: number, seed = true) {
+  /**
+   * `world` bounds the world from below. life.py's floor (400×800) is the
+   * default; a resize passes the old world so shrinking the window never
+   * crops the universe, and a small screen (oikos) can pass 0 to keep only
+   * 5× its view.
+   */
+  constructor(termRows: number, termCols: number, seed = true, world: WorldFloor = {}) {
     this.viewH = termRows * 2;
     this.viewW = termCols;
-    this.worldH = Math.max(this.viewH * 5, 400);
-    this.worldW = Math.max(this.viewW * 5, 800);
+    this.worldH = Math.max(this.viewH * 5, world.minH ?? 400);
+    this.worldW = Math.max(this.viewW * 5, world.minW ?? 800);
     const n = this.worldH * this.worldW;
     this.grid = new Uint8Array(n);
     this.age = new Int32Array(n);

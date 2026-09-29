@@ -12,6 +12,7 @@
  * busy universe of ~20k cells comes to ~70 kB of text.
  */
 
+import { GHOST_FRAMES } from './constants';
 import type { UniverseState } from './life';
 
 export const KEY = 'afterlife-universe-v1';
@@ -49,7 +50,9 @@ export function encodeAges(age: Int32Array): string {
   let prev = -1;
   for (let i = 0; i < age.length; i++) {
     const a = age[i] ?? 0;
-    if (a === 0) continue;
+    // ghosts deeper than normal decay reaches are retired on adopt anyway;
+    // haunted mode makes nearly every cell one, and would blow the cap
+    if (a === 0 || a < -GHOST_FRAMES) continue;
     varint(i - prev - 1);
     varint(a >= 0 ? a * 2 : -a * 2 - 1);
     prev = i;
@@ -86,9 +89,10 @@ export function decodeAges(b64: string, n: number): Int32Array {
   return age;
 }
 
-export function load(storage: Storage | undefined = globalThis.localStorage): SaveFile | null {
+export function load(storage?: Storage): SaveFile | null {
   try {
-    const raw = storage?.getItem(KEY);
+    // reading localStorage itself throws where site data is blocked
+    const raw = (storage ?? globalThis.localStorage)?.getItem(KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as Partial<Stored>;
     if (s.v !== 1 || !Number.isInteger(s.h) || !Number.isInteger(s.w) || typeof s.cells !== 'string') return null;
@@ -96,7 +100,7 @@ export function load(storage: Storage | undefined = globalThis.localStorage): Sa
     const w = s.w as number;
     if (h <= 0 || w <= 0 || h * w > 16_000_000) return null;
     const generation = Number(s.generation);
-    if (!Number.isFinite(generation) || generation < 0) return null;
+    if (!Number.isSafeInteger(generation) || generation < 0) return null;
     return {
       h,
       w,
@@ -114,8 +118,9 @@ export function load(storage: Storage | undefined = globalThis.localStorage): Sa
 }
 
 /** Save atomically (one setItem). Returns true on success. */
-export function save(file: SaveFile, storage: Storage | undefined = globalThis.localStorage): boolean {
+export function save(file: SaveFile, storage?: Storage): boolean {
   try {
+    const store = storage ?? globalThis.localStorage;
     const stored: Stored = {
       v: 1,
       h: file.h,
@@ -127,8 +132,12 @@ export function save(file: SaveFile, storage: Storage | undefined = globalThis.l
       cells: encodeAges(file.age),
     };
     const text = JSON.stringify(stored);
-    if (text.length > MAX_CHARS || !storage) return false;
-    storage.setItem(KEY, text);
+    if (text.length > MAX_CHARS) {
+      console.warn(`afterlife: the universe is too big to keep (${text.length} chars)`);
+      return false;
+    }
+    if (!store) return false;
+    store.setItem(KEY, text);
     return true;
   } catch (err) {
     console.warn('afterlife: could not save the universe', err);
@@ -136,9 +145,9 @@ export function save(file: SaveFile, storage: Storage | undefined = globalThis.l
   }
 }
 
-export function forget(storage: Storage | undefined = globalThis.localStorage): void {
+export function forget(storage?: Storage): void {
   try {
-    storage?.removeItem(KEY);
+    (storage ?? globalThis.localStorage)?.removeItem(KEY);
   } catch {
     /* fine */
   }
