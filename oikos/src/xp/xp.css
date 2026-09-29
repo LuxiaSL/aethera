@@ -221,16 +221,23 @@
   box-shadow:
     inset -1px -1px #00138c, inset 1px 1px #0831d9,
     inset -2px -2px #001ea0, inset 2px 2px #166aee,
-    inset -3px -3px #003bda, inset 3px 3px #0855dd,
-    4px 6px 18px rgba(0, 0, 0, 0.55);
+    inset -3px -3px #003bda, inset 3px 3px #0855dd;
+  /* no drop shadow and no open animation: Luna had neither on windows */
   background-clip: padding-box;
-  animation: xp-open 0.16s ease-out;
 }
 
-@keyframes xp-open {
-  from { transform: scale(0.96); }
-  to { transform: none; }
+/* an inactive window fades its whole frame, not just the title bar */
+.xp-window.inactive {
+  box-shadow:
+    inset -1px -1px #6582d0, inset 1px 1px #7b9ee6,
+    inset -2px -2px #7393df, inset 2px 2px #a6bff0,
+    inset -3px -3px #8aa6ea, inset 3px 3px #9fb8ee;
 }
+
+.xp-window.inactive .xp-titlebar { border-color: #7b9ee6 #6582d0 #7b9ee6 #7b9ee6; }
+
+/* a hidden part (View ▸ Toolbars, Status Bar) stays hidden whatever its display */
+.xp-window [hidden] { display: none !important; }
 
 .xp-window.minimized {
   display: none;
@@ -242,6 +249,15 @@
   height: auto !important;
   max-height: none;
   border-radius: 0;
+  /* maximised, the frame goes off the edges of the screen */
+  padding: 0;
+  box-shadow: none;
+}
+
+.xp-window.maximized .xp-titlebar {
+  margin: 0;
+  border-radius: 0;
+  border: none;
 }
 
 .xp-titlebar {
@@ -321,6 +337,9 @@
 
 .xp-controls .xp-min::before { left: 4px; top: 13px; width: 8px; height: 3px; }
 .xp-controls .xp-max::before { left: 4px; top: 4px; width: 11px; height: 11px; background: none; border: 1px solid #fff; border-top-width: 3px; }
+/* maximised, it's Restore: two windows, the front one covering the back */
+.xp-window.maximized .xp-controls .xp-max::after { left: 8px; top: 3px; width: 8px; height: 7px; background: none; border: 1px solid #fff; border-top-width: 2px; }
+.xp-window.maximized .xp-controls .xp-max::before { left: 4px; top: 7px; width: 8px; height: 7px; background: #2d67dc; border: 1px solid #fff; border-top-width: 2px; z-index: 1; }
 .xp-controls .xp-close::before,
 .xp-controls .xp-close::after { left: 9px; top: 3px; width: 2px; height: 13px; }
 .xp-controls .xp-close::before { transform: rotate(45deg); }
@@ -339,14 +358,21 @@
   background: var(--luna-face);
 }
 
-.xp-menubar span {
-  padding: 2px 6px;
+.xp-menubar .xp-menutitle {
+  height: 20px;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: #000 !important;
 }
 
-.xp-menubar span:hover {
+.xp-menubar .xp-menutitle:hover,
+.xp-menubar .xp-menutitle.open {
   background: #316ac5;
-  color: #fff;
+  color: #fff !important;
 }
+
+.xp-window.inactive .xp-menubar .xp-menutitle:not(.open):hover { background: none; color: #000 !important; }
 
 .xp-menubar .xp-throbber {
   margin-left: auto;
@@ -594,6 +620,23 @@
 .xp-tile.selected svg { filter: drop-shadow(0 0 0 #316ac5) saturate(0.6) brightness(0.85); }
 .xp-tile:focus-visible { border: 1px dotted #000; }
 
+/* the selection goes grey when its window isn't active, as XP's did */
+.xp-window.inactive .xp-tile.selected .t { background: #d4d0c8; color: #000; }
+
+/* View ▸ Icons: big icon over its name */
+.xp-content.view-icons .xp-tiles { grid-template-columns: repeat(auto-fill, 86px); gap: 10px 6px; }
+.xp-content.view-icons .xp-tile { flex-direction: column; gap: 3px; text-align: center; }
+.xp-content.view-icons .xp-tile .t { margin: 0; }
+.xp-content.view-icons .xp-tile .k,
+.xp-content.view-icons .xp-tile .d { display: none; }
+
+/* View ▸ List: a small icon beside its name, in columns */
+.xp-content.view-list .xp-tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 10px; }
+.xp-content.view-list .xp-tile { gap: 4px; padding: 1px; }
+.xp-content.view-list .xp-tile svg { width: 16px; height: 16px; }
+.xp-content.view-list .xp-tile .k,
+.xp-content.view-list .xp-tile .d { display: none; }
+
 .xp-statusbar {
   display: flex;
   height: 22px;
@@ -810,6 +853,10 @@
 .xp-shutdown .choices .standby i { background: linear-gradient(180deg, #ffd65a, #e59b0c); }
 .xp-shutdown .choices .off i { background: linear-gradient(180deg, #f5896a, #d1341a); }
 .xp-shutdown .choices .restart i { background: linear-gradient(180deg, #8fd66b, #3a9a1b); }
+.xp-shutdown .choices .logoff i { background: linear-gradient(180deg, #ffd65a, #e59b0c); }
+.xp-shutdown .choices .switch i { background: linear-gradient(180deg, #8fb4f5, #2e62d9); }
+.xp-shutdown .choices button:disabled { opacity: 0.5; cursor: default; }
+.xp-shutdown .choices button:disabled i { filter: grayscale(1); box-shadow: none; }
 .xp-shutdown .choices svg { width: 20px; height: 20px; }
 
 .xp-shutdown .foot {
@@ -922,8 +969,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 58px;
-  padding: 0 10px;
+  height: 64px;
+  padding: 0 8px;
   background: linear-gradient(180deg, #1868ce 0%, #0e60cb 12%, #0e60cb 20%, #1164cf 32%, #1667cf 33%, #1b6cd3 47%, #1e70d9 54%, #2476dc 60%, #297ae0 65%, #3482e3 77%, #3786e5 79%, #428ee9 90%, #4791eb 100%);
   color: #fff;
   font-family: var(--xp-title-font);
@@ -933,10 +980,11 @@
 }
 
 .xp-startmenu > header .avatar {
-  width: 42px;
-  height: 42px;
-  border: 2px solid #d7e3f6;
-  border-radius: 4px;
+  width: 48px;
+  height: 48px;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(15, 40, 110, 0.55), 1px 1px 3px rgba(0, 0, 0, 0.4);
   background: #000;
   display: flex;
   align-items: center;
@@ -944,11 +992,14 @@
   overflow: hidden;
 }
 
-.xp-startmenu > header .avatar svg { width: 34px; height: 34px; }
+/* the orange rule under the header fades out at both ends */
+.xp-startmenu > .orange {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #f09a41 12%, #f09a41 88%, transparent);
+}
 
 .xp-startmenu .cols {
   display: flex;
-  border-top: 2px solid #f09a41;
 }
 
 .xp-startmenu .cols > ul {
@@ -957,7 +1008,7 @@
   list-style: none;
 }
 
-.xp-startmenu .left { flex: 1.1; background: #fff; }
+.xp-startmenu .left { flex: 1.1; display: flex; flex-direction: column; background: #fff; }
 .xp-startmenu .right { flex: 1; background: #d3e5fa; border-left: 1px solid #95bdee; }
 
 .xp-startmenu li > a,
@@ -974,7 +1025,25 @@
 }
 
 .xp-startmenu .right li > a,
-.xp-startmenu .right li > button { color: #0a246a !important; font-weight: bold; padding: 3px 8px; }
+.xp-startmenu .right li > button { color: #0a246a !important; padding: 3px 8px; }
+
+/* bold only where XP was: the pinned tapes and the "My …" places */
+.xp-startmenu .pinned .tt,
+.xp-startmenu .strong .tt { font-weight: bold; }
+
+.xp-startmenu li > button.cascade { position: relative; }
+.xp-startmenu li > button.cascade .arrow {
+  margin-left: auto;
+  border: 4px solid transparent;
+  border-left: 4px solid currentColor;
+  border-right: 0;
+}
+.xp-startmenu li > button.cascade.open { background: #316ac5; color: #fff !important; }
+
+/* All Programs: bold, centred, the green arrow after it, at the foot of the white column */
+.xp-startmenu .left .allprog { margin-top: auto; }
+.xp-startmenu .left .allprog > button { justify-content: center; gap: 10px; padding: 6px 8px; font-weight: bold; }
+.xp-startmenu .left .allprog svg { width: 18px; height: 18px; }
 
 .xp-startmenu li > a:hover,
 .xp-startmenu li > button:hover { background: #316ac5; color: #fff !important; }
@@ -1006,6 +1075,81 @@
 
 .xp-startmenu > .foot button:hover { filter: brightness(1.2); }
 .xp-startmenu > .foot svg { width: 22px; height: 22px; }
+
+/* --------------------------------------------------------------------------
+   menus: dropdowns, right-click menus, the system menu, cascades
+   -------------------------------------------------------------------------- */
+
+.xp-menu {
+  position: absolute;
+  z-index: 95;
+  min-width: 150px;
+  max-width: 320px;
+  padding: 2px;
+  border: 1px solid #aca899;
+  background: #fff;
+  box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.35);
+  font-family: var(--xp-font);
+  font-size: 11px;
+}
+
+.xp-menu > button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 20px;
+  padding: 0 18px 0 0;
+  border: none;
+  background: none;
+  color: #000 !important;
+  text-align: left;
+  white-space: nowrap;
+  outline: none;
+  position: relative;
+}
+
+.xp-menu > button .ic { display: flex; align-items: center; justify-content: center; width: 24px; flex: none; font-style: normal; }
+.xp-menu > button .ic svg,
+.xp-menu > button .ic img { width: 16px; height: 16px; }
+.xp-menu > button .lb { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.xp-menu > button .sc { padding-left: 24px; }
+.xp-menu > button.bold .lb { font-weight: bold; }
+
+.xp-menu > button:hover:not([aria-disabled='true']),
+.xp-menu > button:focus-visible,
+.xp-menu > button.has-sub:hover { background: #316ac5; color: #fff !important; }
+
+.xp-menu > button[aria-disabled='true'] { color: #aca899 !important; cursor: default; }
+
+.xp-menu > button.checked .ic::before { content: '✓'; font-size: 12px; font-weight: bold; }
+
+.xp-menu > button.has-sub::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  border: 4px solid transparent;
+  border-left: 4px solid currentColor;
+  border-right: 0;
+}
+
+.xp-menu-sep { height: 1px; margin: 3px 1px; background: #aca899; }
+
+/* Help ▸ About */
+.xp-about-box .band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 16px;
+  background: linear-gradient(180deg, #0b2a8e, #3163d8);
+  color: #fff;
+  border-bottom: 2px solid #f09a41;
+}
+.xp-about-box .band b { font-family: var(--xp-title-font); font-size: 22px; }
+.xp-about-box .band span { margin-left: auto; font-style: italic; opacity: 0.85; }
+.xp-about-box .xp-dialog-body p { margin: 0 0 4px; }
+.xp-about-box .xp-dialog-body .lic { margin-top: 10px; }
 
 /* tooltips and balloons */
 
@@ -1125,14 +1269,6 @@
   .xp-taskbtn span { display: none; }
   .xp-tray .tray-icon.dream { display: none; }
   .xp-start { padding-right: 16px; font-size: 16px; }
-  .xp-content .xp-mobile-tasks { display: flex; }
-}
-
-.xp-mobile-tasks {
-  display: none;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
 }
 
 /* --------------------------------------------------------------------------

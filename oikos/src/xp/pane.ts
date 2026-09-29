@@ -11,6 +11,7 @@
 import type { Site } from '../data';
 import { addressBar, h, menubar, statusbar, taskGroup, toolbar, type TaskItem } from './chrome';
 import * as icons from './icons';
+import { copyAddress, editMenu, favoritesMenu, helpMenu, siteMenu, toolsMenu, viewMenu } from './menus';
 import { RELATED, addressOf, zoneOf, type Shell } from './shell';
 import type { WindowManager, XPWindow } from './wm';
 
@@ -27,16 +28,36 @@ export class Pane {
   ) {
     const body = h('div');
     body.style.cssText = 'display:flex;flex-direction:column;min-height:0;flex:1;';
-    body.append(menubar());
-    body.append(
-      toolbar({
-        back: () => this.shell.home(),
-        up: () => this.shell.home(),
-        folders: () => tasks.toggleAttribute('hidden'),
-      }),
-    );
+    const tb = toolbar({
+      back: () => this.shell.back(),
+      forward: () => this.shell.forward(),
+      can: () => ({ back: this.shell.canBack, forward: this.shell.canForward }),
+      up: () => this.shell.home(),
+      folders: () => tasks.toggleAttribute('hidden'),
+    });
     const addr = addressOf(site);
-    body.append(addressBar(icons.tape(site.accent), addr, false, () => this.shell.open(site)).el);
+    const address = addressBar(icons.tape(site.accent), addr, false, () => this.shell.open(site)).el;
+    const status = statusbar();
+    body.append(
+      menubar({
+        File: () => [...siteMenu(this.shell, site, true), 'sep', { label: 'Properties', disabled: true }, 'sep', { label: 'Close', run: () => this.win.close() }],
+        Edit: () => editMenu(this.shell, site),
+        View: () =>
+          viewMenu(this.shell, {
+            toolbar: tb.el,
+            address,
+            status: status.el,
+            up: () => this.shell.home(),
+            refresh: () => this.refresh(),
+          }),
+        Favorites: () => favoritesMenu(this.shell),
+        Tools: () => toolsMenu(),
+        Help: () => helpMenu(this.shell),
+      }),
+      tb.el,
+      address,
+    );
+    const offNav = this.shell.onNav(() => tb.refresh());
 
     const main = h('div', { class: 'xp-body' });
     const tasks = h('aside', { class: 'xp-tasks' });
@@ -44,7 +65,6 @@ export class Pane {
     const content = h('div', { class: 'xp-content' });
     main.append(content);
     body.append(main);
-    const status = statusbar();
     status.set('Done', zoneOf(site));
     body.append(status.el);
 
@@ -89,16 +109,7 @@ export class Pane {
     if (site.tune && this.shell.canTune) {
       tapeTasks.splice(1, 0, { icon: icons.tv(), label: 'Watch it on its screen', run: () => this.shell.tuneIn(site.id) });
     }
-    tapeTasks.push({
-      icon: icons.copy(),
-      label: 'Copy address',
-      run: () => {
-        void navigator.clipboard?.writeText(addr).then(
-          () => this.shell.balloon('Copied', addr),
-          () => this.shell.balloon('Could not copy', addr),
-        );
-      },
-    });
+    tapeTasks.push({ icon: icons.copy(), label: 'Copy address', run: () => copyAddress(this.shell, site) });
     tapeTasks.push({ icon: icons.eject(), label: 'Eject tape', run: () => this.win.close() });
 
     const places: TaskItem[] = [{ icon: icons.folderHome(), label: '~ (home directory)', run: () => this.shell.home() }];
@@ -126,6 +137,7 @@ export class Pane {
       width: Math.round(Math.min(760, Math.max(440, innerWidth * 0.5))),
       dock: 'right',
       onClose: () => {
+        offNav();
         clearInterval(this.timer);
         screen?.canvas.remove();
         onClose();

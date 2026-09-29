@@ -116,4 +116,14 @@ endpoints. Develop against the real server and open `/oikos`.
   firefox webkit`; WebKit also needs `install-deps`).
 
 Keys: `~` or `Home` opens the home directory. `←` `→` walk the screens and
-`Enter` plays one. Type a channel number like a remote. `Esc` closes.
+`Enter` plays one. Type a channel number like a remote. `Alt+←` / `Alt+→` are
+Back and Forward. `Esc` dismisses what's transient (a menu, a dialog, a
+tuned-in page) and otherwise steps the camera back; as in XP, it never closes
+an ordinary window.
+
+The XP layer is meant to behave like XP, not just look like it: every window
+has a working menu bar (items that mean nothing in this house are greyed, as
+XP greyed them), right-click menus on tapes, screens, the VCR, the room (the
+desktop), the folder and the taskbar, and the system menu behind each
+title-bar icon. `src/xp/menu.ts` is the one popup menu they all share;
+`src/xp/menus.ts` is what's in them.

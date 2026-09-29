@@ -6,6 +6,8 @@
  * taskbar subscribes to changes and draws a button per window.
  */
 
+import { openMenu, type MenuEntry } from './menu';
+
 export interface WindowOpts {
   id: string;
   title: string;
@@ -54,9 +56,45 @@ export class XPWindow {
     el.addEventListener('pointerdown', () => this.focus(), true);
     this.bindDrag(el.querySelector('.xp-titlebar') as HTMLElement);
     el.querySelector('.xp-titlebar')?.addEventListener('dblclick', (e) => {
-      if ((e.target as HTMLElement).closest('.xp-controls') || opts.dialog) return;
-      this.toggleMax();
+      const t = e.target as HTMLElement;
+      if (t.closest('.xp-controls') || opts.dialog) return;
+      // double-clicking the icon closes, as it always has; the bar maximises
+      if (t.closest('.xp-title-icon')) this.close();
+      else this.toggleMax();
     });
+    // the system menu: from the icon, or a right click anywhere on the bar
+    const icon = el.querySelector('.xp-title-icon') as HTMLElement | null;
+    icon?.setAttribute('data-menu-owner', '');
+    icon?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const r = el.getBoundingClientRect();
+      openMenu(this.systemMenu(), r.left + 3, r.top + 29);
+    });
+    el.querySelector('.xp-titlebar')?.addEventListener('contextmenu', (e) => {
+      const me = e as MouseEvent;
+      if ((me.target as HTMLElement).closest('.xp-controls')) return;
+      me.preventDefault();
+      me.stopPropagation();
+      openMenu(this.systemMenu(), me.clientX, me.clientY);
+    });
+  }
+
+  get maximized(): boolean {
+    return this.el.classList.contains('maximized');
+  }
+
+  /** Restore / Move / Size / Minimize / Maximize / Close, greyed where they don't apply */
+  systemMenu(): MenuEntry[] {
+    const d = !!this.opts.dialog;
+    return [
+      { label: 'Restore', run: () => (this.minimized ? this.restore() : this.toggleMax()), disabled: d || (!this.maximized && !this.minimized) },
+      { label: 'Move', disabled: true },
+      { label: 'Size', disabled: true },
+      { label: 'Minimize', run: () => this.minimize(), disabled: d || this.minimized },
+      { label: 'Maximize', run: () => { if (this.minimized) this.restore(); if (!this.maximized) this.toggleMax(); }, disabled: d || this.maximized },
+      'sep',
+      { label: 'Close', run: () => this.close(), bold: true, shortcut: 'Alt+F4' },
+    ];
   }
 
   setTitle(t: string): void {
@@ -95,8 +133,9 @@ export class XPWindow {
   private bindDrag(bar: HTMLElement): void {
     let start: { x: number; y: number; left: number; top: number } | null = null;
     bar.addEventListener('pointerdown', (e) => {
-      if ((e.target as HTMLElement).closest('.xp-controls')) return;
-      if (this.el.classList.contains('maximized') || innerWidth <= 720) return;
+      // not from the buttons or the icon: capturing the pointer would steal their clicks
+      if ((e.target as HTMLElement).closest('.xp-controls, .xp-title-icon')) return;
+      if (e.button !== 0 || this.el.classList.contains('maximized') || innerWidth <= 720) return;
       start = { x: e.clientX, y: e.clientY, left: this.el.offsetLeft, top: this.el.offsetTop };
       bar.setPointerCapture(e.pointerId);
     });
@@ -130,7 +169,11 @@ export class XPWindow {
   }
 
   toggleMax(): void {
-    this.el.classList.toggle('maximized');
+    const max = this.el.classList.toggle('maximized');
+    // the button becomes Restore while maximised (its glyph is CSS: .maximized .xp-max)
+    const b = this.el.querySelector('.xp-max');
+    b?.setAttribute('aria-label', max ? 'Restore' : 'Maximize');
+    b?.setAttribute('title', max ? 'Restore' : 'Maximize');
     this.wm.changed();
   }
 
@@ -184,6 +227,14 @@ export class WindowManager {
     w.el.style.zIndex = String(++this.z);
     for (const other of this.windows) other.el.classList.toggle('inactive', other !== w);
     if (changed) w.opts.onFocus?.();
+    this.changed();
+  }
+
+  /** a click out in the room: no window has focus, and they all go pale */
+  deactivate(): void {
+    if (!this.active) return;
+    this.active = null;
+    for (const w of this.windows) w.el.classList.add('inactive');
     this.changed();
   }
 

@@ -10,6 +10,8 @@
 import type { Site } from '../data';
 import { addressBar, h, menubar, statusbar, taskGroup, toolbar, type TaskItem } from './chrome';
 import * as icons from './icons';
+import type { MenuEntry } from './menu';
+import { editMenu, favoritesMenu, helpMenu, siteMenu, toolsMenu, viewMenu } from './menus';
 import { zoneOf, type Shell } from './shell';
 import type { WindowManager, XPWindow } from './wm';
 
@@ -19,6 +21,8 @@ export class Explorer {
   private tiles = new Map<string, HTMLButtonElement>();
   private tasks: HTMLElement | null = null;
   private status: ReturnType<typeof statusbar> | null = null;
+  private content: HTMLElement | null = null;
+  private view: 'tiles' | 'icons' | 'list' = 'tiles';
 
   constructor(
     private readonly shell: Shell,
@@ -40,22 +44,51 @@ export class Explorer {
     body.style.cssText = 'display:flex;flex-direction:column;min-height:0;flex:1;';
     const { dir } = this.shell;
 
-    body.append(menubar());
-    body.append(
-      toolbar({
-        search: () => address.input?.focus(),
-        folders: () => this.tasks?.toggleAttribute('hidden'),
-      }),
-    );
+    const tb = toolbar({
+      back: () => this.shell.back(),
+      forward: () => this.shell.forward(),
+      can: () => ({ back: this.shell.canBack, forward: this.shell.canForward }),
+      search: () => address.input?.focus(),
+      folders: () => this.tasks?.toggleAttribute('hidden'),
+    });
     const address = addressBar(icons.folderHome(), '~/æthera', true, (v) => this.go(v));
     address.input?.addEventListener('input', () => this.filter(address.input?.value ?? ''));
-    body.append(address.el);
+    this.status = statusbar();
+    const sel = () => (this.selected ? this.shell.site(this.selected) ?? null : null);
+    body.append(
+      menubar({
+        File: () => this.fileMenu(),
+        Edit: () => editMenu(this.shell, sel()),
+        View: () =>
+          viewMenu(this.shell, {
+            toolbar: tb.el,
+            address: address.el,
+            status: this.status?.el ?? h('div'),
+            views: this.viewItems(),
+            refresh: () => {
+              if (address.input) address.input.value = '~/æthera';
+              this.filter('');
+            },
+          }),
+        Favorites: () => favoritesMenu(this.shell),
+        Tools: () => toolsMenu(),
+        Help: () => helpMenu(this.shell),
+      }),
+      tb.el,
+      address.el,
+    );
+    const offNav = this.shell.onNav(() => tb.refresh());
 
     const main = h('div', { class: 'xp-body' });
     this.tasks = h('aside', { class: 'xp-tasks' });
     main.append(this.tasks);
 
-    const content = h('div', { class: 'xp-content', role: 'listbox', 'aria-label': 'tapes' });
+    const content = h('div', { class: `xp-content view-${this.view}`, role: 'listbox', 'aria-label': 'tapes' });
+    this.content = content;
+    // a click on the folder's blank space clears the selection (the camera stays put)
+    content.addEventListener('pointerdown', (e) => {
+      if (e.button === 0 && !(e.target as HTMLElement).closest('.xp-tile')) this.select(null);
+    });
     const group = (title: string, sites: Site[]) => {
       if (!sites.length) return;
       content.append(h('h3', { class: 'xp-group-head' }, [title]));
@@ -80,7 +113,6 @@ export class Explorer {
     main.append(content);
     body.append(main);
 
-    this.status = statusbar();
     body.append(this.status.el);
 
     this.win = this.wm.open({
@@ -91,7 +123,9 @@ export class Explorer {
       width: Math.round(Math.min(680, Math.max(420, innerWidth * 0.46))),
       dock: 'left',
       onClose: () => {
+        offNav();
         this.win = null;
+        this.content = null;
         this.selected = null;
       },
     });
@@ -102,6 +136,59 @@ export class Explorer {
 
   close(): void {
     this.win?.close();
+  }
+
+  private fileMenu(): MenuEntry[] {
+    const sel = this.selected ? this.shell.site(this.selected) : undefined;
+    const items: MenuEntry[] = sel ? siteMenu(this.shell, sel) : [{ label: 'Play', bold: true, disabled: true }];
+    return [
+      ...items,
+      'sep',
+      { label: 'New', disabled: true, submenu: () => [] },
+      'sep',
+      { label: 'Create Shortcut', disabled: true },
+      { label: 'Delete', disabled: true },
+      { label: 'Rename', disabled: true },
+      'sep',
+      { label: 'Close', run: () => this.close() },
+    ];
+  }
+
+  private viewItems(): MenuEntry[] {
+    const set = (v: 'tiles' | 'icons' | 'list') => () => {
+      this.view = v;
+      if (this.content) this.content.className = `xp-content view-${v}`;
+    };
+    return [
+      { label: 'Tiles', checked: this.view === 'tiles', run: set('tiles') },
+      { label: 'Icons', checked: this.view === 'icons', run: set('icons') },
+      { label: 'List', checked: this.view === 'list', run: set('list') },
+    ];
+  }
+
+  /** a tile's right-click menu (main.ts routes contextmenu here) */
+  contextFor(id: string): MenuEntry[] | null {
+    const site = this.shell.site(id);
+    if (!site) return null;
+    this.select(id, true);
+    return siteMenu(this.shell, site);
+  }
+
+  /** right-click on the folder's blank space: the view, as in XP */
+  blankMenu(): MenuEntry[] {
+    return [
+      { label: 'View', submenu: () => this.viewItems() },
+      { label: 'Arrange Icons By', disabled: true, submenu: () => [] },
+      'sep',
+      { label: 'Refresh', run: () => this.filter('') },
+      'sep',
+      { label: 'Paste', disabled: true },
+      { label: 'Paste Shortcut', disabled: true },
+      'sep',
+      { label: 'New', disabled: true, submenu: () => [] },
+      'sep',
+      { label: 'Properties', disabled: true },
+    ];
   }
 
   private tile(site: Site): HTMLButtonElement {

@@ -80,12 +80,12 @@ ${awake ? '<circle cx="12.6" cy="12.6" r="2" fill="#ff2a2a" stroke="#fff" stroke
 
 function roundArrow(dir: 'back' | 'fwd'): string {
   const g = id('ar');
-  const path = dir === 'back' ? 'M17 7l-8 5 8 5v-3h7v-4h-7z' : 'M7 7l8 5-8 5v-3H0v-4h7z';
-  const tx = dir === 'back' ? 0 : 5;
+  // kept inside the r=10.5 circle (the old shaft ran out past its edge)
+  const path = dir === 'back' ? 'M5 12l7-5.5V10h7v4h-7v3.5z' : 'M19 12l-7-5.5V10H5v4h7v3.5z';
   return `<svg viewBox="0 0 24 24" aria-hidden="true">
 <defs><radialGradient id="${g}" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#bff5a8"/><stop offset=".6" stop-color="#3fae2a"/><stop offset="1" stop-color="#1e6e14"/></radialGradient></defs>
 <circle cx="12" cy="12" r="10.5" fill="url(#${g})" stroke="#1e6e14"/>
-<path d="${path}" transform="translate(${tx} 0)" fill="#fff"/>
+<path d="${path}" fill="#fff"/>
 </svg>`;
 }
 
@@ -159,6 +159,17 @@ export function power(): string {
 
 export function standby(): string {
   return `<svg viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="#e5a117" stroke="#fff"/><path d="M13 5a6 6 0 104 9 6.5 6.5 0 01-4-9z" fill="#fff"/></svg>`;
+}
+
+/** the start menu's Log Off: a key on the yellow tile */
+export function logoff(): string {
+  return `<svg viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="#e5a117" stroke="#fff"/><circle cx="8" cy="11" r="3.4" fill="none" stroke="#fff" stroke-width="2"/><path d="M11 11h7M15.5 11v3M17.5 11v2.2" stroke="#fff" stroke-width="2" stroke-linecap="square"/></svg>`;
+}
+
+/** "All Programs ▸": the green arrow */
+export function allPrograms(): string {
+  const g = id('ap');
+  return `<svg viewBox="0 0 18 18" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fe36a"/><stop offset="1" stop-color="#2c8c1a"/></linearGradient></defs><rect x="1" y="1" width="16" height="16" rx="3" fill="url(#${g})" stroke="#1e6e14"/><path d="M7 4.5l5.5 4.5L7 13.5z" fill="#fff"/></svg>`;
 }
 
 export function restart(): string {

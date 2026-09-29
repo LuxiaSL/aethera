@@ -29,6 +29,15 @@ export interface Shell {
   home(): void;
   eject(): void;
   balloon(title: string, text: string, at?: { x: number; y: number }): void;
+  /** where you've been: ~ and the tapes played, in order, like Explorer's history */
+  back(): void;
+  forward(): void;
+  readonly canBack: boolean;
+  readonly canForward: boolean;
+  /** called whenever the history moves (toolbars re-grey Back/Forward) */
+  onNav(fn: () => void): () => void;
+  /** Help ▸ About */
+  about(): void;
 }
 
 /** which tapes belong on each other's shelves */

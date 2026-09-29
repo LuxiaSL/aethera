@@ -25,6 +25,8 @@ import { Room, type Pickable } from './world/room';
 import { h } from './xp/chrome';
 import { Explorer } from './xp/explorer';
 import * as icons from './xp/icons';
+import { bindContextMenu, closeMenus, setMenuHost, type MenuEntry } from './xp/menu';
+import { siteMenu } from './xp/menus';
 import { Pane } from './xp/pane';
 import type { Shell } from './xp/shell';
 import { Taskbar } from './xp/taskbar';
@@ -76,6 +78,30 @@ function boot(root: HTMLElement): void {
   const desk = h('div', { id: 'oikos-desktop' });
   root.append(desk);
   const wm = new WindowManager(desk);
+  setMenuHost(root);
+
+  // ---- history: ~ and the tapes played, as Explorer's Back/Forward knew them ----
+  const nav = { stack: [] as string[], i: -1, moving: false, listeners: new Set<() => void>() };
+  const visit = (loc: string) => {
+    if (nav.moving || nav.stack[nav.i] === loc) return;
+    nav.stack = nav.stack.slice(0, nav.i + 1);
+    nav.stack.push(loc);
+    nav.i = nav.stack.length - 1;
+    for (const fn of nav.listeners) fn();
+  };
+  const travel = (step: number) => {
+    const to = nav.stack[nav.i + step];
+    if (to === undefined) return;
+    nav.i += step;
+    nav.moving = true;
+    try {
+      if (to === '~') shell.home();
+      else shell.play(to);
+    } finally {
+      nav.moving = false;
+    }
+    for (const fn of nav.listeners) fn();
+  };
 
   let room: Room | null = null;
   let pane: Pane | null = null;
@@ -98,6 +124,7 @@ function boot(root: HTMLElement): void {
     play(id) {
       const site = byId.get(id);
       if (!site) return;
+      visit(id);
       // anything that moves the camera steps out of a tuned-in screen first
       tuneOut(false);
       explorer.select(id);
@@ -234,6 +261,7 @@ function boot(root: HTMLElement): void {
       });
     },
     home() {
+      visit('~');
       tuneOut(false);
       explorer.open();
       room?.scroll('~ home');
@@ -247,6 +275,19 @@ function boot(root: HTMLElement): void {
     balloon(title, text, at) {
       taskbar.balloon(title, text, at);
     },
+    back: () => travel(-1),
+    forward: () => travel(1),
+    get canBack() {
+      return nav.i > 0;
+    },
+    get canForward() {
+      return nav.i < nav.stack.length - 1;
+    },
+    onNav(fn) {
+      nav.listeners.add(fn);
+      return () => nav.listeners.delete(fn);
+    },
+    about: () => aboutBox(),
   };
 
   const explorer = new Explorer(shell, wm);
@@ -255,6 +296,15 @@ function boot(root: HTMLElement): void {
     turnOff() {
       root.classList.add('off');
       setTimeout(() => location.assign('/'), reduced ? 50 : 750);
+    },
+    logOff() {
+      // clear the desk: every window closed, the tape out, the camera home
+      tuneOut(false);
+      for (const w of [...wm.list]) w.close();
+      room?.eject();
+      room?.focus(null);
+      history.replaceState(null, '', here());
+      taskbar.balloon('Logged off', 'The desk is clear. Click the VCR to begin again.', room?.anchor('vcr') ?? undefined);
     },
     restart() {
       try {
@@ -276,6 +326,30 @@ function boot(root: HTMLElement): void {
     if (!restore) return;
     for (const w of hidden) if (!w.closed) w.restore();
     room?.focus(id);
+  }
+
+  function aboutBox(): void {
+    wm.get('about')?.close();
+    const body = h('div', { class: 'xp-about-box' });
+    const band = h('div', { class: 'band', html: icons.markImg(44, true) });
+    band.append(h('b', {}, ['æthera']), h('span', {}, ['oikos']));
+    const text = h('div', { class: 'xp-dialog-body' });
+    const lines = h('div');
+    lines.append(
+      h('p', {}, ['æthera · the home directory']),
+      h('p', {}, ['Version 1998 (Build 2026.present_day)']),
+      h('p', {}, ['A room of screens wired to one VCR, and every part of the site playing at once.']),
+      h('p', { class: 'lic' }, ['This product is licensed under CC BY 4.0 to:']),
+      h('p', {}, ['guest']),
+    );
+    text.append(lines);
+    const actions = h('div', { class: 'xp-actions' });
+    const ok = h('button', { class: 'xp-btn default', type: 'button' }, ['OK']);
+    actions.append(ok);
+    body.append(band, text, actions);
+    const w = wm.open({ id: 'about', title: 'About æthera', icon: icons.info(), body, width: 400, dialog: true });
+    ok.addEventListener('click', () => w.close());
+    ok.focus();
   }
 
   // ---- the room ----
@@ -301,6 +375,43 @@ function boot(root: HTMLElement): void {
       room = null;
     }
   }
+
+  // a press out in the room takes focus from the windows: they all go pale
+  room?.renderer.domElement.addEventListener('pointerdown', () => wm.deactivate());
+
+  // ---- right-click: tapes (tiles, screens), the VCR, the room, the folder ----
+  bindContextMenu(root, (t, e): MenuEntry[] | null => {
+    const tile = t.closest('.xp-tile') as HTMLElement | null;
+    if (tile) return tile.dataset.id ? explorer.contextFor(tile.dataset.id) : null; // file tiles are links
+    if (t.closest('a')) return null; // a link: the browser's menu (open in new tab) is the useful one
+    if (t.closest('.xp-content') && t.closest('.xp-window')?.getAttribute('aria-label')?.startsWith('~')) return explorer.blankMenu();
+    if (t.closest('.xp-window, .xp-startmenu, .xp-shutdown, .xp-menu, .xp-balloon')) return [];
+    if (!room || t !== room.renderer.domElement) return [];
+    const id = room.pickFromPoint(e.clientX, e.clientY);
+    if (id === 'vcr') {
+      return [
+        { label: 'Open ~', bold: true, run: () => shell.home() },
+        { label: 'Eject', run: () => shell.eject(), disabled: !paneId },
+        'sep',
+        { label: 'Properties', disabled: true },
+      ];
+    }
+    const site = id ? byId.get(id) : undefined;
+    if (site) return siteMenu(shell, site);
+    // the empty room is the desktop
+    return [
+      { label: 'Arrange Icons By', disabled: true, submenu: () => [] },
+      { label: 'Refresh', run: () => room?.focus(null) },
+      'sep',
+      { label: 'Paste', disabled: true },
+      { label: 'Paste Shortcut', disabled: true },
+      'sep',
+      { label: 'New', disabled: true, submenu: () => [] },
+      'sep',
+      { label: '~ Home directory', run: () => shell.home() },
+      { label: 'Properties', disabled: true },
+    ];
+  });
 
   // screens tick inside the room's loop; with no room, the open pane's tube
   // still needs painting
@@ -373,13 +484,26 @@ function boot(root: HTMLElement): void {
     }
     if (tuned) return;
     if (e.key === 'Escape') {
+      // Esc dismisses what's transient (menus, dialogs), as in XP; it never
+      // closes an ordinary window. With nothing left, it steps the camera back.
+      if (closeMenus()) return;
       if (taskbar.dismiss()) return;
       if (!taskbarMenuClosed()) return;
-      if (wm.closeTop()) return;
+      const top = wm.activeWindow;
+      if (top?.opts.dialog && !top.minimized) {
+        top.close();
+        return;
+      }
       if (room?.focusedId) room.focus(null);
       return;
     }
-    if (t.closest('.xp-window, .xp-startmenu')) return;
+    // Alt+← / Alt+→: Back and Forward, anywhere
+    if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      travel(e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
+    if (t.closest('.xp-window, .xp-startmenu, .xp-menu, .xp-shutdown')) return;
     if (e.key === '~' || e.key === 'Home') {
       shell.home();
       return;
@@ -487,7 +611,7 @@ function boot(root: HTMLElement): void {
       return;
     }
     if (!room) {
-      explorer.open();
+      shell.home(); // through the shell, so ~ is the first place in the history
       taskbar.balloon('No room tonight', 'This browser has no WebGL, so the room of screens is dark. The tapes all still play.');
       return;
     }

@@ -690,6 +690,16 @@ export class Room {
     });
   }
 
+  /** what's under a page point (for right-click menus); null for the empty room */
+  pickFromPoint(clientX: number, clientY: number): Pickable | null {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const saved = this.pointer.clone();
+    this.pointer.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    const id = this.pickAt();
+    this.pointer.copy(saved);
+    return id;
+  }
+
   private pickAt(): Pickable | null {
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects(this.pickables, false)[0];

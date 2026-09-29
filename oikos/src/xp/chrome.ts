@@ -7,6 +7,7 @@
  */
 
 import * as icons from './icons';
+import { closeMenus, menuOpen, openMenu, type MenuEntry } from './menu';
 
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -22,9 +23,43 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-export function menubar(): HTMLElement {
-  const bar = h('div', { class: 'xp-menubar', 'aria-hidden': 'true' });
-  for (const m of ['File', 'Edit', 'View', 'Favorites', 'Tools', 'Help']) bar.append(h('span', {}, [m]));
+export type MenuSpec = Record<string, () => MenuEntry[]>;
+
+/**
+ * The menu bar. Click a title to drop its menu; while one is down, moving
+ * across the bar swaps to the menu under the pointer, as XP's did.
+ */
+export function menubar(menus: MenuSpec): HTMLElement {
+  const bar = h('div', { class: 'xp-menubar', role: 'menubar' });
+  let openTitle: HTMLElement | null = null;
+  const drop = (title: HTMLElement, name: string, focusFirst: boolean) => {
+    const entries = menus[name]?.();
+    if (!entries) return;
+    const r = title.getBoundingClientRect();
+    openMenu(entries, r.left, r.bottom, () => {
+      title.classList.remove('open');
+      if (openTitle === title) openTitle = null;
+    }, focusFirst);
+    title.classList.add('open');
+    openTitle = title;
+  };
+  for (const name of Object.keys(menus)) {
+    const title = h('button', { type: 'button', class: 'xp-menutitle', role: 'menuitem', 'aria-haspopup': 'menu', 'data-menu-owner': '' }, [name]);
+    title.addEventListener('click', () => {
+      if (openTitle === title) closeMenus();
+      else drop(title, name, false);
+    });
+    title.addEventListener('pointerenter', () => {
+      if (openTitle && openTitle !== title && menuOpen()) drop(title, name, false);
+    });
+    title.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        drop(title, name, true);
+      }
+    });
+    bar.append(title);
+  }
   bar.append(h('span', { class: 'xp-throbber', html: icons.markImg(18, true) }));
   return bar;
 }
@@ -35,23 +70,33 @@ export interface ToolbarHandlers {
   up?: () => void;
   search?: () => void;
   folders?: () => void;
+  /** which of back/forward can go anywhere right now (re-read on refresh()) */
+  can?: () => { back: boolean; forward: boolean };
 }
 
-export function toolbar(on: ToolbarHandlers): HTMLElement {
+export function toolbar(on: ToolbarHandlers): { el: HTMLElement; refresh(): void } {
   const bar = h('div', { class: 'xp-toolbar' });
   const btn = (icon: string, label: string, fn: (() => void) | undefined, showLabel = true) => {
     const b = h('button', { class: 'xp-tb', type: 'button', title: label, html: `${icon}${showLabel ? `<span>${label}</span>` : ''}` });
     if (fn) b.addEventListener('click', fn);
     else b.disabled = true;
     bar.append(b);
+    return b;
   };
-  btn(icons.back(), 'Back', on.back);
-  btn(icons.forward(), 'Forward', on.forward, false);
+  const back = btn(icons.back(), 'Back', on.back);
+  const forward = btn(icons.forward(), 'Forward', on.forward, false);
   btn(icons.up(), 'Up', on.up, false);
   bar.append(h('span', { class: 'xp-tb-sep' }));
   btn(icons.search(), 'Search', on.search);
   btn(icons.folders(), 'Folders', on.folders);
-  return bar;
+  const refresh = () => {
+    if (!on.can) return;
+    const c = on.can();
+    back.disabled = !on.back || !c.back;
+    forward.disabled = !on.forward || !c.forward;
+  };
+  refresh();
+  return { el: bar, refresh };
 }
 
 export function addressBar(icon: string, value: string, editable: boolean, onGo?: (v: string) => void): { el: HTMLElement; input: HTMLInputElement | null } {
