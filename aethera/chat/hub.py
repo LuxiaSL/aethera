@@ -137,6 +137,9 @@ class Member:
     signon: float
     tokens: float
     refilled: float
+    #: flood control: how many lines at once, and how fast the bucket refills
+    burst: int
+    refill_s: float
     strikes: deque[float] = field(default_factory=deque)
     gone: bool = False
 
@@ -221,10 +224,21 @@ class ChatHub:
             return False
         return True
 
-    async def admit(self, ws: Socket, ip: str, raw: str) -> Member:
+    async def admit(
+        self,
+        ws: Socket,
+        ip: str,
+        raw: str,
+        *,
+        burst: int | None = None,
+        refill_s: float | None = None,
+    ) -> Member:
         """Parse the hello, let them in, greet them, and tell the channel.
 
-        Raises Refused (after telling the socket why) when they can't join.
+        `burst`/`refill_s` override the channel's flood pace for this member
+        (the HTTP API is paced slower: a program can say things far faster
+        than anyone can read them). Raises Refused (after telling the socket
+        why) when they can't join.
         """
         try:
             try:
@@ -245,8 +259,10 @@ class ChatHub:
 
         now = self._clock()
         # no await between the nick check and here: nobody else can take it meanwhile
+        b = self.burst if burst is None else burst
         m = Member(ws=ws, nick=nick, trip=trip, ip=ip, op=bool(trip and trip in self.ops),
-                   signon=self._wall() * 1000, tokens=float(self.burst), refilled=now)
+                   signon=self._wall() * 1000, tokens=float(b), refilled=now,
+                   burst=b, refill_s=self.refill_s if refill_s is None else refill_s)
         self._members[nick.lower()] = m
         logger.info("chat: %s joined %s (%d here)", nick, self.channel, len(self._members))
 
@@ -276,7 +292,7 @@ class ChatHub:
 
     def _take_token(self, m: Member) -> bool:
         now = self._clock()
-        m.tokens = min(float(self.burst), m.tokens + (now - m.refilled) / self.refill_s)
+        m.tokens = min(float(m.burst), m.tokens + (now - m.refilled) / m.refill_s)
         m.refilled = now
         if m.tokens >= 1:
             m.tokens -= 1

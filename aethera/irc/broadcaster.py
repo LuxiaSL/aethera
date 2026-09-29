@@ -8,8 +8,9 @@ All connected clients see the same stream in sync.
 import asyncio
 import logging
 import random
+from collections import deque
 from datetime import datetime
-from typing import Callable, Optional, Set, Awaitable
+from typing import Any, Callable, Optional, Set, Awaitable
 from fastapi import WebSocket
 
 from .models import (
@@ -22,6 +23,13 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: broadcast payloads remembered, for late listeners and /api/irc/recent
+HISTORY = 400
+#: the most a new listener is played back on connect
+REPLAY_MAX = 40
+#: between fragments the channel is quiet; a new listener gets this much of the last one
+AFTERIMAGE = 8
 
 
 class IRCBroadcaster:
@@ -53,6 +61,12 @@ class IRCBroadcaster:
         self._clients: Set[WebSocket] = set()
         self._lock = asyncio.Lock()
         
+        # What has been said, numbered, so a late listener can be caught up
+        # (and so /api/irc/recent can long-poll): (seq, payload), oldest first
+        self._history: deque[tuple[int, dict[str, Any]]] = deque(maxlen=HISTORY)
+        self._seq = 0
+        self._pulse = asyncio.Event()
+
         # Playback state
         self._current_fragment: Optional[IRCFragment] = None
         self._message_index: int = 0
@@ -84,16 +98,33 @@ class IRCBroadcaster:
             websocket: The connecting WebSocket
         """
         await websocket.accept()
-        
-        async with self._lock:
-            self._clients.add(websocket)
-        
-        # Send connection confirmation - no history, client joins stream in progress
+
         await self._send_to_client(websocket, {
             "type": "connected",
             "channel": self.channel_name,
         })
-        
+
+        # Catch them up on the fragment in progress (or the tail of the last
+        # one, between fragments), so they don't join to an empty screen; then
+        # anything said meanwhile; then they're live. Joining the client set
+        # under the lock, only once nothing newer is waiting, keeps every line
+        # in order and none twice.
+        async with self._lock:
+            pending = self._replay_tail()
+            cursor = self._seq
+        for _ in range(5):
+            for _seq, payload in pending:
+                await self._send_to_client(websocket, {**payload, "replay": True})
+            async with self._lock:
+                pending = [(n, p) for n, p in self._history if n > cursor]
+                cursor = self._seq
+                if not pending:
+                    self._clients.add(websocket)
+                    break
+        else:
+            async with self._lock:
+                self._clients.add(websocket)
+
         logger.info(f"Client connected. Total clients: {self.client_count}")
     
     async def disconnect(self, websocket: WebSocket) -> None:
@@ -122,16 +153,58 @@ class IRCBroadcaster:
             logger.debug(f"Failed to send to client: {e}")
             return False
     
-    async def _broadcast(self, message: dict) -> None:
-        """Broadcast a message to all connected clients."""
-        if not self._clients:
+    # ==================== History ====================
+
+    def _replay_tail(self) -> list[tuple[int, dict[str, Any]]]:
+        """What a new listener is played: the fragment so far, or, between
+        fragments, the last few lines of the one that ended."""
+        items = list(self._history)
+        ends = [i for i, (_, p) in enumerate(items) if p.get("type") == "fragment_end"]
+        if ends and ends[-1] == len(items) - 1:
+            # quiet between fragments: an afterimage of the last one
+            start = ends[-2] + 1 if len(ends) > 1 else 0
+            last = items[start:]
+            msgs = [it for it in last if it[1].get("type") == "message"][-AFTERIMAGE:]
+            return msgs + [items[-1]]
+        tail = items[ends[-1] + 1:] if ends else items
+        if len(tail) > REPLAY_MAX:
+            cut = tail[-REPLAY_MAX:]
+            # still mid-collapse? say so, even if it began before the cut
+            collapse = [it for it in tail[:-REPLAY_MAX] if it[1].get("type") == "collapse_start"]
+            tail = collapse[-1:] + cut
+        return tail
+
+    def history_since(self, since: int, limit: int = 100) -> tuple[list[tuple[int, dict[str, Any]]], int]:
+        """Payloads after `since` (the last `limit` of them), and the cursor to pass next.
+        since <= 0 means "the recent past": the last `limit`."""
+        items = [it for it in self._history if it[0] > since] if since > 0 else list(self._history)
+        return items[-limit:], self._seq
+
+    async def wait_since(self, since: int, timeout: float) -> None:
+        """Return once something newer than `since` has been said, or after `timeout`."""
+        if timeout <= 0 or self._seq > since:
             return
-        
-        dead_clients: Set[WebSocket] = set()
-        
+        pulse = self._pulse
+        try:
+            await asyncio.wait_for(pulse.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+
+    async def _broadcast(self, message: dict) -> None:
+        """Remember a message, and send it to all connected clients."""
         async with self._lock:
+            self._seq += 1
+            self._history.append((self._seq, message))
             clients = set(self._clients)
-        
+        # wake the long-pollers, and hand the next ones a fresh doorbell
+        pulse, self._pulse = self._pulse, asyncio.Event()
+        pulse.set()
+
+        if not clients:
+            return
+
+        dead_clients: Set[WebSocket] = set()
+
         for client in clients:
             if not await self._send_to_client(client, message):
                 dead_clients.add(client)

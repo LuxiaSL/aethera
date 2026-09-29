@@ -16,7 +16,7 @@ import os
 from typing import Awaitable, Callable, Optional
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from aethera.irc import IRCBroadcaster
 from aethera.irc.broadcaster import get_test_fragment
@@ -169,6 +169,66 @@ async def irc_status():
             "current_fragment_id": stats["current_fragment_id"],
             "message_index": stats["message_index"],
         },
+    })
+
+
+#: the longest /api/irc/recent will hold a request open waiting for a line
+RECENT_MAX_WAIT_S = 25.0
+
+
+def _ghost_line(item: dict) -> str:
+    """One broadcast payload as the line mIRC would show (see oikos/src/xp/mirc.ts)."""
+    kind = item.get("type")
+    if kind == "collapse_start":
+        return f"*** {str(item.get('collapseType', 'collapse')).replace('_', ' ')}"
+    if kind == "fragment_end":
+        return "*** the channel empties"
+    d = item.get("data") or {}
+    ts = str(d.get("timestamp", ""))[:5]
+    nick = d.get("nick", "")
+    content = d.get("content", "")
+    t = d.get("type", "message")
+    meta = d.get("meta") or {}
+    if t == "message":
+        body = f"<{nick}> {content}"
+    elif t == "action":
+        body = f"* {nick} {content}"
+    elif t == "join":
+        body = f"* {nick} has joined #aethera"
+    elif t == "part":
+        body = f"* {nick} has left #aethera" + (f" ({content})" if content else "")
+    elif t == "quit":
+        body = f"* {nick} Quit ({content or 'Client exited'})"
+    elif t == "kick":
+        why = meta.get("reason") or content
+        body = f"* {meta.get('target', '?')} was kicked by {nick}" + (f" ({why})" if why else "")
+    else:
+        body = content or nick
+    return f"[{ts}] {body}" if ts else body
+
+
+@router.get("/api/irc/recent")
+async def irc_recent(request: Request, since: int = 0, wait: float = 0.0, limit: int = 100, format: str = "json"):
+    """
+    What #aethera has been saying, for listeners that aren't browsers.
+
+    since: the cursor from the last answer (0: the recent past).
+    wait: long-poll up to this many seconds (max 25) for something new.
+    format=text: mIRC-style lines, the cursor on the last line.
+    """
+    broadcaster = get_broadcaster()
+    if not broadcaster.is_running:
+        await broadcaster.start()
+    await broadcaster.wait_since(since, min(max(wait, 0.0), RECENT_MAX_WAIT_S))
+    items, cursor = broadcaster.history_since(since, max(1, min(limit, 400)))
+    if format == "text":
+        lines = [_ghost_line(p) for _, p in items]
+        lines.append(f"-- cursor {cursor}")
+        return PlainTextResponse("\n".join(lines) + "\n")
+    return JSONResponse({
+        "channel": broadcaster.channel_name,
+        "cursor": cursor,
+        "items": [{"seq": n, **p} for n, p in items],
     })
 
 
