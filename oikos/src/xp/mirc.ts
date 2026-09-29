@@ -172,7 +172,7 @@ class Win {
     const list = [...this.nicks.values()].sort(
       (a, b) => rank(a.mode) - rank(b.mode) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     );
-    this.nicksEl.replaceChildren(...list.map((n) => h('li', {}, [`${n.mode}${n.name}`])));
+    this.nicksEl.replaceChildren(...list.map((n) => h('li', { title: `${n.mode}${n.name}` }, [`${n.mode}${n.name}`])));
   }
 }
 
@@ -422,7 +422,8 @@ export class Mirc {
     const nk = l.nick;
     const who = bare(nk);
     const ct = l.content;
-    const at = wall(l.at);
+    // when the server said it (a replay arrives all at once, long after)
+    const at = l.wallAt ?? wall(l.at);
     const put = (tone: Tone, text: string) => this.push(HAUNTED, tone, text, at);
     let changed = false;
     switch (l.type) {

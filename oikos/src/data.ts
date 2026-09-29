@@ -124,6 +124,8 @@ export interface IrcLine {
   type: string; // message | action | join | part | quit | kick | system
   stamp: string;
   at: number; // performance.now() when it arrived
+  /** epoch ms when the server said it (a replay arrives long after) */
+  wallAt?: number;
   /** a kick's victim and reason (the kicker is `nick`) */
   target?: string;
   reason?: string;
@@ -338,6 +340,7 @@ export class Feeds {
           stamp: String(d.timestamp ?? ''),
           at: performance.now(),
         };
+        if (typeof d.at === 'number') line.wallAt = d.at;
         if (typeof meta.target === 'string') line.target = meta.target;
         if (typeof meta.reason === 'string') line.reason = meta.reason;
         // a replay after a reconnect repeats lines we already have: keep ours

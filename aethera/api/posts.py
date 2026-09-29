@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, Form, File, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlmodel import Session, select
 from typing import List, Optional
 import os
@@ -116,6 +116,84 @@ def get_posts(
         "fragments/post_list.html",
         {"request": request, "posts": posts, "page": page, "per_page": per_page, "has_next_page": has_next_page, "has_prev_page": has_prev_page, "comment_counts": comment_counts}
     )
+
+
+# .txt and .md first: /posts/{slug} would otherwise take "x.txt" as a slug and 404
+@router.get("/posts/{slug}.txt", response_class=PlainTextResponse)
+def get_post_plaintext(slug: str, session: Session = Depends(get_session)):
+    """
+    Get post as plain text (raw markdown source).
+
+    Ideal for AI agents that prefer clean text over HTML parsing.
+    Returns the original markdown content with metadata header.
+    """
+    query = select(Post).where(Post.slug == slug, Post.published == True)
+    post = session.exec(query).first()
+
+    if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}.txt", status_code=301)
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Build a clean plain text representation with metadata
+    lines = [
+        f"Title: {post.title}",
+        f"Author: {post.author}",
+        f"Date: {post.created_at.strftime('%Y-%m-%d')}",
+    ]
+    
+    if post.tags:
+        lines.append(f"Tags: {post.tags}")
+    if post.categories:
+        lines.append(f"Categories: {post.categories}")
+    
+    lines.append(f"License: {post.license}")
+    lines.append("")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append(post.content)  # Original markdown
+    
+    return "\n".join(lines)
+
+
+@router.get("/posts/{slug}.md", response_class=PlainTextResponse)
+def get_post_markdown(slug: str, session: Session = Depends(get_session)):
+    """
+    Get post as raw markdown with frontmatter.
+
+    Returns the post in a format that could be directly saved as a .md file.
+    """
+    query = select(Post).where(Post.slug == slug, Post.published == True)
+    post = session.exec(query).first()
+
+    if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}.md", status_code=301)
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Build markdown with YAML frontmatter
+    frontmatter = [
+        "---",
+        f"title: {post.title}",
+        f"author: {post.author}",
+        f"date: {post.created_at.strftime('%Y-%m-%d')}",
+    ]
+    
+    if post.tags:
+        frontmatter.append(f"tags: {post.tags}")
+    if post.categories:
+        frontmatter.append(f"categories: {post.categories}")
+    if post.excerpt:
+        frontmatter.append(f"excerpt: {post.excerpt}")
+    
+    frontmatter.append(f"license: {post.license}")
+    frontmatter.append("---")
+    frontmatter.append("")
+    frontmatter.append(post.content)
+    
+    return "\n".join(frontmatter)
 
 
 @router.get("/posts/{slug}", response_class=HTMLResponse)
@@ -279,89 +357,6 @@ def get_post_json(slug: str, session: Session = Depends(get_session)):
     
     # Return the post directly, FastAPI will convert it to the response model
     return post
-
-
-# =============================================================================
-# PLAIN TEXT ENDPOINTS (Raw Content Access)
-# =============================================================================
-
-from fastapi.responses import PlainTextResponse
-
-@router.get("/posts/{slug}.txt", response_class=PlainTextResponse)
-def get_post_plaintext(slug: str, session: Session = Depends(get_session)):
-    """
-    Get post as plain text (raw markdown source).
-
-    Ideal for AI agents that prefer clean text over HTML parsing.
-    Returns the original markdown content with metadata header.
-    """
-    query = select(Post).where(Post.slug == slug, Post.published == True)
-    post = session.exec(query).first()
-
-    if not post:
-        target_slug = resolve_redirect(slug, session)
-        if target_slug:
-            return RedirectResponse(url=f"/posts/{target_slug}.txt", status_code=301)
-        raise HTTPException(status_code=404, detail="Post not found")
-    
-    # Build a clean plain text representation with metadata
-    lines = [
-        f"Title: {post.title}",
-        f"Author: {post.author}",
-        f"Date: {post.created_at.strftime('%Y-%m-%d')}",
-    ]
-    
-    if post.tags:
-        lines.append(f"Tags: {post.tags}")
-    if post.categories:
-        lines.append(f"Categories: {post.categories}")
-    
-    lines.append(f"License: {post.license}")
-    lines.append("")
-    lines.append("=" * 60)
-    lines.append("")
-    lines.append(post.content)  # Original markdown
-    
-    return "\n".join(lines)
-
-
-@router.get("/posts/{slug}.md", response_class=PlainTextResponse)
-def get_post_markdown(slug: str, session: Session = Depends(get_session)):
-    """
-    Get post as raw markdown with frontmatter.
-
-    Returns the post in a format that could be directly saved as a .md file.
-    """
-    query = select(Post).where(Post.slug == slug, Post.published == True)
-    post = session.exec(query).first()
-
-    if not post:
-        target_slug = resolve_redirect(slug, session)
-        if target_slug:
-            return RedirectResponse(url=f"/posts/{target_slug}.md", status_code=301)
-        raise HTTPException(status_code=404, detail="Post not found")
-    
-    # Build markdown with YAML frontmatter
-    frontmatter = [
-        "---",
-        f"title: {post.title}",
-        f"author: {post.author}",
-        f"date: {post.created_at.strftime('%Y-%m-%d')}",
-    ]
-    
-    if post.tags:
-        frontmatter.append(f"tags: {post.tags}")
-    if post.categories:
-        frontmatter.append(f"categories: {post.categories}")
-    if post.excerpt:
-        frontmatter.append(f"excerpt: {post.excerpt}")
-    
-    frontmatter.append(f"license: {post.license}")
-    frontmatter.append("---")
-    frontmatter.append("")
-    frontmatter.append(post.content)
-    
-    return "\n".join(frontmatter)
 
 
 @router.post("/api/posts", status_code=status.HTTP_201_CREATED)

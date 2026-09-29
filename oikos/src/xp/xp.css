@@ -1385,6 +1385,8 @@
   user-select: text;
 }
 
+.mirc-nicks li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .mirc-input {
   flex: none;
   margin: 0 2px 2px;

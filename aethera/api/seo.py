@@ -25,9 +25,9 @@ def rss_feed(request: Request, session: Session = Depends(get_session)):
     ET.register_namespace("content", "http://purl.org/rss/1.0/modules/content/")
     
     rss = ET.Element("rss", version="2.0")
-    # Add namespaces manually as attributes since register_namespace only affects serialization of tags
-    rss.set("xmlns:atom", "http://www.w3.org/2005/Atom")
-    rss.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
+    # no xmlns attributes by hand: register_namespace above already makes
+    # ElementTree declare atom: and content: (by hand, they came out twice and
+    # the feed stopped being XML)
     
     # Add channel info
     channel = ET.SubElement(rss, "channel")

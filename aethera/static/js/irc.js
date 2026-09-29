@@ -64,8 +64,10 @@
     const HEADER_ROWS = 2;
 
     // Build colored chunks for one IRC line (parallels the DOM renderer).
-    function lineChunks(m) {
-        const chunks = [{ text: `[${m.timestamp || ''}] `, color: COL.dim }];
+    // `short`: [HH:MM] instead of [HH:MM:SS], for a narrow glass
+    function lineChunks(m, short) {
+        const ts = m.timestamp || '';
+        const chunks = [{ text: `[${short ? ts.slice(0, 5) : ts}] `, color: COL.dim }];
         const t = m.type || 'message';
         const nk = m.nick || '';
         const ct = m.content || '';
@@ -125,7 +127,7 @@
             const newRow = () => { rows.push(row); row = []; lineStart = startX + indent; x = lineStart; };
             const put = (text, color) => { const w = ctx.measureText(text).width; row.push({ text, color, x }); x += w; };
 
-            for (const ch of lineChunks(m)) {
+            for (const ch of lineChunks(m, this.short)) {
                 for (const tok of this._tokenize(ch.text)) {
                     const w = ctx.measureText(tok).width;
                     const atStart = (x === lineStart);
@@ -182,7 +184,9 @@
             const areaH = this.h - areaTop - padY;
             const maxRows = Math.max(1, Math.floor(areaH / rowH));
 
-            const indent = ctx.measureText('[00:00:00] ').width;
+            // a narrow glass drops the seconds: the column was a third of a phone
+            this.short = small;
+            const indent = ctx.measureText(small ? '[00:00] ' : '[00:00:00] ').width;
             let allRows = [];
             for (const m of lines) {
                 const rs = this._wrapLine(m, padX, maxX, indent);

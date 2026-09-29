@@ -290,7 +290,11 @@ class IRCBroadcaster:
                 # already applied below), while the clock shown to viewers is a
                 # single continuous real-time timer across all fragments.
                 data = msg.to_broadcast()
-                data["timestamp"] = datetime.now().strftime("%H:%M:%S")
+                now = datetime.now()
+                data["timestamp"] = now.strftime("%H:%M:%S")
+                # the same moment as epoch ms, so a client replaying it later
+                # (a late listener, mIRC's playback) can show when it was said
+                data["at"] = int(now.timestamp() * 1000)
                 await self._broadcast({
                     "type": "message",
                     "data": data,
