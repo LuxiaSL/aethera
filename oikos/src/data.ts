@@ -188,16 +188,56 @@ export interface UniverseInfo {
   savedAt: number;
 }
 
+/** Everything before the cells blob: persist.ts writes the keys in order,
+ *  cells (up to 1.5 MB) last, so this is where the numbers are. */
+function headOf(raw: string): string {
+  const i = raw.indexOf('"cells"');
+  return i < 0 ? raw : raw.slice(0, i);
+}
+
+/** Read from a stored universe's raw text, without parsing the cells. */
+function universeFrom(raw: string | null): UniverseInfo | null {
+  if (!raw) return null;
+  const head = headOf(raw);
+  const num = (k: string): number | undefined => {
+    const m = new RegExp(`"${k}":(\\d+)`).exec(head);
+    return m ? Number(m[1]) : undefined;
+  };
+  let generation = num('generation');
+  let savedAt = num('savedAt');
+  let bornAt = num('bornAt');
+  if (generation === undefined || savedAt === undefined) {
+    // not the layout we know: pay for the full parse once
+    try {
+      const s = JSON.parse(raw) as { generation?: unknown; bornAt?: unknown; savedAt?: unknown };
+      generation = typeof s.generation === 'number' ? s.generation : undefined;
+      savedAt = typeof s.savedAt === 'number' ? s.savedAt : undefined;
+      bornAt = typeof s.bornAt === 'number' ? s.bornAt : undefined;
+    } catch {
+      return null;
+    }
+    if (generation === undefined || savedAt === undefined) return null;
+  }
+  return { generation, bornAt: bornAt ?? savedAt, savedAt };
+}
+
+let lastUniverse: { len: number; head: string; info: UniverseInfo | null } | null = null;
+
 export function readUniverse(): UniverseInfo | null {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(AFTERLIFE_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as { generation?: unknown; bornAt?: unknown; savedAt?: unknown };
-    if (typeof s.generation !== 'number' || typeof s.savedAt !== 'number') return null;
-    return { generation: s.generation, bornAt: typeof s.bornAt === 'number' ? s.bornAt : s.savedAt, savedAt: s.savedAt };
+    // throws where site data is blocked
+    raw = localStorage.getItem(AFTERLIFE_KEY);
   } catch {
     return null;
   }
+  if (!raw) return null;
+  // the same save as last time: same length, same head (which holds savedAt)
+  const head = headOf(raw);
+  if (lastUniverse && lastUniverse.len === raw.length && lastUniverse.head === head) return lastUniverse.info;
+  const info = universeFrom(raw);
+  lastUniverse = { len: raw.length, head, info };
+  return info;
 }
 
 // ---- apeiron ----------------------------------------------------------------
@@ -258,13 +298,21 @@ export class Feeds {
     every(() => void this.pollChronicle(), 120_000);
     // a creature woken in another tab should appear without a reload
     every(() => this.creature.set(readCreature()), 15_000);
-    // and a universe left at /afterlife in another tab
-    every(() => {
-      const u = readUniverse();
-      if (u?.savedAt !== this.universe.value?.savedAt) this.universe.set(u);
-    }, 15_000);
+    // and a universe left at /afterlife in another tab (or the tuned-in
+    // frame): the storage event says so as it happens; the poll is a fallback
+    window.addEventListener('storage', this.onStorage);
+    every(() => this.setUniverse(readUniverse()), 60_000);
     this.openIrc();
     if (!this.apeiron.value) void this.loadApeiron();
+  }
+
+  /** Fires only for writes from other documents; key null means cleared. */
+  private readonly onStorage = (e: StorageEvent): void => {
+    if (e.key === AFTERLIFE_KEY || e.key === null) this.setUniverse(readUniverse());
+  };
+
+  private setUniverse(u: UniverseInfo | null): void {
+    if (u?.savedAt !== this.universe.value?.savedAt) this.universe.set(u);
   }
 
   /** Hidden tab: stop listening. Nothing here should cost the site anything
@@ -273,6 +321,7 @@ export class Feeds {
     this.running = false;
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
+    window.removeEventListener('storage', this.onStorage);
     clearTimeout(this.wsTimer);
     if (this.ws) {
       this.ws.onclose = null;
