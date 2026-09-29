@@ -593,7 +593,10 @@ function boot(root: HTMLElement): void {
   const skipped = new Promise<void>((r) => (skip = r));
   bootEl?.addEventListener('click', () => skip());
   const fonts = Promise.race([
-    document.fonts?.load('16px "Libertinus Mono"').then(() => undefined) ?? Promise.resolve(),
+    Promise.all([
+      document.fonts?.load('16px "Libertinus Mono"'),
+      document.fonts?.load('16px "Love Letter Typewriter"'),
+    ]).then(() => undefined, () => undefined),
     new Promise<void>((r) => setTimeout(r, 1500)),
   ]);
   const warmed = room?.warm() ?? Promise.resolve();

@@ -15,6 +15,28 @@ export const W = 512;
 export const H = 384;
 
 export const MONO = '"Libertinus Mono", "LibertinusMono", ui-monospace, monospace';
+/** typed on paper: labels, name plates, titles (106 glyphs; the rest falls back to Libertinus) */
+export const HAND = '"Love Letter Typewriter", "Libertinus Mono", monospace';
+
+/**
+ * Paint something that uses a web font, now and again once the font has
+ * actually loaded: a canvas painted before then keeps the fallback forever.
+ * `after` runs after the repaint (a texture's needsUpdate, say).
+ */
+export function paintWith(font: string, paint: () => void, after?: () => void): void {
+  paint();
+  const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+  if (!fonts || fonts.check(font)) return;
+  fonts.load(font).then(
+    () => {
+      paint();
+      after?.();
+    },
+    () => {
+      /* no font: the fallback it already has is fine */
+    },
+  );
+}
 export const SANS = 'Tahoma, Verdana, "Segoe UI", system-ui, sans-serif';
 
 export interface ScreenEnv {

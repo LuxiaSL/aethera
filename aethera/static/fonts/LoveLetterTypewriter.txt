@@ -1,0 +1,11 @@
+Love Letter Typewriter
+© 1994 Blake Haber, for Dixie's Delights. Distributed as a free font.
+
+LoveLetterTypewriter.woff2 is the original LoveLetter.TTF (Fontographer
+4.0.4, 1994-10-09) repackaged as WOFF2, glyphs unchanged. It has 106
+glyphs (ASCII and a few more): no æ, no …, no arrows; browsers fall back
+to the next font in the stack for those.
+
+Used by oikos (/oikos) for the things in the room that are written by
+hand or typed on paper: the monitors' name plates, the tape labels, and
+the post titles on the transmissions screen.

@@ -19,7 +19,7 @@ export function tape(accent: string, label = ''): string {
 <rect x="2" y="9" width="44" height="30" rx="3" fill="url(#${g})" stroke="#000"/>
 <rect x="6" y="12" width="36" height="12" rx="1.5" fill="#f4f1e8" stroke="#000" stroke-width=".6"/>
 <rect x="6" y="12" width="36" height="3" fill="${accent}"/>
-<text x="24" y="22.3" font-size="6.2" font-family="Tahoma,Verdana,sans-serif" text-anchor="middle" fill="#111">${escapeXml(short)}</text>
+<text x="24" y="22.3" font-size="6.4" font-family="'Love Letter Typewriter',Tahoma,Verdana,sans-serif" text-anchor="middle" fill="#111">${escapeXml(short)}</text>
 <rect x="12" y="27" width="24" height="8" rx="1" fill="#1d1a18" stroke="#555" stroke-width=".5"/>
 <circle cx="17" cy="31" r="2.6" fill="#e9e5da"/><circle cx="31" cy="31" r="2.6" fill="#e9e5da"/>
 <circle cx="17" cy="31" r="1" fill="#222"/><circle cx="31" cy="31" r="1" fill="#222"/>

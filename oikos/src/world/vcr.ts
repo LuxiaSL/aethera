@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { HAND, paintWith } from '../screens/screen';
 
 // ---- the display --------------------------------------------------------------
 
@@ -146,16 +147,30 @@ function labelTexture(text: string): THREE.CanvasTexture {
     ctx.fillRect(0, 0, 512, 16);
     ctx.fillStyle = '#9aa1b0';
     for (let y = 40; y < 160; y += 30) ctx.fillRect(16, y + 20, 480, 1);
-    ctx.fillStyle = '#15151a';
-    ctx.font = 'bold 56px "Libertinus Mono", "Comic Sans MS", cursive';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 26, 92);
+    // the printed part of the label stays printed
     ctx.font = '18px "Libertinus Mono", monospace';
     ctx.fillStyle = '#6b6f7a';
     ctx.textAlign = 'right';
     ctx.fillText('T-120  SP', 496, 142);
   }
   const tex = new THREE.CanvasTexture(c);
+  // the title is typed on it; painted again if the typewriter arrives late
+  const font = `54px ${HAND}`;
+  let blank: ImageData | null = null;
+  paintWith(
+    font,
+    () => {
+      if (!ctx) return;
+      if (blank) ctx.putImageData(blank, 0, 0);
+      else blank = ctx.getImageData(0, 0, 512, 160);
+      ctx.fillStyle = '#15151a';
+      ctx.font = font;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 26, 94, 470);
+    },
+    () => (tex.needsUpdate = true),
+  );
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   return tex;

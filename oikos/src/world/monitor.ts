@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 import { makeCrtMaterial, makeTubeGeometry, type CrtMaterial } from './crt';
+import { HAND, paintWith } from '../screens/screen';
 
 export type MonitorStyle = 'beige' | 'tv' | 'grey' | 'black';
 
@@ -50,17 +51,29 @@ function tapeTexture(text: string): THREE.CanvasTexture {
       ctx.fillRect(256 - Math.random() * 5, y, 5, 4);
     }
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = '#16161c';
-    ctx.font = 'bold 30px "Libertinus Mono", "Comic Sans MS", "Marker Felt", cursive';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.save();
-    ctx.translate(128, 30);
-    ctx.rotate(-0.02);
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
   }
   const tex = new THREE.CanvasTexture(c);
+  // typed on the strip; painted again if the typewriter arrives late
+  const font = `31px ${HAND}`;
+  let paper: ImageData | null = null;
+  paintWith(
+    font,
+    () => {
+      if (!ctx) return;
+      if (paper) ctx.putImageData(paper, 0, 0);
+      else paper = ctx.getImageData(0, 0, 256, 56);
+      ctx.fillStyle = '#16161c';
+      ctx.font = font;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.translate(128, 31);
+      ctx.rotate(-0.02);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    },
+    () => (tex.needsUpdate = true),
+  );
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   return tex;

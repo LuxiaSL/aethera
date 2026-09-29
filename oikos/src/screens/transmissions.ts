@@ -4,7 +4,7 @@
  * server hands them over with the page); the star is the post list's own.
  */
 
-import { H, MONO, Screen, W, rng, type ScreenEnv } from './screen';
+import { H, HAND, MONO, Screen, W, rng, type ScreenEnv } from './screen';
 import type { Site } from '../data';
 
 const logo = new Image();
@@ -66,7 +66,7 @@ export class TransmissionsScreen extends Screen {
       ctx.font = `11px ${MONO}`;
       ctx.fillStyle = on ? '#bdbdbd' : '#555';
       ctx.fillText(p.date, 46, y);
-      ctx.font = `15px ${MONO}`;
+      ctx.font = `16px ${HAND}`;
       ctx.fillStyle = on ? '#ffffff' : '#9a9a9a';
       const title = p.title.length > 38 ? `${p.title.slice(0, 37)}…` : p.title;
       ctx.fillText(title, 132, y);

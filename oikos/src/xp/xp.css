@@ -8,6 +8,15 @@
    buttons, headings, links and fonts.
    ========================================================================== */
 
+/* typed on paper: labels, name plates, titles (see static/fonts/LoveLetterTypewriter.txt) */
+@font-face {
+  font-family: 'Love Letter Typewriter';
+  src: url('/static/fonts/LoveLetterTypewriter.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 #oikos {
   --luna-frame: #0831d9;
   --luna-face: #ece9d8;
