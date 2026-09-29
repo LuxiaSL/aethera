@@ -34,6 +34,7 @@ export const PLACEMENTS: Record<string, Placement> = {
   apeiron: { angle: -54, r: 4.2, y: 0, style: 'black', screenW: 1.15, channel: 5 },
   irc: { angle: -54, r: 4.2, y: 0, style: 'beige', screenW: 0.95, on: 'apeiron', channel: 6 },
   syrinx: { angle: 54, r: 4.2, y: 0.28, style: 'grey', screenW: 1.08, channel: 7 },
+  afterlife: { angle: 78, r: 3.9, y: 0, style: 'black', screenW: 1.02, channel: 10 },
   dream_gen: { angle: -20, r: 7.0, y: 4.35, style: 'grey', screenW: 1.02, hang: true, feeds: 'dreams', channel: 8 },
   parlor: { angle: 20, r: 6.5, y: 3.6, style: 'beige', screenW: 1.1, hang: true, channel: 9 },
 };

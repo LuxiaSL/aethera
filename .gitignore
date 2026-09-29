@@ -22,6 +22,8 @@ apeiron/node_modules/
 syrinx/node_modules/
 oikos/node_modules
 oikos/shots/
+afterlife/node_modules/
+afterlife/shots/
 blog.sqlite
 irc.sqlite
 *.db

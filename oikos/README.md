@@ -28,6 +28,7 @@ nothing to watch:
 | dreams api | re-types the real `/api/dreams/status` JSON each poll |
 | apeiron | real prompts composed from apeiron's own `templates.json` / `components.json` |
 | syrinx | **your** creature, read from this origin's localStorage (name, age, topology) |
+| afterlife | **your** universe, run live by afterlife's own engine and terminal renderer (`../afterlife/src`), or a genesis of its own |
 | irc | the live `/ws/irc` broadcast, formatted as `irc.js` formats it |
 | parlor | Kleros' real board, districts and prices; a toy game on it |
 | dream_gen | the core-loop diagram from its README, with the real keyframe and prompt |

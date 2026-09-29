@@ -89,6 +89,7 @@ PAGES: list[tuple[str, str, str]] = [
     ("oikos", "weekly", "0.6"),             # the home directory (and mIRC)
     ("apeiron", "monthly", "0.6"),
     ("syrinx", "monthly", "0.6"),
+    ("afterlife", "monthly", "0.6"),
 ]
 
 

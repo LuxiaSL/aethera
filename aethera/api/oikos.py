@@ -115,6 +115,23 @@ SITES: list[dict] = [
         "tune": True,
     },
     {
+        "id": "afterlife",
+        "title": "afterlife",
+        "href": "/afterlife",
+        "group": "here",
+        "kind": "screensaver",
+        "accent": "#ffaf00",
+        "tagline": "the game of life, after hours",
+        "about": "Conway's Life on an infinite grid that steers toward its own drama: "
+                 "it names its epochs, stages collisions, greets the famous citizens "
+                 "it recognises, and scores itself as it goes. Press g and it "
+                 "remembers everything. It is a place, not a session: the universe "
+                 "is kept in your browser and resumes where you left it.",
+        "details": [["kind", "cellular automaton · music"], ["born", "2026-02-07"],
+                    ["by", "Luxia & Claude"], ["source", "github.com/LuxiaSL/afterlife"]],
+        "tune": True,
+    },
+    {
         "id": "irc",
         "title": "irc",
         "href": "/irc",
