@@ -78,6 +78,20 @@ def rss_feed(request: Request, session: Session = Depends(get_session)):
     return Response(content=xml_str, media_type="application/rss+xml")
 
 
+#: The site's own pages (posts are added from the database): one list, read by
+#: both the sitemap and urls.txt, so a new page is listed in both or neither.
+#: (path, changefreq, priority)
+PAGES: list[tuple[str, str, str]] = [
+    ("dreams", "always", "0.7"),            # the dream, live
+    ("dreams/chronicle", "hourly", "0.7"),  # what it remembers
+    ("dreams/api", "monthly", "0.4"),
+    ("irc", "always", "0.6"),               # #aethera, the haunted channel
+    ("oikos", "weekly", "0.6"),             # the home directory (and mIRC)
+    ("apeiron", "monthly", "0.6"),
+    ("syrinx", "monthly", "0.6"),
+]
+
+
 @router.get("/sitemap.xml")
 def sitemap(request: Request, session: Session = Depends(get_session)):
     """Generate sitemap for the blog."""
@@ -95,8 +109,8 @@ def sitemap(request: Request, session: Session = Depends(get_session)):
     ET.SubElement(url, "changefreq").text = "daily"
     ET.SubElement(url, "priority").text = "1.0"
     
-    # The dream and its memory (both change continuously)
-    for path, freq, prio in (("dreams", "always", "0.7"), ("dreams/chronicle", "hourly", "0.7")):
+    # the site's own pages
+    for path, freq, prio in PAGES:
         url = ET.SubElement(urlset, "url")
         ET.SubElement(url, "loc").text = f"{request.base_url}{path}"
         ET.SubElement(url, "changefreq").text = freq
@@ -195,15 +209,20 @@ def urls_txt(request: Request, session: Session = Depends(get_session)):
     urls = [
         f"# æthera - All URLs",
         f"# Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
-        f"# Total URLs: {len(posts) + 6}",  # posts + static pages
+        "# Total URLs: {total}",  # counted from the list itself, at the end
         f"#",
-        f"# Static Pages",
+        f"# Pages",
         f"{base_url}/",
+        *(f"{base_url}/{path}" for path, _, _ in PAGES),
+        f"#",
+        f"# For machines",
         f"{base_url}/feed.xml",
         f"{base_url}/sitemap.xml",
         f"{base_url}/robots.txt",
         f"{base_url}/llms.txt",
         f"{base_url}/api/posts",
+        f"{base_url}/api/chat",
+        f"{base_url}/api/irc/recent",
         f"#",
         f"# Posts (HTML)",
     ]
@@ -229,6 +248,8 @@ def urls_txt(request: Request, session: Session = Depends(get_session)):
     for post in posts:
         urls.append(f"{base_url}/api/posts/{post.slug}")
     
+    total = sum(1 for u in urls if not u.startswith("#"))
+    urls[2] = urls[2].format(total=total)
     return "\n".join(urls)
 
 
