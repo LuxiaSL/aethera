@@ -70,7 +70,7 @@
         <ul>
             {% for s in sites %}
             <li>
-                {% if s.href %}<a href="{{ s.href }}"{% if s.href.startswith("http") %} rel="noopener"{% endif %}>{{ s.title }}</a>{% else %}<span>{{ s.title }}</span>{% endif %}
+                <a href="{{ s.href }}"{% if s.href.startswith("http") %} rel="noopener"{% endif %}>{{ s.title }}</a>
                 — {{ s.tagline }}
             </li>
             {% endfor %}

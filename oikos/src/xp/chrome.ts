@@ -130,7 +130,7 @@ export function taskGroup(title: string, items: TaskItem[] | HTMLElement, primar
   return g;
 }
 
-export type Zone = 'computer' | 'internet' | 'restricted';
+export type Zone = 'computer' | 'internet';
 
 export function statusbar(): { el: HTMLElement; set(text: string, zone: Zone): void } {
   // a div, not a footer: branding.css paints every footer with padding and a white glow
@@ -142,12 +142,7 @@ export function statusbar(): { el: HTMLElement; set(text: string, zone: Zone): v
     el,
     set(text: string, zone: Zone) {
       left.textContent = text;
-      const [icon, label] =
-        zone === 'computer'
-          ? [icons.computer(), 'My Computer']
-          : zone === 'internet'
-            ? [icons.globe(), 'Internet']
-            : [icons.lock(), 'Restricted sites'];
+      const [icon, label] = zone === 'computer' ? [icons.computer(), 'My Computer'] : [icons.globe(), 'Internet'];
       right.innerHTML = `${icon}<span>${label}</span>`;
     },
   };

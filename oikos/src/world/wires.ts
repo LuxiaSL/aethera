@@ -178,10 +178,10 @@ export function makePowerLines(): THREE.Group {
     });
   }
   // and a few that come down toward the room, where the hanging screens are
+  // (over dream_gen at -20° and parlor at +20°; see layout.ts)
   const drops = [
-    [arms[1]?.[0], new THREE.Vector3(-3.2, 9, -6)],
-    [arms[2]?.[3], new THREE.Vector3(3.5, 9, -6)],
-    [arms[1]?.[5], new THREE.Vector3(-0.4, 10, -7)],
+    [arms[1]?.[0], new THREE.Vector3(-2.4, 9, -6.6)],
+    [arms[2]?.[3], new THREE.Vector3(2.2, 9, -6.1)],
     [arms[3]?.[1], new THREE.Vector3(6, 8.5, -3)],
   ] as const;
   for (const [a, b] of drops) {

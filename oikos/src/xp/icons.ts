@@ -149,16 +149,8 @@ export function textFile(ext: string): string {
 </svg>`;
 }
 
-export function error(): string {
-  return `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#e53b2a" stroke="#8c1508"/><path d="M10 10l12 12M22 10L10 22" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/></svg>`;
-}
-
 export function info(): string {
   return `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#2c7ce0" stroke="#fff"/><rect x="7" y="7" width="2" height="5" fill="#fff"/><rect x="7" y="4" width="2" height="2" fill="#fff"/></svg>`;
-}
-
-export function lock(): string {
-  return `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="8" rx="1" fill="#e8b93a" stroke="#8a6512"/><path d="M5 7V5a3 3 0 016 0v2" fill="none" stroke="#777" stroke-width="1.6"/></svg>`;
 }
 
 export function power(): string {

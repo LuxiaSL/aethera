@@ -23,7 +23,7 @@
 export interface Site {
   id: string;
   title: string;
-  href: string | null;
+  href: string;
   group: 'here' | 'wired';
   kind: string;
   accent: string;
@@ -65,7 +65,7 @@ export function readDirectory(): Directory {
   }
 }
 
-export const isExternal = (href: string | null): boolean => !!href && /^https?:\/\//.test(href);
+export const isExternal = (href: string): boolean => /^https?:\/\//.test(href);
 
 // ---- a tiny signal ----------------------------------------------------------
 

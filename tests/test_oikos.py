@@ -62,6 +62,8 @@ def test_sites_are_well_formed():
         assert s["group"] in {"here", "wired"}
         assert re.fullmatch(r"#[0-9a-f]{6}", s["accent"]), s["id"]
         assert s["tagline"] and s["about"]
+        # the bundle has no path for a site with nowhere to go
+        assert isinstance(s.get("href"), str) and s["href"], s["id"]
         # nothing internal leaks into a public page
         assert ".ath" not in json.dumps(s) and "10.132" not in json.dumps(s)
 
@@ -75,9 +77,24 @@ def test_bundle_is_committed():
 def test_pages_frame_only_for_themselves(client: TestClient):
     """oikos lays the real pages on its screens, so æthera may frame æthera;
     nobody else may (clickjacking stays shut)."""
-    r = client.get("/syrinx")
-    assert r.headers["content-security-policy"] == "frame-ancestors 'self'"
-    assert r.headers["x-frame-options"] == "SAMEORIGIN"
+    for path in ("/syrinx", "/oikos", "/irc/admin"):
+        r = client.get(path)
+        assert r.headers["content-security-policy"] == "frame-ancestors 'self'", path
+        assert r.headers["x-frame-options"] == "SAMEORIGIN", path
+    # the admin panel's draft preview keeps its own, wider policy (any status:
+    # the middleware stamps headers even on a refused token)
+    r = client.get("/preview/anything")
+    assert "https://admin.aetherawi.red" in r.headers["content-security-policy"]
+    assert "x-frame-options" not in r.headers
+
+
+def test_post_titles_cannot_break_out_of_the_data_script(client: TestClient, session):
+    evil = "</script><script>alert(1)</script>'\"&"
+    session.add(Post(title=evil, slug="evil", author="a", content="x", content_html="<p>x</p>", published=True))
+    session.commit()
+    html = client.get("/oikos").text
+    assert "</script><script>alert(1)" not in html
+    assert _embedded(html)["posts"][0]["title"] == evil
 
 
 def test_every_tunable_page_exists(client: TestClient):

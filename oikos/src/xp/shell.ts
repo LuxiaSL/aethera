@@ -3,7 +3,7 @@
  *
  * Windows never touch the room or each other directly; main.ts implements
  * this and decides what "play" or "open" means (a tape, a camera move, a
- * navigation, a new tab, an error box).
+ * navigation, a new tab).
  */
 
 import type { Directory, Feeds, Site } from '../data';
@@ -41,18 +41,14 @@ export const RELATED: Record<string, string[]> = {
   apeiron: ['dreams', 'syrinx'],
   syrinx: ['apeiron', 'transmissions'],
   irc: ['transmissions', 'parlor'],
-  parlor: ['irc', 'loom'],
-  loom: ['heimdall', 'parlor'],
-  heimdall: ['loom', 'dream_gen'],
+  parlor: ['irc', 'transmissions'],
 };
 
 export function addressOf(site: Site): string {
-  if (!site.href) return `\\\\wired\\private\\${site.id}`;
   if (/^https?:/.test(site.href)) return site.href;
   return `${location.origin}${site.href}`;
 }
 
-export function zoneOf(site: Site): 'computer' | 'internet' | 'restricted' {
-  if (!site.href) return 'restricted';
+export function zoneOf(site: Site): 'computer' | 'internet' {
   return site.group === 'here' ? 'computer' : 'internet';
 }

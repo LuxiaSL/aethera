@@ -152,10 +152,6 @@ function boot(root: HTMLElement): void {
     open(site, e) {
       e?.preventDefault();
       if (leaving) return;
-      if (!site.href) {
-        errorBox(site);
-        return;
-      }
       if (isExternal(site.href)) {
         // synchronously, inside the click, or the popup blocker has it
         window.open(site.href, '_blank', 'noopener');
@@ -184,7 +180,7 @@ function boot(root: HTMLElement): void {
     },
     tuneIn(id) {
       const site = byId.get(id);
-      if (!room || !site?.tune || !site.href) return;
+      if (!room || !site?.tune) return;
       const src = typeof site.tune === 'string' ? site.tune : site.href;
       tuneOut(false);
       // step back from the desk: the windows fold away until you eject
@@ -280,25 +276,6 @@ function boot(root: HTMLElement): void {
     if (!restore) return;
     for (const w of hidden) if (!w.closed) w.restore();
     room?.focus(id);
-  }
-
-  function errorBox(site: Site): void {
-    const body = h('div');
-    const msg = h('div', { class: 'xp-dialog-body', html: icons.error() });
-    const text = h('div');
-    text.append(
-      h('p', {}, [`The Wired cannot reach '${site.title}'.`]),
-      h('p', {}, ['It lives on a private network, and this computer cannot follow it there. The screen in the room is a replica.']),
-    );
-    msg.append(text);
-    const actions = h('div', { class: 'xp-actions' });
-    const ok = h('button', { class: 'xp-btn default', type: 'button' }, ['OK']);
-    actions.append(ok);
-    body.append(msg, actions);
-    wm.get('error')?.close(); // a stale one would keep its old text
-    const w = wm.open({ id: 'error', title: site.title, icon: icons.error(), body, width: 360, dialog: true });
-    ok.addEventListener('click', () => w.close());
-    ok.focus();
   }
 
   // ---- the room ----

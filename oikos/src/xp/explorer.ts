@@ -10,7 +10,7 @@
 import type { Site } from '../data';
 import { addressBar, h, menubar, statusbar, taskGroup, toolbar, type TaskItem } from './chrome';
 import * as icons from './icons';
-import type { Shell } from './shell';
+import { zoneOf, type Shell } from './shell';
 import type { WindowManager, XPWindow } from './wm';
 
 export class Explorer {
@@ -177,9 +177,7 @@ export class Explorer {
       ? [
           { icon: icons.play(), label: 'Play this tape', run: () => this.shell.play(sel.id) },
           { icon: icons.look(), label: 'Look at its screen', run: () => this.shell.look(sel.id) },
-          sel.href
-            ? { icon: icons.globe(), label: `Go to ${sel.title}`, run: () => this.shell.open(sel) }
-            : { icon: icons.lock(), label: 'Private network' },
+          { icon: icons.globe(), label: `Go to ${sel.title}`, run: () => this.shell.open(sel) },
         ]
       : [
           { icon: icons.play(), label: 'Select a tape to play it' },
@@ -210,6 +208,6 @@ export class Explorer {
   private renderStatus(): void {
     const sel = this.selected ? this.shell.site(this.selected) : undefined;
     const count = this.shell.dir.sites.length + this.shell.dir.files.length;
-    this.status?.set(sel ? `${sel.title} — ${sel.tagline}` : `${count} objects`, sel ? (sel.href ? (sel.group === 'here' ? 'computer' : 'internet') : 'restricted') : 'computer');
+    this.status?.set(sel ? `${sel.title} — ${sel.tagline}` : `${count} objects`, sel ? zoneOf(sel) : 'computer');
   }
 }

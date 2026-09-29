@@ -10,9 +10,7 @@ import { ChronicleScreen } from './chronicle';
 import { DreamGenScreen } from './dreamGen';
 import { DreamsScreen } from './dreams';
 import { DreamsApiScreen } from './dreamsApi';
-import { HeimdallScreen } from './heimdall';
 import { IrcScreen } from './irc';
-import { LoomScreen } from './loom';
 import { ParlorScreen } from './parlor';
 import { H, MONO, Screen, W, type ScreenEnv } from './screen';
 import { SyrinxScreen } from './syrinx';
@@ -31,8 +29,6 @@ const PAINTERS: Record<string, new (site: Site, env: ScreenEnv) => Screen> = {
   irc: IrcScreen,
   parlor: ParlorScreen,
   dream_gen: DreamGenScreen,
-  loom: LoomScreen,
-  heimdall: HeimdallScreen,
 };
 
 class TestCard extends Screen {

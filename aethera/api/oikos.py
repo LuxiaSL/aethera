@@ -23,7 +23,7 @@ router = APIRouter(tags=["oikos"])
 
 
 # group: "here" lives on this server; "wired" is elsewhere (another host, a
-# repo, a private network). href None means there is nothing public to open.
+# repo). Every site has an href: the bundle has no path for one without.
 # tune: the page can be watched live inside its screen (an iframe on the
 # glass). True uses href; a string is the page to frame instead. Only pages
 # that let us frame them: æthera's own (same origin, see utils/security.py).
@@ -154,32 +154,6 @@ SITES: list[dict] = [
                  "latent space without ever collapsing. Mutation, a memory cache and "
                  "template swaps keep it moving. It is what dreams is watching.",
         "details": [["kind", "engine · source"], ["feeds", "dreams"]],
-    },
-    {
-        "id": "loom",
-        "title": "loom",
-        "href": "https://github.com/LuxiaSL/pleroma",
-        "group": "wired",
-        "kind": "instrument",
-        "accent": "#5fb6c4",
-        "tagline": "pleroma: wear a future",
-        "about": "A research instrument for looming. At any turn it samples K "
-                 "possible replies, reads each one's signature, and lets you wear "
-                 "one: later replies lean toward that future's manner, not its "
-                 "content. It runs on your own GPU.",
-        "details": [["kind", "research instrument"], ["project", "pleroma"], ["runs", "locally"]],
-    },
-    {
-        "id": "heimdall",
-        "title": "heimdall",
-        "href": None,
-        "group": "wired",
-        "kind": "scheduler",
-        "accent": "#ff2a2f",
-        "tagline": "the gatekeeper of compute",
-        "about": "A GPU job scheduler with a MAGI command deck for a face. It lives "
-                 "on a private network: this screen is a replica, not a window.",
-        "details": [["kind", "cluster scheduler"], ["access", "private network"]],
     },
 ]
 

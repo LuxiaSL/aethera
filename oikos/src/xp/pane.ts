@@ -45,7 +45,7 @@ export class Pane {
     main.append(content);
     body.append(main);
     const status = statusbar();
-    status.set(site.href ? 'Done' : 'This place is on a private network', zoneOf(site));
+    status.set('Done', zoneOf(site));
     body.append(status.el);
 
     // ---- content ----
@@ -55,10 +55,10 @@ export class Pane {
     hero.append(text);
     content.append(hero);
 
-    const preview = h('button', { class: 'xp-preview', type: 'button', 'aria-label': site.href ? `Open ${site.title}` : `${site.title} (private)` });
+    const preview = h('button', { class: 'xp-preview', type: 'button', 'aria-label': `Open ${site.title}` });
     const screen = this.shell.screens.get(site.id);
     if (screen) preview.append(screen.canvas);
-    preview.append(h('span', { class: 'xp-play' }, [site.href ? `▶  open ${site.title}` : '🔒  private network']));
+    preview.append(h('span', { class: 'xp-play' }, [`▶  open ${site.title}`]));
     preview.addEventListener('click', (e) => this.shell.open(site, e));
     content.append(preview);
 
@@ -67,8 +67,7 @@ export class Pane {
     if (note) content.append(h('div', { class: 'xp-note' }, [note]));
 
     const actions = h('div', { class: 'xp-actions' });
-    const openBtn = h('button', { class: 'xp-btn default', type: 'button' }, [site.href ? `Open ${site.title}` : 'Restricted']);
-    if (!site.href) openBtn.disabled = true;
+    const openBtn = h('button', { class: 'xp-btn default', type: 'button' }, [`Open ${site.title}`]);
     openBtn.addEventListener('click', (e) => this.shell.open(site, e));
     const homeBtn = h('button', { class: 'xp-btn', type: 'button' }, ['~ Home directory']);
     homeBtn.addEventListener('click', () => this.shell.home());
@@ -84,26 +83,22 @@ export class Pane {
 
     // ---- tasks ----
     const tapeTasks: TaskItem[] = [
-      site.href
-        ? { icon: icons.play(), label: `Open ${site.title}`, run: () => this.shell.open(site) }
-        : { icon: icons.lock(), label: 'Restricted: private network' },
+      { icon: icons.play(), label: `Open ${site.title}`, run: () => this.shell.open(site) },
       { icon: icons.look(), label: 'Look at its screen', run: () => this.shell.look(site.id) },
     ];
     if (site.tune && this.shell.canTune) {
       tapeTasks.splice(1, 0, { icon: icons.tv(), label: 'Watch it on its screen', run: () => this.shell.tuneIn(site.id) });
     }
-    if (site.href) {
-      tapeTasks.push({
-        icon: icons.copy(),
-        label: 'Copy address',
-        run: () => {
-          void navigator.clipboard?.writeText(addr).then(
-            () => this.shell.balloon('Copied', addr),
-            () => this.shell.balloon('Could not copy', addr),
-          );
-        },
-      });
-    }
+    tapeTasks.push({
+      icon: icons.copy(),
+      label: 'Copy address',
+      run: () => {
+        void navigator.clipboard?.writeText(addr).then(
+          () => this.shell.balloon('Copied', addr),
+          () => this.shell.balloon('Could not copy', addr),
+        );
+      },
+    });
     tapeTasks.push({ icon: icons.eject(), label: 'Eject tape', run: () => this.win.close() });
 
     const places: TaskItem[] = [{ icon: icons.folderHome(), label: '~ (home directory)', run: () => this.shell.home() }];
@@ -143,7 +138,6 @@ export class Pane {
 
   private note(): string | null {
     const s = this.site;
-    if (!s.href) return 'Heimdall has no public face. The screen in the room and the preview here are a replica with invented numbers; nothing on this page talks to the cluster.';
     if (s.id === 'dreams') return 'Opening dreams wakes the dreamer: a GPU starts up while anyone is watching and goes back to sleep after. The frame here is the last one the chronicle kept.';
     if (s.id === 'syrinx') return 'Syrinx makes sound once you wake it. The creature here is read from this browser; nobody else sees yours.';
     if (s.group === 'wired') return `${s.title} is not on this server; it opens in a new window.`;
@@ -180,9 +174,6 @@ export class Pane {
         text = c ? `yours: ${c.name}` : 'not woken in this browser';
         break;
       }
-      case 'heimdall':
-        text = 'replica · no uplink';
-        break;
       default:
         return;
     }

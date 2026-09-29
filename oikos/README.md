@@ -31,8 +31,6 @@ nothing to watch:
 | irc | the live `/ws/irc` broadcast, formatted as `irc.js` formats it |
 | parlor | Kleros' real board, districts and prices; a toy game on it |
 | dream_gen | the core-loop diagram from its README, with the real keyframe and prompt |
-| loom | real futures from pleroma's recorded fixtures; the dose strip |
-| heimdall | a **replica** of the MAGI deck: invented numbers, and it says so |
 
 **The room never opens `/ws/dreams`.** A viewer socket is what wakes the
 dreamer's GPU, and a hub left open in a tab would keep it awake all night. The
