@@ -66,12 +66,13 @@ function glowTexture(): THREE.CanvasTexture {
 export class Room {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
-  readonly camera: THREE.PerspectiveCamera;
-  private controls: OrbitControls;
-  private post: Post;
+  readonly camera = new THREE.PerspectiveCamera(45, 1, 0.05, 160);
+  // assigned in build(), which the constructor always runs (or throws)
+  private controls!: OrbitControls;
+  private post!: Post;
   private vcr = new Vcr();
-  private field: Field;
-  private sky: THREE.Mesh;
+  private field!: Field;
+  private sky!: THREE.Mesh;
   private stations = new Map<string, Station>();
   private pickables: THREE.Object3D[] = [];
   private raycaster = new THREE.Raycaster();
@@ -82,6 +83,13 @@ export class Room {
   private focused: Pickable | null = null;
   private tween: { from: Pose; to: Pose; k: number; dur: number; done?: () => void } | null = null;
   private playing: string | null = null; // a tape on its way down a cable
+  // settles the pending play() promise: true when it arrived, false when
+  // something else took the camera first
+  private settlePlay: ((arrived: boolean) => void) | null = null;
+  // bumped by every tuneIn/tuneOut, so a tune-in flight that lands after it
+  // was called off doesn't lock the room
+  private tuneSeq = 0;
+  private lastAspect = 0;
   private later: { at: number; fn: () => void }[] = []; // scheduled on the room's clock, not the wall's
   private clock = new THREE.Clock();
   private t = 0;
@@ -126,8 +134,19 @@ export class Room {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.domElement.id = 'oikos-gl';
     container.prepend(this.renderer.domElement);
+    try {
+      this.build(sites, screens);
+    } catch (err) {
+      // don't leave a dead canvas and a live GL context behind for the fallback desktop
+      this.renderer.domElement.remove();
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+      throw err;
+    }
+  }
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 160);
+  private build(sites: Site[], screens: Map<string, Screen>): void {
+
     this.scene.background = new THREE.Color(0x000000);
     // the sky's colour at the horizon (see makeSky), so the far floor dissolves into the ember
     this.scene.fog = new THREE.FogExp2(new THREE.Color().setRGB(0.049, 0.0063, 0.0089, THREE.LinearSRGBColorSpace), 0.042);
@@ -398,7 +417,7 @@ export class Room {
   focus(id: Pickable | null): void {
     const pose = id ? this.posesFor(id) : this.homePose();
     if (!pose) return;
-    this.playing = null;
+    this.cancelPlay();
     this.focused = id;
     for (const [sid, s] of this.stations) s.cable.setLit(sid === id ? 1 : 0);
     this.flyTo(pose, id ? 1.15 : 1.3, () => {
@@ -412,17 +431,30 @@ export class Room {
     return this.focused;
   }
 
+  /** a tape is on its way to its screen */
+  get busy(): boolean {
+    return this.playing !== null;
+  }
+
+  private cancelPlay(): void {
+    this.playing = null;
+    const settle = this.settlePlay;
+    this.settlePlay = null;
+    settle?.(false);
+  }
+
   /**
    * The VCR takes a tape, and we watch it go in: the camera stops by the VCR
    * as the tape slides through the door, follows the surge down the cable,
-   * and arrives as the screen changes channel.
+   * and arrives as the screen changes channel. Resolves true on arrival, or
+   * false if something else took the camera first (a click, a key).
    */
-  play(id: string): Promise<void> {
+  play(id: string): Promise<boolean> {
     const s = this.stations.get(id);
     const pose = this.posesFor(id);
-    if (!s || !pose) return Promise.resolve();
-    let arrived: () => void = () => {};
-    const done = new Promise<void>((r) => (arrived = r));
+    if (!s || !pose) return Promise.resolve(true);
+    this.cancelPlay();
+    const done = new Promise<boolean>((r) => (this.settlePlay = r));
     this.vcr.load(s.site.title);
     this.vcr.vfd.play(s.placement.channel, s.site.title, this.t);
     this.focused = id;
@@ -430,14 +462,17 @@ export class Room {
     for (const [sid, st] of this.stations) st.cable.setLit(sid === id ? 1 : 0);
     const arrive = () => {
       if (this.playing !== id) return;
-      this.playing = null;
       s.staticLeft = 0.9;
       this.post.kick(0.7);
       this.flyTo(pose, 1.15, () => {
+        if (this.playing !== id) return;
+        this.playing = null;
         this.applyLimits(id);
         this.controls.enabled = !this.tuned;
         this.controls.update();
-        arrived();
+        const settle = this.settlePlay;
+        this.settlePlay = null;
+        settle?.(true);
       });
     };
     if (this.reduced) {
@@ -476,6 +511,7 @@ export class Room {
   dive(id: string): Promise<void> {
     const s = this.stations.get(id);
     if (!s || this.reduced) return Promise.resolve();
+    this.cancelPlay();
     const m = s.monitor;
     const target = m.world(m.screenLocal);
     const pos = target.clone().addScaledVector(m.normal(), m.screenH * 0.16);
@@ -540,11 +576,19 @@ export class Room {
     const pose = this.tunePose(id);
     if (!s || !pose) return Promise.resolve();
     this.tuneOut();
+    this.cancelPlay();
+    const seq = this.tuneSeq;
     this.focused = id;
     this.shiftTarget = { x: 0, y: 0 };
     for (const [sid, st] of this.stations) st.cable.setLit(sid === id ? 1 : 0);
     return new Promise((resolve) =>
       this.flyTo(pose, 1.1, () => {
+        if (seq !== this.tuneSeq) {
+          // called off in flight: land as an ordinary focus
+          this.applyLimits(id);
+          this.controls.enabled = true;
+          return;
+        }
         this.tuned = { id, place };
         s.staticLeft = 0;
         this.resize(); // settles the view offset to zero and lays the page
@@ -567,7 +611,21 @@ export class Room {
   }
 
   tuneOut(): void {
+    this.tuneSeq++;
+    if (!this.tuned) return;
     this.tuned = null;
+    // tune-in held the camera still; hand it back unless a flight owns it now
+    if (!this.tween) {
+      this.applyLimits(this.focused);
+      this.controls.enabled = true;
+    }
+  }
+
+  /** back from the bfcache after diving out: stand up from the glass */
+  reset(): void {
+    this.tuneOut();
+    this.cancelPlay();
+    this.focus(null);
   }
 
   /** the glass of a screen, as a rectangle on the page (CSS px) */
@@ -612,6 +670,11 @@ export class Room {
       this.pointerDirty = true;
     });
     el.addEventListener('pointerdown', (e) => {
+      // a right or middle click is not a pick
+      if (e.button !== 0 || !e.isPrimary) {
+        down = null;
+        return;
+      }
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
       this.lastInput = this.t;
     });
@@ -638,6 +701,10 @@ export class Room {
   private resize(): void {
     const w = this.container.clientWidth || innerWidth;
     const h = this.container.clientHeight || innerHeight;
+    // only a new shape re-frames the home view; a same-shape resize (quality
+    // step, phone chrome sliding) must not yank the camera from where it was dragged
+    const reshaped = Math.abs(w / h - this.lastAspect) > 0.02;
+    this.lastAspect = w / h;
     this.camera.aspect = w / h;
     this.camera.fov = this.camera.aspect < 1 ? 58 : 45;
     this.camera.setViewOffset(w, h, this.shift.x, this.shift.y, w, h);
@@ -658,7 +725,7 @@ export class Room {
       const rect = this.glassRect(this.tuned.id);
       if (rect) this.tuned.place(rect);
     }
-    if (!this.tween && !this.focused && this.controls) {
+    if (reshaped && !this.tween && !this.focused && this.controls) {
       const home = this.homePose();
       this.camera.position.copy(home.pos);
       this.controls.target.copy(home.target);
@@ -722,12 +789,17 @@ export class Room {
     if (this.frameTimes.length < 90 && spent < 2) return;
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.frameTimes = [];
-    if (avg > 1 / 38 && this.qualityStep < 3) {
+    // 1/27 s, not 1/30: a browser capped at 30 fps (iOS low power) averages
+    // ~33 ms however idle the GPU is, and shouldn't be stepped down for it
+    if (avg > 1 / 27 && this.qualityStep < 3) {
       this.qualityStep++;
       this.pixelRatio = Math.max(0.6, this.pixelRatio * 0.8);
       this.renderer.setPixelRatio(this.pixelRatio);
       if (this.qualityStep >= 3) this.post.bloom.enabled = false;
-      this.resize();
+      const w = this.container.clientWidth || innerWidth;
+      const h = this.container.clientHeight || innerHeight;
+      this.renderer.setSize(w, h, false);
+      this.post.setSize(w, h, this.pixelRatio);
     }
   }
 

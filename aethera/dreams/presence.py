@@ -135,6 +135,13 @@ class ViewerPresenceTracker:
                               Set to False for admin/monitoring endpoints that
                               shouldn't cause GPU startup.
         """
+        # Monitoring reads (e.g. /api/dreams/status, polled by admin panels and
+        # /oikos) must be lifecycle-neutral: they neither start the GPU nor keep
+        # it awake. Refreshing _last_api_access or cancelling the pending
+        # shutdown here would let a 20s poll hold the GPU up indefinitely.
+        if not trigger_gpu_start:
+            return
+
         self._last_api_access = time.time()
         
         # Cancel any pending shutdown

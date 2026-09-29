@@ -45,6 +45,8 @@
     main { max-width: none !important; padding: 0 !important; }
     html, body { overflow: hidden; margin: 0; padding: 0; background: #000; }
 </style>
+{# without JS nothing would ever lift the boot screen off the <nav> #}
+<noscript><style>#oikos-boot { display: none !important; }</style></noscript>
 {% endblock %}
 
 {% block content %}
@@ -83,5 +85,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/oikos/oikos.js"></script>
+{# a bundle that never arrives mustn't leave the boot screen over the <nav> either #}
+<script src="/static/oikos/oikos.js" onerror="var b=document.getElementById('oikos-boot');if(b)b.remove()"></script>
 {% endblock %}

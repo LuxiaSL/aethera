@@ -33,6 +33,7 @@ export class Taskbar {
   private tip: HTMLElement;
   private balloonEl: HTMLElement;
   private balloonTimer = 0;
+  private shutdownEl: HTMLElement | null = null;
 
   constructor(
     private readonly root: HTMLElement,
@@ -156,8 +157,19 @@ export class Taskbar {
     return m;
   }
 
+  /** Esc: close the Turn Off dialog if it's up. True when there was one. */
+  dismiss(): boolean {
+    if (!this.shutdownEl) return false;
+    this.shutdownEl.remove();
+    this.shutdownEl = null;
+    this.start.focus();
+    return true;
+  }
+
   private shutdownDialog(): void {
-    const wrap = h('div', { class: 'xp-shutdown', role: 'dialog', 'aria-label': 'Turn off computer' });
+    this.shutdownEl?.remove();
+    const wrap = h('div', { class: 'xp-shutdown', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Turn off computer' });
+    this.shutdownEl = wrap;
     const panel = h('div', { class: 'panel' });
     panel.append(h('header', { html: `<span>Turn off computer</span>${icons.markImg(28, false)}` }));
     const choices = h('div', { class: 'choices' });
@@ -165,6 +177,7 @@ export class Taskbar {
       const b = h('button', { type: 'button', class: cls, html: `<i>${icon}</i><span>${label}</span>` });
       b.addEventListener('click', () => {
         wrap.remove();
+        this.shutdownEl = null;
         run();
       });
       choices.append(b);
@@ -175,12 +188,12 @@ export class Taskbar {
     panel.append(choices);
     const foot = h('div', { class: 'foot' });
     const cancel = h('button', { class: 'xp-btn', type: 'button' }, ['Cancel']);
-    cancel.addEventListener('click', () => wrap.remove());
+    cancel.addEventListener('click', () => this.dismiss());
     foot.append(cancel);
     panel.append(foot);
     wrap.append(panel);
     wrap.addEventListener('click', (e) => {
-      if (e.target === wrap) wrap.remove();
+      if (e.target === wrap) this.dismiss();
     });
     this.root.append(wrap);
     (choices.querySelector('.off') as HTMLElement | null)?.focus();

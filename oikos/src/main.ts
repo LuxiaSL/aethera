@@ -31,14 +31,32 @@ import { Taskbar } from './xp/taskbar';
 import { WindowManager, type XPWindow } from './xp/wm';
 
 const root = document.getElementById('oikos');
-if (root) boot(root);
+if (root) {
+  try {
+    boot(root);
+  } catch (err) {
+    // whatever broke, don't leave the visitor on an endless boot screen with
+    // the plain <nav> hidden under it
+    console.error('oikos: boot failed; falling back to the plain directory', err);
+    root.classList.remove('oikos-live');
+    document.getElementById('oikos-boot')?.remove();
+  }
+}
 
 function webgl(): boolean {
   try {
-    return !!document.createElement('canvas').getContext('webgl2');
+    const gl = document.createElement('canvas').getContext('webgl2');
+    // a probe, not a renderer: hand the context straight back
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
   } catch {
     return false;
   }
+}
+
+/** the page's own URL minus the hash (keeps ?look, ?drive, ?speed) */
+function here(): string {
+  return location.pathname + location.search;
 }
 
 function boot(root: HTMLElement): void {
@@ -93,7 +111,7 @@ function boot(root: HTMLElement): void {
       pane = null;
       paneId = null;
       old?.win.close();
-      history.replaceState(null, '', `#${id}`);
+      history.replaceState(null, '', `${here()}#${id}`);
       // the directory folds away so the tape can be seen going in; it comes
       // back when this pane closes
       const home = wm.get('home');
@@ -102,8 +120,18 @@ function boot(root: HTMLElement): void {
         folded = true;
       }
       const token = ++playSeq;
-      const opened = () => {
+      const opened = (arrived: boolean) => {
         if (token !== playSeq) return; // another tape went in meanwhile
+        if (!arrived) {
+          // called off on the way (a click on the floor, a key): take the tape
+          // back out and put the directory back as it was
+          room?.eject();
+          history.replaceState(null, '', here());
+          const dirWin = wm.get('home');
+          if (folded && dirWin?.minimized) dirWin.restore();
+          folded = false;
+          return;
+        }
         paneId = id;
         pane = new Pane(site, shell, wm, () => {
           if (paneId !== id) return;
@@ -111,7 +139,7 @@ function boot(root: HTMLElement): void {
           paneId = null;
           room?.eject();
           if (room?.focusedId === id) room.focus(null);
-          history.replaceState(null, '', location.pathname);
+          history.replaceState(null, '', here());
           const dirWin = wm.get('home');
           if (folded && dirWin?.minimized) dirWin.restore();
           folded = false;
@@ -119,7 +147,7 @@ function boot(root: HTMLElement): void {
       };
       // watch the tape go in, the cable light up, the channel change; then the pane
       if (room) void room.play(id).then(opened);
-      else opened();
+      else opened(true);
     },
     open(site, e) {
       e?.preventDefault();
@@ -137,7 +165,12 @@ function boot(root: HTMLElement): void {
       const href = site.href;
       leaving = true;
       taskbar.balloon(`Opening ${site.title}`, 'tuning in…', undefined, 2000);
-      const go = () => location.assign(href);
+      let gone = false;
+      const go = () => {
+        if (gone) return;
+        gone = true;
+        location.assign(href);
+      };
       if (room) void room.dive(site.id).then(go);
       else go();
       setTimeout(go, 1500); // whatever happens to the dive, leave
@@ -262,6 +295,7 @@ function boot(root: HTMLElement): void {
     const ok = h('button', { class: 'xp-btn default', type: 'button' }, ['OK']);
     actions.append(ok);
     body.append(msg, actions);
+    wm.get('error')?.close(); // a stale one would keep its old text
     const w = wm.open({ id: 'error', title: site.title, icon: icons.error(), body, width: 360, dialog: true });
     ok.addEventListener('click', () => w.close());
     ok.focus();
@@ -277,7 +311,7 @@ function boot(root: HTMLElement): void {
           taskbar.showTip(null, null, 0, 0);
           if (id === 'vcr') shell.home();
           else if (id) shell.play(id);
-          else if (room?.focusedId && !pane) room.focus(null);
+          else if (room?.focusedId && !pane && !room.busy) room.focus(null);
         },
         hover(id, x, y) {
           if (id === 'vcr') taskbar.showTip(null, { title: 'VCR', text: 'your home directory · click to open ~' }, x, y);
@@ -362,6 +396,7 @@ function boot(root: HTMLElement): void {
     }
     if (tuned) return;
     if (e.key === 'Escape') {
+      if (taskbar.dismiss()) return;
       if (!taskbarMenuClosed()) return;
       if (wm.closeTop()) return;
       if (room?.focusedId) room.focus(null);
@@ -372,7 +407,7 @@ function boot(root: HTMLElement): void {
       shell.home();
       return;
     }
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !room?.busy) {
       const cur = room?.focusedId && room.focusedId !== 'vcr' ? order.indexOf(room.focusedId) : -1;
       const next = order[(cur + (e.key === 'ArrowRight' ? 1 : -1) + order.length) % order.length];
       if (next) {
@@ -410,14 +445,27 @@ function boot(root: HTMLElement): void {
   }
 
   // ---- visibility: nothing runs, polls or listens in a hidden tab ----
+  let booted = false;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       room?.stop();
       feeds.stop();
-    } else {
+      // a tuned-in page runs its own sockets (/dreams holds /ws/dreams, which
+      // keeps the dreamer's GPU awake): a hidden tab lets go of it too
+      if (tuned) tuneOut(true);
+    } else if (booted) {
       room?.start();
       feeds.start();
     }
+  });
+
+  // Back after diving into a site restores this page from the bfcache with
+  // the camera still inside the glass, and `leaving` / `off` still set
+  addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    leaving = false;
+    root.classList.remove('off');
+    room?.reset();
   });
 
   // ---- boot ----
@@ -439,15 +487,24 @@ function boot(root: HTMLElement): void {
   ]);
   const warmed = room?.warm() ?? Promise.resolve();
   void Promise.race([Promise.all([fonts, warmed, new Promise<void>((r) => setTimeout(r, minBoot))]), skipped]).then(() => {
-    feeds.start();
-    room?.start();
+    booted = true;
+    // opened in a background tab: visibilitychange starts these when it's shown
+    if (!document.hidden) {
+      feeds.start();
+      room?.start();
+    }
     room?.powerOn();
     bootEl?.classList.add('gone');
     setTimeout(() => bootEl?.remove(), 800);
 
     const look = new URLSearchParams(location.search).get('look');
     if (look && room && (look === 'vcr' || byId.has(look))) setTimeout(() => room?.focus(look), 300);
-    const hash = decodeURIComponent(location.hash.slice(1));
+    let hash = '';
+    try {
+      hash = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      /* a malformed hash is no tape */
+    }
     if (hash && byId.has(hash)) {
       setTimeout(() => shell.play(hash), 900);
       return;
