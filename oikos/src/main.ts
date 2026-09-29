@@ -24,6 +24,7 @@ import { PLACEMENTS } from './world/layout';
 import { Room, type Pickable } from './world/room';
 import { h } from './xp/chrome';
 import { Explorer } from './xp/explorer';
+import { Mirc } from './xp/mirc';
 import * as icons from './xp/icons';
 import { bindContextMenu, closeMenus, setMenuHost, type MenuEntry } from './xp/menu';
 import { siteMenu } from './xp/menus';
@@ -106,6 +107,7 @@ function boot(root: HTMLElement): void {
   let room: Room | null = null;
   let pane: Pane | null = null;
   let paneId: string | null = null;
+  let mirc: Mirc | null = null;
   let leaving = false;
   let tuned: { id: string; bar: HTMLElement; hidden: XPWindow[]; tube: HTMLElement } | null = null;
   let playSeq = 0; // the latest tape asked for; a slower one arriving late is ignored
@@ -262,6 +264,11 @@ function boot(root: HTMLElement): void {
         root.append(tube, bar);
         frame.focus();
       });
+    },
+    chat() {
+      tuneOut(false);
+      if (mirc) mirc.focus();
+      else mirc = new Mirc(shell, wm, () => (mirc = null));
     },
     home() {
       visit('~');
@@ -608,6 +615,10 @@ function boot(root: HTMLElement): void {
       hash = decodeURIComponent(location.hash.slice(1));
     } catch {
       /* a malformed hash is no tape */
+    }
+    if (hash === 'mirc') {
+      setTimeout(() => shell.chat(), 600);
+      return;
     }
     if (hash && byId.has(hash)) {
       setTimeout(() => shell.play(hash), 900);

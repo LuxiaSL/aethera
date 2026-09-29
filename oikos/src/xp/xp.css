@@ -1279,6 +1279,147 @@
 }
 
 /* --------------------------------------------------------------------------
+   mIRC: the switchbar, the MDI well, a white transcript in mIRC's colours
+   -------------------------------------------------------------------------- */
+
+.mirc {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  /* mIRC's own font was Fixedsys; the nearest things a browser is likely to have */
+  --mirc-font: 'Fixedsys Excelsior 3.01', 'Fixedsys Excelsior', Fixedsys, 'Lucida Console', 'DejaVu Sans Mono', ui-monospace, monospace;
+}
+
+.mirc-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px 2px 3px;
+  border-bottom: 1px solid #aca899;
+}
+
+.mirc-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 96px;
+  height: 22px;
+  padding: 0 8px 0 4px;
+  font: 11px var(--xp-font);
+  color: #000;
+  background: linear-gradient(#fff, #ece9d8 70%, #d6d2c2);
+  border: 1px solid #aca899;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.mirc-switch button svg { width: 16px; height: 16px; flex: none; }
+.mirc-switch button:hover { border-color: #3c7fb1; }
+.mirc-switch button.on {
+  background: #dcd8c8;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.35);
+  font-weight: bold;
+}
+/* something happened in a window you're not looking at */
+.mirc-switch button.event span { color: #00007f; }
+.mirc-switch button.said span { color: #d00; }
+
+.mirc-mdi {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  margin: 3px 2px 0;
+  background: #808080; /* the MDI well behind the children */
+  border: 1px solid;
+  border-color: #808080 #fff #fff #808080;
+}
+
+.mirc-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mirc-split { flex: 1; min-height: 0; display: flex; }
+
+.mirc-log {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 2px 4px 4px;
+  background: #fff;
+  color: #000;
+  font: 12px/1.35 var(--mirc-font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.mirc-row { padding-left: 1.2em; text-indent: -1.2em; }
+.mirc-row .ts { color: inherit; }
+
+/* mIRC's defaults: 1 black text, 2 navy info/quit, 3 green join/part/kick/mode,
+   4 red for trouble, 5 brown notices, 6 purple actions */
+.mirc-row.t-text,
+.mirc-row.t-own { color: #000; }
+.mirc-row.t-action { color: #9c009c; }
+.mirc-row.t-join,
+.mirc-row.t-part,
+.mirc-row.t-kick,
+.mirc-row.t-mode,
+.mirc-row.t-topic { color: #009300; }
+.mirc-row.t-quit,
+.mirc-row.t-info { color: #00007f; }
+.mirc-row.t-notice { color: #7f0000; }
+.mirc-row.t-error { color: #fc0000; }
+
+.mirc-nicks {
+  flex: none;
+  width: 124px;
+  margin: 0;
+  padding: 2px 4px;
+  list-style: none;
+  overflow-y: auto;
+  background: #fff;
+  border-left: 3px solid #d4d0c8;
+  font: 12px/1.35 var(--mirc-font);
+  color: #000;
+  user-select: text;
+}
+
+.mirc-input {
+  flex: none;
+  margin: 0 2px 2px;
+  padding: 2px 4px;
+  border: 1px solid;
+  border-color: #808080 #fff #fff #808080;
+  border-top: 3px solid #d4d0c8;
+  background: #fff;
+  color: #000;
+  font: 12px var(--mirc-font);
+  outline: none;
+}
+
+/* the channel collapsed and the window stopped answering: XP ghosted it */
+.mirc-window.mirc-hung .mirc-mdi,
+.mirc-window.mirc-hung .mirc-input { filter: grayscale(0.4) contrast(0.8) brightness(1.12); }
+.mirc-window.mirc-hung .mirc { cursor: progress; }
+
+/* the Connect dialog */
+.mirc-connect label { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
+.mirc-connect input {
+  font: 11px var(--xp-font);
+  padding: 2px 3px;
+  border: 1px solid #7f9db9;
+  background: #fff;
+  color: #000;
+}
+.mirc-connect .hint { color: #555; margin: 4px 0 0; }
+.mirc-connect .err { color: #c00; margin: 6px 0 0; }
+.mirc-connect .xp-dialog-body > div { flex: 1; min-width: 0; }
+
+@container (max-width: 520px) {
+  .mirc-nicks { width: 88px; }
+  .mirc-switch button { min-width: 0; }
+}
+
+/* --------------------------------------------------------------------------
    small screens: windows become sheets over the bottom of the room
    -------------------------------------------------------------------------- */
 

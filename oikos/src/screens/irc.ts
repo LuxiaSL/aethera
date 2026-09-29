@@ -56,7 +56,10 @@ function chunks(m: IrcLine): Chunk[] {
       out.push({ text: `→ ${nk} has joined`, color: COL.join });
       break;
     case 'kick':
-      out.push({ text: `⚠ ${nk} kicked someone${ct ? ` (${ct})` : ''}`, color: COL.quit });
+      {
+        const why = m.reason || ct;
+        out.push({ text: `⚠ ${m.target ? `${m.target} was kicked by ${nk}` : `${nk} kicked someone`}${why ? ` (${why})` : ''}`, color: COL.quit });
+      }
       break;
     default:
       out.push({ text: `*** ${ct || nk}`, color: COL.sys });

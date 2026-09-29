@@ -98,6 +98,12 @@ export class Pane {
       watch.addEventListener('click', () => this.shell.tuneIn(site.id));
       actions.append(watch);
     }
+    if (site.id === 'irc') {
+      const join = h('button', { class: 'xp-btn', type: 'button' }, ['Join #aethera']);
+      join.title = 'sit in the channel, in mIRC';
+      join.addEventListener('click', () => this.shell.chat());
+      actions.append(join);
+    }
     actions.append(homeBtn);
     content.append(actions);
 
@@ -109,6 +115,7 @@ export class Pane {
     if (site.tune && this.shell.canTune) {
       tapeTasks.splice(1, 0, { icon: icons.tv(), label: 'Watch it on its screen', run: () => this.shell.tuneIn(site.id) });
     }
+    if (site.id === 'irc') tapeTasks.splice(1, 0, { icon: icons.chat('channel'), label: 'Join #aethera in mIRC', run: () => this.shell.chat() });
     tapeTasks.push({ icon: icons.copy(), label: 'Copy address', run: () => copyAddress(this.shell, site) });
     tapeTasks.push({ icon: icons.eject(), label: 'Eject tape', run: () => this.win.close() });
 

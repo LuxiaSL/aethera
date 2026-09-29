@@ -183,3 +183,21 @@ export function markImg(size: number, invert = false): string {
 export function escapeXml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
 }
+
+/** the chat client: two speech balloons; `status` is the server's own window */
+export function chat(kind: 'app' | 'status' | 'channel' = 'app'): string {
+  if (kind === 'status') {
+    return `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1" fill="#d9d6cc" stroke="#555"/><rect x="3" y="4" width="10" height="6" fill="#0a246a"/><path d="M4 6h5M4 8h3" stroke="#9fc6ff"/><path d="M5 12.5h6v1.5H5z" fill="#888"/></svg>`;
+  }
+  if (kind === 'channel') {
+    return `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2.5h10a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H6l-3 3v-3H1.5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1z" fill="#fff" stroke="#2a4f80"/><path d="M4 5h3M4 7h5M8 4l-1 4M10 4l-1 4" stroke="#58a6ff" stroke-width=".9"/></svg>`;
+  }
+  const g = id('ch');
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">
+<defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb4ff"/><stop offset="1" stop-color="#1f5fd1"/></linearGradient></defs>
+<path d="M2 3h13a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 15 13H8l-4 4v-4H2A1.5 1.5 0 0 1 .5 11.5v-7A1.5 1.5 0 0 1 2 3z" fill="url(#${g})" stroke="#0b3a8f"/>
+<path d="M10 9h11.5A1.5 1.5 0 0 1 23 10.5v6a1.5 1.5 0 0 1-1.5 1.5H20v4l-4-4h-6a1.5 1.5 0 0 1-1.5-1.5v-6A1.5 1.5 0 0 1 10 9z" fill="#fff" stroke="#555"/>
+<path d="M11.5 12.5h8M11.5 15h5.5" stroke="#c0392b" stroke-width="1.2"/>
+<path d="M3 6h9M3 8.5h6" stroke="#fff" stroke-opacity=".85" stroke-width="1.2"/>
+</svg>`;
+}

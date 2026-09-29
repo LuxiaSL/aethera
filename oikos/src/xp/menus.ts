@@ -37,6 +37,7 @@ export function siteMenu(shell: Shell, site: Site, inPane = false): MenuEntry[] 
   // both need the room (WebGL)
   items.push({ label: 'Look at its screen', run: () => shell.look(site.id), disabled: !shell.canTune });
   if (site.tune) items.push({ label: 'Watch it here', run: () => shell.tuneIn(site.id), disabled: !shell.canTune });
+  if (site.id === 'irc') items.push({ label: 'Join in mIRC', run: () => shell.chat() });
   items.push('sep', { label: 'Copy Address', run: () => copyAddress(shell, site) });
   if (!inPane) items.push('sep', { label: 'Properties', run: () => shell.play(site.id) });
   return items;

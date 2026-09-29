@@ -182,6 +182,8 @@ export class Taskbar {
     const tapeEntry = (s: Site): MenuEntry => ({ label: s.title, icon: icons.tape(s.accent), run: () => { this.toggleMenu(false); this.shell.play(s.id); } });
 
     // left: pinned (bold, subtitled), then the rest plain, then All Programs
+    // the one program on this desk that isn't a tape: pinned above them, as XP pinned the browser
+    item(left, icons.chat(), 'mIRC', '#aethera', () => this.shell.chat(), 'pinned');
     const here = this.shell.dir.sites.filter((s) => s.group === 'here');
     here.slice(0, PINNED).forEach((s) => item(left, icons.tape(s.accent, s.title), s.title, s.kind, () => this.shell.play(s.id), 'pinned'));
     sep(left);

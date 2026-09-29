@@ -124,12 +124,17 @@ export interface IrcLine {
   type: string; // message | action | join | part | quit | kick | system
   stamp: string;
   at: number; // performance.now() when it arrived
+  /** a kick's victim and reason (the kicker is `nick`) */
+  target?: string;
+  reason?: string;
 }
 
 export interface Irc {
   connected: boolean;
   lines: IrcLine[];
   collapse: { type: string; at: number } | null;
+  /** how many fragments have ended since the room started listening */
+  fragments: number;
   version: number; // bumps on every change, so screens can tell cheaply
 }
 
@@ -204,7 +209,7 @@ export class Feeds {
   readonly chronicle = new Signal<Chronicle>({
     known: false, thumb: null, thumbAt: 0, prompt: '', template: '', eras: [], eraCount: 0, strata: [],
   });
-  readonly irc = new Signal<Irc>({ connected: false, lines: [], collapse: null, version: 0 });
+  readonly irc = new Signal<Irc>({ connected: false, lines: [], collapse: null, fragments: 0, version: 0 });
   readonly creature = new Signal<Creature | null>(readCreature());
   readonly apeiron = new Signal<ApeironGrammar | null>(null);
 
@@ -323,6 +328,7 @@ export class Feeds {
       }
       if (msg.type === 'message' && msg.data) {
         const d = msg.data;
+        const meta = (d.meta ?? {}) as { target?: unknown; reason?: unknown };
         const line: IrcLine = {
           nick: String(d.nick ?? ''),
           content: String(d.content ?? ''),
@@ -330,12 +336,14 @@ export class Feeds {
           stamp: String(d.timestamp ?? ''),
           at: performance.now(),
         };
+        if (typeof meta.target === 'string') line.target = meta.target;
+        if (typeof meta.reason === 'string') line.reason = meta.reason;
         bump({ lines: [...this.irc.value.lines, line].slice(-60) });
       } else if (msg.type === 'collapse_start') {
         bump({ collapse: { type: msg.collapseType ?? 'collapse', at: performance.now() } });
       } else if (msg.type === 'fragment_end') {
         // the channel empties between fragments; keep the tail as an afterimage
-        bump({ collapse: null, lines: this.irc.value.lines.slice(-6) });
+        bump({ collapse: null, lines: this.irc.value.lines.slice(-6), fragments: this.irc.value.fragments + 1 });
       }
     };
     ws.onclose = () => {
