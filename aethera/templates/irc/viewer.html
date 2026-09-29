@@ -37,66 +37,65 @@
 {% endblock %}
 
 {% block extra_head %}
-<link href="/static/css/irc.css" rel="stylesheet">
+<link href="/static/css/irc.css?v=2" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
+{# The page is one monitor in a dark room: the channel on its glass, the
+   state on its chin (name strip, who's watching, the power lamp). ?embed=1
+   is the glass alone, edge to edge (oikos puts it on its own screens). #}
 <div class="irc-page{% if embed %} embed-mode{% endif %}">
-    <!-- Page header -->
-    <header class="irc-header">
-        <h1 class="irc-title">irc</h1>
-    </header>
+    <h1 class="irc-sr">irc: #aethera, a haunted channel</h1>
 
-    <!-- CRT terminal -->
     <div class="irc-monitor">
-        <div class="irc-screen" id="irc-screen">
-            <!-- WebGL CRT post-process (texture-based; samples the tube canvas).
-                 Hidden until it initializes; falls back to the DOM transcript. -->
-            <canvas class="irc-gl" id="irc-gl"></canvas>
+        <div class="irc-glass">
+            <div class="irc-screen" id="irc-screen">
+                <!-- WebGL CRT post-process (texture-based; samples the tube canvas).
+                     Hidden until it initializes; falls back to the DOM transcript. -->
+                <canvas class="irc-gl" id="irc-gl"></canvas>
 
-            <!-- Channel title bar -->
-            <div class="irc-titlebar">
-                <span class="irc-channel" id="irc-channel">{{ channel }}</span>
-                <span class="irc-titlebar-spacer"></span>
-                <span class="irc-conn" id="irc-conn">
-                    <span class="irc-conn-dot"></span>
-                    <span class="irc-conn-label">connecting</span>
-                </span>
+                <!-- Channel title bar (the DOM fallback's; the GL tube draws its own) -->
+                <div class="irc-titlebar">
+                    <span class="irc-channel" id="irc-channel">{{ channel }}</span>
+                    <span class="irc-titlebar-spacer"></span>
+                    <span class="irc-conn" id="irc-conn">
+                        <span class="irc-conn-dot"></span>
+                        <span class="irc-conn-label">connecting</span>
+                    </span>
+                </div>
+
+                <!-- Scrolling transcript -->
+                <div class="irc-log" id="irc-log" role="log" aria-live="polite"></div>
+
+                <!-- Loading overlay (until the first message lands) -->
+                <div class="irc-loading" id="irc-loading">
+                    <span class="irc-loading-text" id="irc-loading-text">establishing carrier…</span>
+                </div>
+
+                <!-- CRT effect layers (purely decorative) -->
+                <div class="irc-scanlines" aria-hidden="true"></div>
+                <div class="irc-flicker" aria-hidden="true"></div>
+                <div class="irc-vignette" aria-hidden="true"></div>
             </div>
+        </div>
 
-            <!-- Scrolling transcript -->
-            <div class="irc-log" id="irc-log" role="log" aria-live="polite"></div>
-
-            <!-- Loading overlay (until the first message lands) -->
-            <div class="irc-loading" id="irc-loading">
-                <span class="irc-loading-text" id="irc-loading-text">establishing carrier…</span>
-            </div>
-
-            <!-- CRT effect layers (purely decorative) -->
-            <div class="irc-scanlines" aria-hidden="true"></div>
-            <div class="irc-flicker" aria-hidden="true"></div>
-            <div class="irc-vignette" aria-hidden="true"></div>
+        <div class="irc-chin">
+            <span class="irc-plate" aria-hidden="true">irc</span>
+            <span class="irc-watching"><span id="irc-stat-viewers">—</span> watching</span>
+            <span class="irc-sr" id="irc-stat-status">offline</span>
+            <span class="irc-led" id="irc-stat-indicator" aria-hidden="true"></span>
         </div>
     </div>
 
-    <!-- Status bar -->
-    <div class="irc-status-bar">
-        <span class="irc-stat">
-            <span class="irc-stat-label">channel</span>
-            <span class="irc-stat-value" id="irc-stat-channel">{{ channel }}</span>
-        </span>
-        <span class="irc-stat">
-            <span class="irc-stat-label">watching</span>
-            <span class="irc-stat-value" id="irc-stat-viewers">—</span>
-        </span>
-        <span class="irc-stat">
-            <span class="irc-stat-indicator" id="irc-stat-indicator"></span>
-            <span class="irc-stat-value" id="irc-stat-status">offline</span>
-        </span>
-    </div>
+    <nav class="irc-under" aria-label="elsewhere">
+        <a href="/">æthera</a>
+        <a href="/oikos#mirc" hx-boost="false">talk in #oikos</a>
+        <a href="/oikos" hx-boost="false">oikos</a>
+        <a href="/llms.txt">llms.txt</a>
+    </nav>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/irc.js"></script>
+<script src="/static/js/irc.js?v=2"></script>
 {% endblock %}

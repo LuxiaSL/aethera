@@ -56,10 +56,11 @@
     const MAX_LINES = 250;
     const FONT_PX = 15;
     const LINE_H = 1.5;
-    // Edge-feather band widths — MUST match the CSS mask on .irc-screen so text
-    // padding can clear the feather and stay inside the fully-opaque center.
-    const FEATHER_X = 70;
-    const FEATHER_Y = 56;
+    // Margin between the glass's edge and the text. The glass has hard edges now
+    // (it sits in a bezel, or fills the frame in embed mode); this only keeps the
+    // text clear of the corners the shader's barrel curls away.
+    const MARGIN_X = 30;
+    const MARGIN_Y = 24;
     const HEADER_ROWS = 2;
 
     // Build colored chunks for one IRC line (parallels the DOM renderer).
@@ -152,14 +153,11 @@
         render(lines) {
             const ctx = this.ctx;
             const dpr = this.dpr;
-            // Pad past the edge-feather band (mirrors the CSS breakpoint) so the
-            // timestamps/header/text all sit inside the opaque center, never the fog.
+            // Keep text clear of the curled corners (less of a margin on a small glass).
             const cssW = this.w / dpr;
-            const small = cssW < 768;
-            const fx = small ? 28 : FEATHER_X;
-            const fy = small ? 28 : FEATHER_Y;
-            const padX = (fx + (small ? 12 : 18)) * dpr;
-            const padY = (fy + (small ? 12 : 16)) * dpr;
+            const small = cssW < 560;
+            const padX = (small ? 16 : MARGIN_X) * dpr;
+            const padY = (small ? 14 : MARGIN_Y) * dpr;
             const rowH = FONT_PX * dpr * LINE_H;
             const maxX = this.w - padX;
 
