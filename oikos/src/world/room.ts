@@ -98,6 +98,7 @@ export class Room {
   private lastInput = 0;
   private swayDir = 1;
   private pixelRatio: number;
+  private maxPixelRatio: number;
   private frameTimes: number[] = [];
   private qualityStep = 0;
   private shift = { x: 0, y: 0 };
@@ -115,7 +116,13 @@ export class Room {
    * however slow the machine rendering it (there is no GPU in CI).
    */
   private readonly driven = new URLSearchParams(location.search).has('drive');
-  private perf = { frames: 0, paint: 0, render: 0 };
+  private perf = { frames: 0, paint: 0, render: 0, uploads: 0 };
+  // screens off camera aren't painted or uploaded (see frame)
+  private frustum = new THREE.Frustum();
+  private viewProj = new THREE.Matrix4();
+  // a screen whose pane is open keeps painting even off camera: the pane shows its canvas
+  private kept: string | null = null;
+  private calm = 0; // consecutive quick windows, for stepping quality back up
 
   constructor(
     private readonly container: HTMLElement,
@@ -125,7 +132,8 @@ export class Room {
   ) {
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.lowPower = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 600;
-    this.pixelRatio = Math.min(devicePixelRatio || 1, this.lowPower ? 1.25 : 1.6);
+    this.maxPixelRatio = Math.min(devicePixelRatio || 1, this.lowPower ? 1.25 : 1.6);
+    this.pixelRatio = this.maxPixelRatio;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(this.pixelRatio);
@@ -429,6 +437,11 @@ export class Room {
 
   get focusedId(): Pickable | null {
     return this.focused;
+  }
+
+  /** keep this screen painting while it's off camera (its pane is open) */
+  keepAlive(id: string | null): void {
+    this.kept = id;
   }
 
   /** a tape is on its way to its screen */
@@ -768,7 +781,7 @@ export class Room {
       const gl = this.renderer.getContext();
       (window as unknown as { __oikos: unknown }).__oikos = {
         step: (n = 1, dt = 1 / 30) => {
-          this.perf = { frames: 0, paint: 0, render: 0 };
+          this.perf = { frames: 0, paint: 0, render: 0, uploads: 0 };
           for (let i = 0; i < n; i++) {
             this.frame(dt);
             gl.finish();
@@ -799,18 +812,33 @@ export class Room {
     if (this.frameTimes.length < 90 && spent < 2) return;
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.frameTimes = [];
+    // three quick windows in a row (a busy moment passed, or it was a
+    // one-off stall): step back up, one notch at a time
+    this.calm = avg < 1 / 50 ? this.calm + 1 : 0;
+    if (this.calm >= 3 && this.qualityStep > 0) {
+      this.calm = 0;
+      this.qualityStep--;
+      this.pixelRatio = Math.min(this.maxPixelRatio, this.pixelRatio / 0.8);
+      this.post.bloom.enabled = true;
+      this.applyPixelRatio();
+      return;
+    }
     // 1/27 s, not 1/30: a browser capped at 30 fps (iOS low power) averages
     // ~33 ms however idle the GPU is, and shouldn't be stepped down for it
     if (avg > 1 / 27 && this.qualityStep < 3) {
       this.qualityStep++;
       this.pixelRatio = Math.max(0.6, this.pixelRatio * 0.8);
-      this.renderer.setPixelRatio(this.pixelRatio);
       if (this.qualityStep >= 3) this.post.bloom.enabled = false;
-      const w = this.container.clientWidth || innerWidth;
-      const h = this.container.clientHeight || innerHeight;
-      this.renderer.setSize(w, h, false);
-      this.post.setSize(w, h, this.pixelRatio);
+      this.applyPixelRatio();
     }
+  }
+
+  private applyPixelRatio(): void {
+    this.renderer.setPixelRatio(this.pixelRatio);
+    const w = this.container.clientWidth || innerWidth;
+    const h = this.container.clientHeight || innerHeight;
+    this.renderer.setSize(w, h, false);
+    this.post.setSize(w, h, this.pixelRatio);
   }
 
   private frame(fixed?: number): void {
@@ -860,6 +888,9 @@ export class Room {
     }
 
     const t0 = performance.now();
+    this.camera.updateMatrixWorld();
+    this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.viewProj);
     for (const [id, s] of this.stations) {
       if (t >= s.powerAt) s.power = Math.min(1, s.power + dt / (this.reduced ? 0.01 : 0.8));
       s.staticLeft = Math.max(0, s.staticLeft - dt);
@@ -870,7 +901,16 @@ export class Room {
       u.uHover.value = s.hover;
       u.uStatic.value = Math.min(1, s.staticLeft * 1.6);
       const focused = this.focused === id;
-      if (s.power > 0.2 && s.screen.tick(t, dt, focused)) s.monitor.texture.needsUpdate = true;
+      // off camera, a screen is neither painted nor uploaded: nobody would see
+      // it (most of the room is off camera once you're close to one screen)
+      const wanted = focused || id === this.kept || this.frustum.intersectsObject(s.monitor.glass);
+      // with a screen focused, the rest are in the corner of your eye: half rate
+      // (not the pane's screen, which you're looking at in its window)
+      const slow = this.focused && this.focused !== 'vcr' && !focused && id !== this.kept ? 0.5 : 1;
+      if (s.power > 0.2 && wanted && s.screen.tick(t, dt, focused, slow)) {
+        s.monitor.texture.needsUpdate = true;
+        this.perf.uploads++;
+      }
       s.monitor.setLed(s.power > 0.5, s.site.accent);
       const glow = s.glow.material as THREE.MeshBasicMaterial;
       glow.opacity = s.power * (0.16 + s.hover * 0.12 + (focused ? 0.1 : 0));

@@ -43,10 +43,14 @@ export abstract class Screen {
     this.ctx = ctx;
   }
 
-  /** Returns true when the canvas was redrawn (and the texture needs an upload). */
-  tick(t: number, dt: number, focused: boolean): boolean {
+  /**
+   * Returns true when the canvas was redrawn (and the texture needs an upload).
+   * `slow` scales the rate down for a screen at the edge of your attention
+   * (another screen is focused): it still moves, just less often.
+   */
+  tick(t: number, dt: number, focused: boolean, slow = 1): boolean {
     this.acc += dt;
-    const rate = focused ? Math.max(this.fps, 30) : this.fps;
+    const rate = focused ? Math.max(this.fps, 30) : this.fps * slow;
     if (this.acc < 1 / rate) return false;
     const step = this.acc;
     this.acc = 0;

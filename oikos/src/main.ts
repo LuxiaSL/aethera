@@ -160,10 +160,13 @@ function boot(root: HTMLElement): void {
           return;
         }
         paneId = id;
+        // the pane shows this screen's canvas: keep it painting off camera too
+        room?.keepAlive(id);
         pane = new Pane(site, shell, wm, () => {
           if (paneId !== id) return;
           pane = null;
           paneId = null;
+          room?.keepAlive(null);
           room?.eject();
           if (room?.focusedId === id) room.focus(null);
           history.replaceState(null, '', here());
