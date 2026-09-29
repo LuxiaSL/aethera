@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>afterlife</title>
+    <style>
+      /* dev page only — on the site, base.html owns this */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0a0a0c;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Keep this skeleton in step with aethera/templates/afterlife/viewer.html.
+      It lives in the HTML rather than being built by main.ts so the splash
+      paints before the bundle has parsed.
+    -->
+    <div id="afterlife-root">
+      <canvas id="term" aria-label="the universe: Conway's Game of Life, drawn as a terminal"></canvas>
+      <div id="splash" role="button" tabindex="0" aria-label="enter; the music starts with you">
+        <pre class="logo" aria-hidden="true">
+     █████╗ ███████╗████████╗███████╗██████╗ ██╗     ██╗███████╗███████╗
+    ██╔══██╗██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║     ██║██╔════╝██╔════╝
+    ███████║█████╗     ██║   █████╗  ██████╔╝██║     ██║█████╗  █████╗
+    ██╔══██║██╔══╝     ██║   ██╔══╝  ██╔══██╗██║     ██║██╔══╝  ██╔══╝
+    ██║  ██║██║        ██║   ███████╗██║  ██║███████╗██║██║     ███████╗
+    ╚═╝  ╚═╝╚═╝        ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝     ╚══════╝</pre>
+        <h1>afterlife</h1>
+        <p class="sub">the game of life, after hours</p>
+        <p class="go">click to listen <span>·</span> ? for the keys <span>·</span> q to leave, if you can</p>
+      </div>
+      <nav id="corner">
+        <button id="keys-toggle" type="button" aria-expanded="false" aria-controls="keys">keys</button>
+        <a id="afterlife-home" href="/" hx-boost="false">æthera</a>
+      </nav>
+      <section id="keys" hidden aria-label="controls">
+        <div class="grid">
+          <button data-act="quit"><kbd>q</kbd>quit</button>
+          <button data-act="pause"><kbd>space</kbd>pause / resume</button>
+          <button data-act="reseed"><kbd>r</kbd>reseed the cosmos</button>
+          <button data-act="clear"><kbd>c</kbd>clear</button>
+          <button data-act="faster"><kbd>+</kbd>speed up</button>
+          <button data-act="slower"><kbd>-</kbd>slow down</button>
+          <button data-act="home"><kbd>h</kbd>home (auto-camera)</button>
+          <button data-act="focus"><kbd>f</kbd>auto-focus mode</button>
+          <button data-act="zoomOut"><kbd>z</kbd>zoom out</button>
+          <button data-act="zoomIn"><kbd>x</kbd>zoom in</button>
+          <button data-act="stats"><kbd>s</kbd>stats overlay</button>
+          <button data-act="record"><kbd>d</kbd>snapshot recording</button>
+          <button data-act="mute"><kbd>m</kbd>mute / unmute music</button>
+          <button data-act="style"><kbd>v</kbd>chiptune / ambient</button>
+          <button data-act="volDown"><kbd>[</kbd>volume down</button>
+          <button data-act="volUp"><kbd>]</kbd>volume up</button>
+          <button data-act="haunt" class="haunt"><kbd>g</kbd>haunted mode</button>
+          <button data-act="statsCsv"><kbd>↓</kbd>life_stats.csv</button>
+        </div>
+        <p class="pointer">
+          <span class="mouse">click: toggle a cell · drag: draw life · right-drag: pan · wheel: zoom · arrows: pan</span>
+          <span class="touch">tap: toggle a cell · drag: pan · pinch: zoom</span>
+        </p>
+        <p class="about">
+          A web port of <a href="https://github.com/LuxiaSL/afterlife" rel="noopener">afterlife</a>, the terminal screensaver:
+          an infinite Game of Life that steers toward its own drama, names its epochs, greets the famous citizens it recognises,
+          and scores itself. The universe is kept in this browser and resumes where you left it.
+        </p>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

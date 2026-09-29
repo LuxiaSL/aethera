@@ -16,9 +16,13 @@
  *   irc        /ws/irc replays a pre-generated bank; one more listener is free.
  *   syrinx     the creature lives in this origin's localStorage, so the room
  *              can show *your* creature, if you have woken one.
+ *   afterlife  the universe is saved in this origin's localStorage too, so the
+ *              room can run *yours* on its screen.
  *   apeiron    the grammar ships as two small JSON files; the screen composes
  *              real prompts from it.
  */
+
+import { KEY as AFTERLIFE_KEY } from '../../afterlife/src/engine/persist';
 
 export interface Site {
   id: string;
@@ -175,6 +179,27 @@ export function readCreature(): Creature | null {
   }
 }
 
+// ---- afterlife --------------------------------------------------------------
+
+/** What the room needs to know about a saved universe (the screen loads the rest). */
+export interface UniverseInfo {
+  generation: number;
+  bornAt: number;
+  savedAt: number;
+}
+
+export function readUniverse(): UniverseInfo | null {
+  try {
+    const raw = localStorage.getItem(AFTERLIFE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as { generation?: unknown; bornAt?: unknown; savedAt?: unknown };
+    if (typeof s.generation !== 'number' || typeof s.savedAt !== 'number') return null;
+    return { generation: s.generation, bornAt: typeof s.bornAt === 'number' ? s.bornAt : s.savedAt, savedAt: s.savedAt };
+  } catch {
+    return null;
+  }
+}
+
 // ---- apeiron ----------------------------------------------------------------
 
 export interface ApeironGrammar {
@@ -213,6 +238,7 @@ export class Feeds {
   });
   readonly irc = new Signal<Irc>({ connected: false, lines: [], collapse: null, fragments: 0, version: 0 });
   readonly creature = new Signal<Creature | null>(readCreature());
+  readonly universe = new Signal<UniverseInfo | null>(readUniverse());
   readonly apeiron = new Signal<ApeironGrammar | null>(null);
 
   private timers: number[] = [];
@@ -232,6 +258,11 @@ export class Feeds {
     every(() => void this.pollChronicle(), 120_000);
     // a creature woken in another tab should appear without a reload
     every(() => this.creature.set(readCreature()), 15_000);
+    // and a universe left at /afterlife in another tab
+    every(() => {
+      const u = readUniverse();
+      if (u?.savedAt !== this.universe.value?.savedAt) this.universe.set(u);
+    }, 15_000);
     this.openIrc();
     if (!this.apeiron.value) void this.loadApeiron();
   }

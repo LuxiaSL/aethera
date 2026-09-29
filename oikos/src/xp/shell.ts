@@ -50,7 +50,8 @@ export const RELATED: Record<string, string[]> = {
   dream_gen: ['dreams', 'chronicle'],
   transmissions: ['irc', 'syrinx'],
   apeiron: ['dreams', 'syrinx'],
-  syrinx: ['apeiron', 'transmissions'],
+  syrinx: ['apeiron', 'afterlife'],
+  afterlife: ['syrinx', 'apeiron'],
   irc: ['transmissions', 'parlor'],
   parlor: ['irc', 'transmissions'],
 };

@@ -159,6 +159,7 @@ export class Pane {
     const s = this.site;
     if (s.id === 'dreams') return 'Opening dreams wakes the dreamer: a GPU starts up while anyone is watching and goes back to sleep after. The frame here is the last one the chronicle kept.';
     if (s.id === 'syrinx') return 'Syrinx makes sound once you wake it. The creature here is read from this browser; nobody else sees yours.';
+    if (s.id === 'afterlife') return 'afterlife makes music once you click in. The universe on this screen is the one saved in this browser, if you have visited; nobody else sees yours.';
     if (s.group === 'wired') return `${s.title} is not on this server; it opens in a new window.`;
     return null;
   }
@@ -191,6 +192,12 @@ export class Pane {
         const c = feeds.creature.value;
         on = !!c;
         text = c ? `yours: ${c.name}` : 'not woken in this browser';
+        break;
+      }
+      case 'afterlife': {
+        const u = feeds.universe.value;
+        on = !!u;
+        text = u ? `yours: generation ${u.generation.toLocaleString('en-US')}` : 'no universe in this browser yet';
         break;
       }
       default:

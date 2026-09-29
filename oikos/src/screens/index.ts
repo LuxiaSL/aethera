@@ -5,6 +5,7 @@
  */
 
 import type { Site } from '../data';
+import { AfterlifeScreen } from './afterlife';
 import { ApeironScreen } from './apeiron';
 import { ChronicleScreen } from './chronicle';
 import { DreamGenScreen } from './dreamGen';
@@ -26,6 +27,7 @@ const PAINTERS: Record<string, new (site: Site, env: ScreenEnv) => Screen> = {
   'dreams-api': DreamsApiScreen,
   apeiron: ApeironScreen,
   syrinx: SyrinxScreen,
+  afterlife: AfterlifeScreen,
   irc: IrcScreen,
   parlor: ParlorScreen,
   dream_gen: DreamGenScreen,
