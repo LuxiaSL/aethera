@@ -317,10 +317,12 @@ export class Feeds {
     };
     ws.onopen = () => {
       this.wsBackoff = 2000;
-      bump({ connected: true });
+      // whatever was collapsing when we last heard is old news; the server's
+      // replay says what's happening now
+      bump({ connected: true, collapse: null });
     };
     ws.onmessage = (ev) => {
-      let msg: { type?: string; data?: Record<string, unknown>; collapseType?: string };
+      let msg: { type?: string; data?: Record<string, unknown>; collapseType?: string; replay?: boolean };
       try {
         msg = JSON.parse(String(ev.data));
       } catch {
@@ -338,12 +340,16 @@ export class Feeds {
         };
         if (typeof meta.target === 'string') line.target = meta.target;
         if (typeof meta.reason === 'string') line.reason = meta.reason;
+        // a replay after a reconnect repeats lines we already have: keep ours
+        if (msg.replay && this.irc.value.lines.some((l) => l.stamp === line.stamp && l.nick === line.nick && l.content === line.content)) return;
         bump({ lines: [...this.irc.value.lines, line].slice(-60) });
       } else if (msg.type === 'collapse_start') {
         bump({ collapse: { type: msg.collapseType ?? 'collapse', at: performance.now() } });
       } else if (msg.type === 'fragment_end') {
-        // the channel empties between fragments; keep the tail as an afterimage
-        bump({ collapse: null, lines: this.irc.value.lines.slice(-6), fragments: this.irc.value.fragments + 1 });
+        // the channel empties between fragments; keep the tail as an afterimage.
+        // a replayed end is one that already happened: not a new fragment ending
+        if (msg.replay) bump({ collapse: null });
+        else bump({ collapse: null, lines: this.irc.value.lines.slice(-6), fragments: this.irc.value.fragments + 1 });
       }
     };
     ws.onclose = () => {

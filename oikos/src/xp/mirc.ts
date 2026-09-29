@@ -125,16 +125,17 @@ class Win {
     icon: string,
     channel: boolean,
   ) {
-    this.tab = h('button', { type: 'button', role: 'tab', html: `${icon}<span></span>` });
+    const pane = `mirc-pane-${id === 'status' ? 'status' : id.slice(1)}`;
+    this.tab = h('button', { type: 'button', role: 'tab', 'aria-controls': pane, html: `${icon}<span></span>` });
     (this.tab.querySelector('span') as HTMLElement).textContent = id === 'status' ? 'Status' : id;
     this.log = h('div', { class: 'mirc-log', role: 'log', 'aria-label': id === 'status' ? 'Status' : id });
     if (channel) {
       this.log.setAttribute('aria-live', 'polite');
       this.nicksEl = h('ul', { class: 'mirc-nicks', 'aria-label': `Nicknames in ${id}` });
-      this.pane = h('div', { class: 'mirc-pane' }, [h('div', { class: 'mirc-split' }, [this.log, this.nicksEl])]);
+      this.pane = h('div', { class: 'mirc-pane', id: pane, role: 'tabpanel' }, [h('div', { class: 'mirc-split' }, [this.log, this.nicksEl])]);
     } else {
       this.nicksEl = null;
-      this.pane = h('div', { class: 'mirc-pane' }, [this.log]);
+      this.pane = h('div', { class: 'mirc-pane', id: pane, role: 'tabpanel' }, [this.log]);
     }
   }
 
@@ -188,6 +189,8 @@ export class Mirc {
   private livingSeenAt = 0;
   /** been welcomed into #oikos since the last part: a new welcome is a rejoin */
   private livingOnce = false;
+  /** the server's greeting is shown once; a reconnect just says so */
+  private greeted = false;
 
   // #aethera's feed state
   private hung = false;
@@ -276,7 +279,7 @@ export class Mirc {
       onClose: () => {
         clearTimeout(this.rejoinTimer);
         this.off();
-        this.link?.close();
+        this.link?.part('Leaving');
         this.link = null;
         this.wm.get('mirc-connect')?.close();
         onClose();
@@ -287,6 +290,13 @@ export class Mirc {
     });
     this.win.el.classList.add('mirc-window');
     this.win.el.style.height = 'min(540px, calc(100% - 24px))';
+    // placed at its natural height, then made taller: keep the bottom (the
+    // input line) on the desk
+    const desk = this.win.el.parentElement;
+    if (desk) {
+      const over = this.win.el.offsetTop + this.win.el.offsetHeight - (desk.clientHeight - 8);
+      if (over > 0) this.win.moveTo(this.win.el.offsetLeft, this.win.el.offsetTop - over);
+    }
 
     const irc = this.shell.feeds.irc.value;
     this.seenFragments = irc.fragments;
@@ -297,9 +307,12 @@ export class Mirc {
     this.off = this.shell.feeds.irc.on((v) => this.update(v));
   }
 
-  focus(): void {
+  /** bring the window forward, on `channel` if it's one we have open */
+  focus(channel?: string): void {
     if (this.win.minimized) this.win.restore();
     else this.win.focus();
+    const w = channel === HAUNTED || channel === LIVING || channel === 'status' ? this.wins[channel] : null;
+    if (w && !w.tab.hidden) this.show(w.id);
   }
 
   // ---- #aethera: the feed -------------------------------------------------------
@@ -333,6 +346,13 @@ export class Mirc {
   private connect(irc: Irc): void {
     this.wasConnected = true;
     const s = (tone: Tone, text: string) => this.push('status', tone, text);
+    if (this.greeted) {
+      s('info', `* Reconnected to ${SERVER}`);
+      this.joinHaunted();
+      if (irc.collapse) this.collapse(irc.collapse.type);
+      return;
+    }
+    this.greeted = true;
     s('info', `* Connecting to ${SERVER} (${PORT})`);
     s('notice', `-${SERVER}- *** Looking up your hostname...`);
     s('notice', `-${SERVER}- *** Found your hostname`);
@@ -499,7 +519,7 @@ export class Mirc {
 
   private partLiving(): void {
     if (!this.link) return;
-    this.link.close();
+    this.link.part('Leaving');
     this.link = null;
     const o = this.wins[LIVING];
     o.joined = false;
@@ -542,6 +562,13 @@ export class Mirc {
     form.append(actions);
     const dlg = this.wm.open({ id: 'mirc-connect', title: 'mIRC Connect', icon: icons.chat('app'), body: form, width: 360, dialog: true });
     cancel.addEventListener('click', () => dlg.close());
+    form.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        dlg.close();
+        this.input.focus({ preventScroll: true });
+      }
+    });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const n = nick.value.trim();
@@ -599,7 +626,7 @@ export class Mirc {
       this.push(LIVING, 'info', '*** Playback Complete.');
     }
     this.nicksChanged(LIVING);
-    this.show(LIVING);
+    if (!again) this.show(LIVING);
   }
 
   /** one thing that happened in #oikos; `past` for playback (it changes nobody) */
@@ -620,6 +647,9 @@ export class Mirc {
         if (!past) o.setNick(e.nick, '');
         break;
       case 'part':
+        put('part', `* ${e.nick} (${e.mask ?? ''}) has left ${LIVING}${e.text ? ` (${e.text})` : ''}`);
+        if (!past) o.drop(e.nick);
+        break;
       case 'quit':
         put('quit', `* ${e.nick} (${e.mask ?? ''}) Quit (${e.text || 'Client exited'})`);
         if (!past) o.drop(e.nick);
@@ -670,6 +700,8 @@ export class Mirc {
     if (!o.joined && (code === '432' || code === '433')) {
       this.link?.close();
       this.link = null;
+      this.livingOnce = false;
+      this.livingSeenAt = 0;
       this.connectDialog(raw.replace(/^\S+ :/, ''));
     }
   }
@@ -685,6 +717,9 @@ export class Mirc {
     this.push('status', 'info', `* Disconnected from ${LIVING}${retrying ? ' (reconnecting...)' : ''}`);
     if (!retrying) {
       this.link = null;
+      // whatever comes next is a fresh join: the full welcome, the whole playback
+      this.livingOnce = false;
+      this.livingSeenAt = 0;
       this.renameMe(GUEST);
     }
   }

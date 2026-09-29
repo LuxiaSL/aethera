@@ -57,6 +57,9 @@ export interface ChatHandlers {
 const KICKED = 4001;
 /** 4002: our tripcode sat down elsewhere (another tab): don't fight it for the seat */
 const TAKEN_OVER = 4002;
+/** 4000–4999: the server ended it on purpose (kicked, taken over, flood, part,
+ *  too many connections): dialling straight back in would only undo that */
+const final = (code: number) => code >= 4000 && code < 5000;
 const RETRIES = 4;
 
 export class ChatLink {
@@ -134,7 +137,7 @@ export class ChatLink {
       this.ws = null;
       const kicked = ev.code === KICKED;
       const takenOver = ev.code === TAKEN_OVER;
-      const retrying = this.wanted && !kicked && !takenOver && !this.refused && this.tries < RETRIES;
+      const retrying = this.wanted && !final(ev.code) && !this.refused && this.tries < RETRIES;
       this.welcomed = false;
       this.on.closed(retrying, kicked, takenOver);
       if (!retrying) {
@@ -154,6 +157,19 @@ export class ChatLink {
     } catch {
       return false;
     }
+  }
+
+  /** Leave on purpose: the channel sees a part (not a dropped connection it
+   *  would hold a seat for), then the line closes. */
+  part(reason = 'Leaving'): void {
+    if (this.open && this.ws) {
+      try {
+        this.ws.send(JSON.stringify({ type: 'part', reason }));
+      } catch {
+        /* closing anyway */
+      }
+    }
+    this.close();
   }
 
   close(): void {

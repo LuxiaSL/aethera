@@ -12,6 +12,7 @@ Management happens via CLI tools, not HTTP.
 
 import asyncio
 import logging
+import math
 import os
 from typing import Awaitable, Callable, Optional
 
@@ -219,17 +220,30 @@ async def irc_recent(request: Request, since: int = 0, wait: float = 0.0, limit:
     broadcaster = get_broadcaster()
     if not broadcaster.is_running:
         await broadcaster.start()
-    await broadcaster.wait_since(since, min(max(wait, 0.0), RECENT_MAX_WAIT_S))
-    items, cursor = broadcaster.history_since(since, max(1, min(limit, 400)))
+    # finite, 0..25s: a nan would never time out
+    wait = min(max(wait, 0.0), RECENT_MAX_WAIT_S) if math.isfinite(wait) else 0.0
+    await broadcaster.wait_since(since, wait)
+    items, cursor, missed = broadcaster.history_since(since, max(1, min(limit, 400)))
     if format == "text":
         lines = [_ghost_line(p) for _, p in items]
+        if missed:
+            lines.insert(0, "-- (some lines were missed: you fell behind, or the server restarted)")
         lines.append(f"-- cursor {cursor}")
         return PlainTextResponse("\n".join(lines) + "\n")
     return JSONResponse({
         "channel": broadcaster.channel_name,
         "cursor": cursor,
-        "items": [{"seq": n, **p} for n, p in items],
+        "missed": missed,
+        "items": [{"seq": n, **_public(p)} for n, p in items],
     })
+
+
+def _public(payload: dict) -> dict:
+    """A broadcast payload as the API shows it: without the replay's pacing."""
+    data = payload.get("data")
+    if not isinstance(data, dict) or "delayAfter" not in data:
+        return payload
+    return {**payload, "data": {k: v for k, v in data.items() if k != "delayAfter"}}
 
 
 @router.get("/api/irc/health")

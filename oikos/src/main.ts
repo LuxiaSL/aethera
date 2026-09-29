@@ -265,10 +265,10 @@ function boot(root: HTMLElement): void {
         frame.focus();
       });
     },
-    chat() {
+    chat(channel) {
       tuneOut(false);
-      if (mirc) mirc.focus();
-      else mirc = new Mirc(shell, wm, () => (mirc = null));
+      if (!mirc) mirc = new Mirc(shell, wm, () => (mirc = null));
+      mirc.focus(channel);
     },
     home() {
       visit('~');

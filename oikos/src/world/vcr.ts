@@ -147,22 +147,24 @@ function labelTexture(text: string): THREE.CanvasTexture {
     ctx.fillRect(0, 0, 512, 16);
     ctx.fillStyle = '#9aa1b0';
     for (let y = 40; y < 160; y += 30) ctx.fillRect(16, y + 20, 480, 1);
-    // the printed part of the label stays printed
-    ctx.font = '18px "Libertinus Mono", monospace';
-    ctx.fillStyle = '#6b6f7a';
-    ctx.textAlign = 'right';
-    ctx.fillText('T-120  SP', 496, 142);
   }
   const tex = new THREE.CanvasTexture(c);
-  // the title is typed on it; painted again if the typewriter arrives late
+  // the printed part (Libertinus) and the typed title (the typewriter): both
+  // painted again if their fonts arrive late
   const font = `54px ${HAND}`;
+  const printed = '18px "Libertinus Mono", monospace';
   let blank: ImageData | null = null;
   paintWith(
-    font,
+    [font, printed],
     () => {
       if (!ctx) return;
       if (blank) ctx.putImageData(blank, 0, 0);
       else blank = ctx.getImageData(0, 0, 512, 160);
+      ctx.font = printed;
+      ctx.fillStyle = '#6b6f7a';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('T-120  SP', 496, 142);
       ctx.fillStyle = '#15151a';
       ctx.font = font;
       ctx.textAlign = 'left';
@@ -322,9 +324,6 @@ export class Vcr {
       ctx.fillStyle = '#3a3c43';
       for (let x = 0; x < 1024; x += 3) ctx.fillRect(x, 0, 1, 200); // brushed
       ctx.globalAlpha = 0.9;
-      ctx.fillStyle = '#c9ccd4';
-      ctx.font = '30px "Libertinus Mono", monospace';
-      ctx.fillText('æthera', 26, 176);
       ctx.font = '13px ui-monospace, monospace';
       ctx.fillStyle = '#8b8f99';
       ctx.fillText('VIDEO CASSETTE RECORDER   ·   4 HEAD HI-FI   ·   HQ', 150, 172);
@@ -333,6 +332,25 @@ export class Vcr {
       labels.forEach((l, i) => ctx.fillText(l, 632 + i * 58.5, 184));
     }
     const tex = new THREE.CanvasTexture(c);
+    // the maker's name, in the site's own type once it has loaded
+    const mark = '30px "Libertinus Mono", monospace';
+    let plain: ImageData | null = null;
+    paintWith(
+      mark,
+      () => {
+        if (!ctx) return;
+        if (plain) ctx.putImageData(plain, 0, 0);
+        else plain = ctx.getImageData(0, 0, 1024, 200);
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#c9ccd4';
+        ctx.font = mark;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('æthera', 26, 176);
+        ctx.globalAlpha = 1;
+      },
+      () => (tex.needsUpdate = true),
+    );
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     return tex;

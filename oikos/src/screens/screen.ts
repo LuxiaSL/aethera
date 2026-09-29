@@ -23,11 +23,12 @@ export const HAND = '"Love Letter Typewriter", "Libertinus Mono", monospace';
  * actually loaded: a canvas painted before then keeps the fallback forever.
  * `after` runs after the repaint (a texture's needsUpdate, say).
  */
-export function paintWith(font: string, paint: () => void, after?: () => void): void {
+export function paintWith(font: string | string[], paint: () => void, after?: () => void): void {
   paint();
   const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
-  if (!fonts || fonts.check(font)) return;
-  fonts.load(font).then(
+  const wanted = (Array.isArray(font) ? font : [font]).filter((f) => fonts && !fonts.check(f));
+  if (!fonts || !wanted.length) return;
+  Promise.all(wanted.map((f) => fonts.load(f))).then(
     () => {
       paint();
       after?.();

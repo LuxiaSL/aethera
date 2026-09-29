@@ -365,3 +365,49 @@ def test_explicit_exits_are_immediate_even_while_held():
         assert len(watcher.events("quit")) == 1
 
     run(go())
+
+
+def test_server_quits_close_the_socket_so_clients_dont_redial():
+    async def go():
+        hub = ChatHub(burst=1)
+        a, watcher = FakeSocket(), FakeSocket()
+        m = await hub.admit(a, "1.1.1.1", hello("spam"))
+        await hub.admit(watcher, "2.2.2.2", hello("w"))
+        await hub.handle(m, say("x"))
+        for _ in range(3):
+            await hub.handle(m, say("x"))
+        assert m.gone and a.closed == 4003
+
+    run(go())
+
+
+def test_part_over_the_socket_is_a_part_and_immediate():
+    async def go():
+        hub = ChatHub(grace_s=30)
+        a, watcher = FakeSocket(), FakeSocket()
+        m = await hub.admit(a, "1.1.1.1", hello("ada"))
+        await hub.admit(watcher, "2.2.2.2", hello("w"))
+        assert await hub.handle(m, json.dumps({"type": "part", "reason": "night all"})) is False
+        parts = watcher.events("part")
+        assert parts and parts[-1]["nick"] == "ada" and parts[-1]["text"] == "night all"
+        assert hub.count == 1 and m.grace is None
+
+    run(go())
+
+
+def test_kicking_an_away_member_ends_its_grace():
+    async def go():
+        from aethera.models.models import Comment
+
+        trip = Comment.generate_tripcode("op")
+        hub = ChatHub(ops=frozenset({trip}), grace_s=30)
+        o, v = FakeSocket(), FakeSocket()
+        op = await hub.admit(o, "1.1.1.1", hello("op", "op"))
+        victim = await hub.admit(v, "2.2.2.2", hello("pest"))
+        await hub.drop(victim, v)
+        assert victim.grace is not None
+        await hub.handle(op, json.dumps({"type": "kick", "nick": "pest"}))
+        await asyncio.sleep(0)
+        assert victim.grace is None and hub.count == 1
+
+    run(go())

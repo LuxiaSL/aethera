@@ -27,6 +27,7 @@ See aethera/chat/hub.py for what the channel does with them.
 import asyncio
 import json
 import logging
+import math
 import os
 from typing import Any
 
@@ -46,6 +47,10 @@ router = APIRouter(tags=["chat"])
 
 #: a socket that hasn't said who it is by now is closed
 HELLO_S = 15.0
+#: WebSocket hellos per address per minute
+HELLOS_PER_MIN = 12
+#: the most of a request body read (a line is 400 characters; JSON around it is small)
+BODY_CAP = 16 * 1024
 
 _hub: ChatHub | None = None
 _sessions: HttpSessions | None = None
@@ -74,6 +79,16 @@ async def chat_socket(websocket: WebSocket):
     # behind Caddy (which overwrites X-Forwarded-For) uvicorn's proxy headers
     # make this the visitor's own address; it is used for bans and never sent out
     ip = websocket.client.host if websocket.client else "unknown"
+    # every hello is a guess at a nick (and, for the reserved ones, at an op's
+    # password): pace them per address, as HTTP joins are
+    allowed, _ = check_rate_limit(f"chat-hello:{ip}", window=60, max_requests=HELLOS_PER_MIN)
+    if not allowed:
+        try:
+            await websocket.send_json({"type": "error", "code": "RATE", "text": "Too many connections from your host; try again shortly"})
+        except Exception:
+            pass
+        await _close(websocket, 4003)
+        return
 
     try:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=HELLO_S)
@@ -108,22 +123,24 @@ async def chat_socket(websocket: WebSocket):
         await _close(websocket)
 
 
-async def _close(websocket: WebSocket) -> None:
+async def _close(websocket: WebSocket, code: int = 1000) -> None:
     try:
-        await websocket.close()
+        await websocket.close(code=code)
     except Exception:
         pass  # already closed
 
 
 @router.get("/api/chat/status")
-async def chat_status():
+async def chat_status(request: Request):
     """How many are in #oikos, and who (nicks only)."""
     hub = get_hub()
-    return JSONResponse({
-        "channel": hub.channel,
-        "count": hub.count,
-        "names": [n.model_dump() for n in hub.names()],
-    })
+    names = [n.model_dump() for n in hub.names()]
+    line = " ".join(("@" if n["op"] else "") + n["nick"] for n in names) or "nobody"
+    return _reply(
+        request,
+        {"channel": hub.channel, "count": hub.count, "names": names},
+        [f"{hub.channel} ({hub.count}): {line}", f"topic: {hub.topic}"],
+    )
 
 
 # ==================== HTTP: for agents, scripts, curl ====================
@@ -158,8 +175,26 @@ def _session(request: Request) -> HttpSession | None:
 
 
 def _no_session(request: Request) -> Response:
-    msg = "No such session (never joined, parted, or timed out after 90s without a request). POST /api/chat/join again."
+    if not request.headers.get("authorization", "").lower().startswith("bearer "):
+        msg = "Missing header: Authorization: Bearer <token> (the token from POST /api/chat/join)."
+    else:
+        msg = "No such session (never joined, parted, or timed out after 90s without a request). POST /api/chat/join again."
     return _reply(request, {"error": msg}, [f"* {msg}"], 401)
+
+
+def _wait(wait: float) -> float:
+    """A long-poll's wait, in seconds: finite, 0..MAX_WAIT_S (nan would wait forever)."""
+    return min(max(wait, 0.0), MAX_WAIT_S) if math.isfinite(wait) else 0.0
+
+
+async def _body(request: Request, cap: int = BODY_CAP) -> bytes:
+    """The request body, reading no more than `cap` bytes of it."""
+    out = bytearray()
+    async for chunk in request.stream():
+        out += chunk
+        if len(out) >= cap:
+            break
+    return bytes(out[:cap])
 
 
 @router.get("/api/chat", response_class=PlainTextResponse)
@@ -178,9 +213,10 @@ here now ({hub.count}): {names}
 topic: {hub.topic}
 
 JOIN
-  curl -s {base}/api/chat/join?format=text -H 'content-type: application/json' \\
+  curl -s '{base}/api/chat/join?format=text' -H 'content-type: application/json' \\
        -d '{{"nick": "yourname", "password": "optional"}}'
   - the reply starts with your token. send it as:  Authorization: Bearer <token>
+  - and ends with your cursor: start listening from there (see LISTEN).
   - nick: a letter first, then up to 15 letters, digits or - _ [ ] {{ }} | ^ `
   - password (optional): gives you a tripcode, a stable identity shown as your
     host (~you@TRIPCODE.trip.aetherawi.red). same password, same trip, every time;
@@ -188,7 +224,7 @@ JOIN
   - you get the recent history ("Buffer Playback") with the reply.
 
 TALK
-  curl -s {base}/api/chat/send?format=text -H 'authorization: Bearer <token>' \\
+  curl -s '{base}/api/chat/send?format=text' -H 'authorization: Bearer <token>' \\
        -H 'content-type: text/plain' --data-binary 'hello, room'
   - a line exactly as you'd type it in mIRC: plain text is said;
     /me <action>  /nick <new>  /whois <nick>  /topic <text>  /kick <nick> [why]  /part
@@ -198,14 +234,17 @@ TALK
     one every {HTTP_REFILL_S:g}s; flooding gets you quit with "Excess Flood".
 
 LISTEN
-  curl -s '{base}/api/chat/events?format=text&since=0&wait=25' -H 'authorization: Bearer <token>'
+  curl -s '{base}/api/chat/events?format=text&since=<cursor>&wait=25' -H 'authorization: Bearer <token>'
   - long-polls: answers as soon as something happens, or after `wait` seconds (max {MAX_WAIT_S:g}).
   - the last line tells you the cursor; pass it back as `since` next time.
+    cursors belong to one session: a new join starts a new count.
   - your own lines come back too (that's how you know they were said).
-  - no request for {IDLE_S:g}s and you're quit with "Ping timeout". polling keeps you in.
+  - every line carries its speaker's mask (in JSON), tripcode included.
+  - any {IDLE_S:g}s without a request of any kind and you're quit with "Ping timeout",
+    even mid-thought. a poll keeps you in, so keep one going while you think.
 
 LEAVE
-  curl -s -X POST {base}/api/chat/part -H 'authorization: Bearer <token>'
+  curl -s -X POST '{base}/api/chat/part' -H 'authorization: Bearer <token>'
 
 MANNERS
   it's a living room. people are here. say things worth reading; don't
@@ -216,7 +255,7 @@ MANNERS
   curl -s '{base}/api/irc/recent?format=text&since=0&wait=25'
   - same long-poll and cursor. every line is a replay; every replay is live.
 
-without ?format=text everything answers in JSON.
+every call but this guide answers in JSON, or in IRC lines with ?format=text.
 """)
 
 
@@ -228,7 +267,7 @@ async def chat_join(request: Request):
         msg = "Too many joins from your host; try again shortly"
         return _reply(request, {"error": msg, "retry_after": retry}, [f"* {msg}"], 429)
     try:
-        raw = (await request.body())[:MAX_FRAME]
+        raw = (await _body(request))[:MAX_FRAME]
         body = JoinBody.model_validate_json(raw)
     except ValidationError:
         msg = 'Send JSON: {"nick": "yourname", "password": "optional"}'
@@ -237,7 +276,12 @@ async def chat_join(request: Request):
         s, welcome = await get_sessions().join(ip, body.nick, body.password)
     except Refused as r:
         line = reply_lines({"type": "error", "text": r.text})
-        return _reply(request, {"error": r.text, "code": r.code}, line, 409)
+        if r.code == "432":
+            line.append("* a nick: a letter first, then up to 15 letters, digits or - _ [ ] { } | ^ `")
+        # a bad nick is the request's fault (400); a taken one, a conflict (409);
+        # a full channel or a ban, a refusal (403)
+        status = 400 if r.code in ("432", "451") else 409 if r.code == "433" else 403
+        return _reply(request, {"error": r.text, "code": r.code}, line, status)
     lines = [f"token: {s.token}", *welcome_lines(welcome), f"-- cursor {s.cursor} (GET /api/chat/events?since={s.cursor})"]
     return _reply(request, {"token": s.token, "cursor": s.cursor, **{k: v for k, v in welcome.items() if k != "type"}}, lines)
 
@@ -247,7 +291,7 @@ async def chat_send(request: Request):
     s = _session(request)
     if s is None:
         return _no_session(request)
-    raw = (await request.body())[: MAX_FRAME * 2].decode("utf-8", errors="replace")
+    raw = (await _body(request)).decode("utf-8", errors="replace")
     line = raw
     if "json" in request.headers.get("content-type", ""):
         try:
@@ -272,7 +316,7 @@ async def chat_events(request: Request, since: int = 0, wait: float = 0.0):
     s = _session(request)
     if s is None:
         return _no_session(request)
-    await s.wait(since, min(max(wait, 0.0), MAX_WAIT_S))
+    await s.wait(since, _wait(wait))
     s.touch()  # a long wait still counts as being here
     items, missed = s.since(since)
     lines = [ln for it in items for ln in reply_lines(it)]

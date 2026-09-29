@@ -26,7 +26,7 @@ import time
 from collections import deque
 from typing import Any, Callable
 
-from aethera.chat.hub import MAX_FRAME, ChatHub, Member, Refused
+from aethera.chat.hub import MAX_TEXT, ChatHub, Member, Refused
 
 logger = logging.getLogger(__name__)
 
@@ -137,16 +137,24 @@ class HttpSessions:
             s.touch()
         return s
 
+    @staticmethod
+    def seated(s: HttpSession) -> bool:
+        """This session still holds its seat (it may have been taken back by the
+        same tripcode from another connection, or quit)."""
+        m = s.member
+        return m is not None and not m.gone and m.ws is s and not s.closed
+
     async def line(self, s: HttpSession, text: str) -> list[dict[str, Any]]:
         """Say a line (or run a /command). Returns what came back for us alone:
         errors, a whois reply. Everything the channel sees arrives by polling."""
         m = s.member
-        if m is None or s.closed or m.gone:
-            return [{"type": "error", "code": "NOTCONN", "text": "You are not on the channel"}]
+        if m is None or not self.seated(s):
+            return [{"type": "error", "code": "NOTCONN", "text": "You are not on the channel (join again)"}]
         mark = s.cursor
         cmd = self._command(text)
         if cmd is None:
-            return [{"type": "error", "code": "421", "text": text.split()[0][:32] + " :Unknown command"}]
+            return [{"type": "error", "code": "421", "text": f"{text.split()[0][:32]} :Unknown command "
+                     "(try /me /nick /whois /topic /kick /part; start a line with // to say a slash)"}]
         if cmd.get("type") == "part":
             await self.part(s, cmd.get("reason") or "Leaving")
             return []
@@ -159,7 +167,9 @@ class HttpSessions:
     @staticmethod
     def _command(text: str) -> dict[str, Any] | None:
         """mIRC's input line: plain text is said; /commands do things. None: unknown."""
-        text = text[:MAX_FRAME]
+        # one past the longest line: the hub then answers "too long" (417) rather
+        # than seeing an oversized frame and quitting us for flooding
+        text = text[: MAX_TEXT + 1]
         if not text.startswith("/") or text.startswith("//"):
             return {"type": "say", "text": text[1:] if text.startswith("//") else text}
         name, _, rest = text[1:].partition(" ")
@@ -182,24 +192,28 @@ class HttpSessions:
             return {"type": "part", "reason": rest}
         return None
 
-    async def part(self, s: HttpSession, reason: str = "Leaving") -> None:
+    async def part(self, s: HttpSession, reason: str = "Leaving", *, parted: bool = True) -> None:
+        """Forget the session; leave the channel only if it still holds the seat
+        (a session superseded by its own tripcode elsewhere must not unseat that)."""
         self._sessions.pop(s.token, None)
+        seated = self.seated(s)
         s.closed = True
-        if s.member is not None:
-            await self.hub.leave(s.member, reason[:120] or "Leaving")
+        if seated and s.member is not None:
+            await self.hub.leave(s.member, reason[:120] or "Leaving", parted=parted)
 
     async def reap(self) -> int:
         """Quit everyone who hasn't been heard from in idle_s; forget the closed."""
         now = self._clock()
         gone = 0
         for s in list(self._sessions.values()):
-            if s.closed and (s.member is None or s.member.gone):
-                # kicked or flooded out: keep it long enough to be told, then forget it
+            if not self.seated(s):
+                # kicked, flooded out, or superseded: keep it long enough to be
+                # told, then forget it (and never touch the seat it no longer has)
                 if now - s.last_seen > self.idle_s:
                     self._sessions.pop(s.token, None)
                 continue
             if now - s.last_seen > self.idle_s:
-                await self.part(s, "Ping timeout")
+                await self.part(s, "Ping timeout", parted=False)
                 gone += 1
         return gone
 

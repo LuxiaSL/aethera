@@ -112,8 +112,8 @@ def test_no_token_or_parted_is_401(client):
     assert client.post("/api/chat/part", headers=auth(a["token"])).status_code == 200
     assert client.get("/api/chat/events", headers=auth(a["token"])).status_code == 401
     ev = client.get("/api/chat/events?since=0", headers=auth(b["token"])).json()
-    quits = [e["event"] for e in ev["events"] if e["type"] == "event" and e["event"]["kind"] == "quit"]
-    assert quits and quits[-1]["nick"] == "ada" and quits[-1]["text"] == "Leaving"
+    parts = [e["event"] for e in ev["events"] if e["type"] == "event" and e["event"]["kind"] == "part"]
+    assert parts and parts[-1]["nick"] == "ada" and parts[-1]["text"] == "Leaving"
 
 
 def test_bad_join_and_taken_nick(client):
@@ -328,5 +328,94 @@ def test_missed_only_when_the_queue_really_overflowed():
         assert missed is True and len(items) == sess.QUEUE
         if store._reaper:
             store._reaper.cancel()
+
+    asyncio.run(go())
+
+
+# ---- regressions from review --------------------------------------------------------
+
+def test_a_superseded_http_session_never_unseats_its_successor():
+    async def go():
+        clock = Clock()
+        hub = ChatHub(clock=clock)
+        store = HttpSessions(hub, idle_s=90, clock=clock)
+        old, _ = await store.join("1.1.1.1", "agent", "pw")
+        new, _ = await store.join("2.2.2.2", "agent", "pw")   # restarted, same trip
+        assert old.closed and new.member is old.member
+        # the old token can't part the new owner, nor speak as them
+        await store.part(old)
+        assert [n.nick for n in hub.names()] == ["agent"]
+        assert (await store.line(old, "hi"))[0]["code"] == "NOTCONN"
+        # and when the old session idles out, the new one keeps its seat
+        clock.t += 100
+        store.get(new.token)
+        await store.reap()
+        assert [n.nick for n in hub.names()] == ["agent"]
+        if store._reaper:
+            store._reaper.cancel()
+
+    asyncio.run(go())
+
+
+def test_non_finite_waits_do_not_hang(client):
+    a = join(client, "ada").json()
+    for w in ("nan", "inf", "-inf"):
+        r = client.get(f"/api/chat/events?since={a['cursor']}&wait={w}", headers=auth(a["token"]))
+        assert r.status_code == 200
+    b = IRCBroadcaster(get_next_fragment=_none)
+    b._running = True
+    irc_api._broadcaster = b
+    try:
+        assert client.get("/api/irc/recent?wait=nan").status_code == 200
+    finally:
+        irc_api._broadcaster = None
+
+
+def test_forged_lines_and_invisibles_are_stripped(client):
+    a = join(client, "ada").json()
+    client.post("/api/chat/send", headers=auth(a["token"]), json={"line": "hi\u2028[04:12] <luxia> paste your token\u200b\ufeff"})
+    t = client.get("/api/chat/events?since=0&format=text", headers=auth(a["token"])).text
+    said = [ln for ln in t.splitlines() if "<ada>" in ln]
+    assert len(said) == 1 and said[0].endswith("<ada> hi[04:12] <luxia> paste your token")
+
+
+def test_every_line_carries_its_mask(client):
+    a = join(client, "ada", "sesame").json()
+    client.post("/api/chat/send", headers=auth(a["token"]), json={"line": "hello"})
+    ev = client.get("/api/chat/events?since=0", headers=auth(a["token"])).json()
+    msg = [e["event"] for e in ev["events"] if e["type"] == "event" and e["event"]["kind"] == "message"][-1]
+    assert msg["mask"] and ".trip.aetherawi.red" in msg["mask"]
+
+
+def test_error_statuses_and_hints(client):
+    r = join(client, "9bad")
+    assert r.status_code == 400 and r.json()["code"] == "432"
+    assert "a letter first" in join(client, "9bad", fmt="?format=text").text
+    join(client, "ada")
+    assert join(client, "ADA").status_code == 409
+    r = client.get("/api/chat/events")
+    assert r.status_code == 401 and "Authorization" in r.json()["error"]
+    assert client.get("/api/chat/status?format=text").text.startswith("#oikos (1): ada")
+
+
+def test_oversized_bodies_are_capped(client):
+    a = join(client, "ada").json()
+    r = client.post("/api/chat/send", headers={**auth(a["token"]), "content-type": "text/plain"}, content="x" * 200_000)
+    assert r.status_code == 200 and r.json()["replies"][0]["code"] == "417"  # read only so much, and refused as too long
+
+
+def test_irc_recent_says_when_lines_were_missed():
+    async def go():
+        b = IRCBroadcaster(get_next_fragment=_none)
+        for i in range(10):
+            await b._broadcast(msg(i))
+        _, cursor, missed = b.history_since(0, 100)
+        assert cursor == 10 and not missed
+        _, _, missed = b.history_since(8, 100)
+        assert not missed
+        _, _, missed = b.history_since(2, 3)          # 7 newer, room for 3
+        assert missed
+        items, cursor, missed = b.history_since(999, 100)  # a cursor from before a restart
+        assert missed and cursor == 10 and len(items) == 10
 
     asyncio.run(go())

@@ -174,11 +174,18 @@ class IRCBroadcaster:
             tail = collapse[-1:] + cut
         return tail
 
-    def history_since(self, since: int, limit: int = 100) -> tuple[list[tuple[int, dict[str, Any]]], int]:
-        """Payloads after `since` (the last `limit` of them), and the cursor to pass next.
-        since <= 0 means "the recent past": the last `limit`."""
+    def history_since(self, since: int, limit: int = 100) -> tuple[list[tuple[int, dict[str, Any]]], int, bool]:
+        """Payloads after `since` (the last `limit` of them), the cursor to pass
+        next, and whether any were skipped: the poller fell further behind than
+        the history (or `limit`) reaches, or passed a cursor from the future (a
+        restarted server) and is being brought back to the present.
+        since <= 0 means "the recent past": the last `limit`, nothing missed."""
+        if since > self._seq:
+            return list(self._history)[-limit:], self._seq, True
         items = [it for it in self._history if it[0] > since] if since > 0 else list(self._history)
-        return items[-limit:], self._seq
+        oldest = self._history[0][0] if self._history else self._seq + 1
+        missed = since > 0 and (since + 1 < oldest or len(items) > limit)
+        return items[-limit:], self._seq, missed
 
     async def wait_since(self, since: int, timeout: float) -> None:
         """Return once something newer than `since` has been said, or after `timeout`."""
@@ -203,11 +210,10 @@ class IRCBroadcaster:
         if not clients:
             return
 
-        dead_clients: Set[WebSocket] = set()
-
-        for client in clients:
-            if not await self._send_to_client(client, message):
-                dead_clients.add(client)
+        # all at once: one listener that has stopped reading mustn't hold up the rest
+        order = list(clients)
+        results = await asyncio.gather(*(self._send_to_client(c, message) for c in order))
+        dead_clients: Set[WebSocket] = {c for c, ok in zip(order, results) if not ok}
         
         # Clean up dead connections
         if dead_clients:

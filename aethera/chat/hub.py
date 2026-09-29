@@ -45,8 +45,11 @@ HOST = "aetherawi.red"
 
 #: how long a dropped connection keeps its seat
 GRACE_S = 30.0
-#: the close code for a connection whose seat was taken back by its own tripcode
+#: close codes a client should not reconnect after: kicked, seat taken back by
+#: the same tripcode elsewhere, or quit by the server (flood, part, unreachable)
+KICKED = 4001
 TAKEN_OVER = 4002
+QUIT = 4003
 
 MAX_TEXT = 400
 MAX_TOPIC = 200
@@ -62,9 +65,14 @@ RESERVED = frozenset({
     "server", "services", "ircop", "oper", "luxia", "celeste",
 })
 
-#: C0/C1 controls (mIRC colour codes among them) and the bidi overrides that
-#: would let one line pretend to be another
-_STRIP = re.compile(r"[\x00-\x1f\x7f-\x9f‎‏‪-‮⁦-⁩]")
+#: what would let one line pretend to be another, or two
+_STRIP = re.compile(
+    "[\x00-\x1f\x7f-\x9f"          # C0/C1 controls (mIRC colour codes among them)
+    "\u061c\u200b-\u200f"          # invisible marks, zero-width spaces and joiners
+    "\u2028\u2029"                 # line/paragraph separators: a forged second line
+    "\u202a-\u202e\u2066-\u2069"   # bidi overrides
+    "\ufeff]"
+)
 
 
 def clean(text: str, limit: int) -> str:
@@ -102,12 +110,17 @@ class SetTopic(BaseModel):
     text: str = Field(max_length=MAX_FRAME)
 
 
+class Part(BaseModel):
+    type: Literal["part"]
+    reason: str = Field(default="", max_length=MAX_FRAME)
+
+
 class Whois(BaseModel):
     type: Literal["whois"]
     nick: str = Field(max_length=64)
 
 
-Command = Annotated[Union[Say, NickChange, Kick, SetTopic, Whois], Field(discriminator="type")]
+Command = Annotated[Union[Say, NickChange, Kick, SetTopic, Whois, Part], Field(discriminator="type")]
 _commands: TypeAdapter[Command] = TypeAdapter(Command)
 
 
@@ -370,16 +383,24 @@ class ChatHub:
         if m.away and not m.gone:
             await self.leave(m, reason)
 
-    async def leave(self, m: Member, reason: str = "Client exited") -> None:
-        """They're gone (parted, kicked, flooded, timed out, or their seat's
-        grace ran out). Idempotent."""
+    async def leave(self, m: Member, reason: str = "Client exited", *, parted: bool = False) -> None:
+        """They're gone (parted, flooded, timed out, unreachable, or their
+        seat's grace ran out). Idempotent. Their connection is closed with
+        QUIT (4003) so a client knows not to dial straight back in."""
         if m.gone:
             return
         m.gone = True
         self._cancel_grace(m)
         if self._members.get(m.nick.lower()) is m:
             del self._members[m.nick.lower()]
-        await self._broadcast(self._event("quit", m, mask=m.mask, text=reason))
+        ws, m.ws = m.ws, VOID
+        if ws is not VOID:
+            try:
+                await ws.close(code=QUIT)
+            except Exception:
+                pass
+        kind: EventKind = "part" if parted else "quit"
+        await self._broadcast(self._event(kind, m, mask=m.mask, text=reason))
 
     # ---- talking ----
 
@@ -422,7 +443,7 @@ class ChatHub:
             if len(text) > MAX_TEXT:
                 await self._error(m, "417", "Input line was too long")
                 return True
-            await self._broadcast(self._event("action" if cmd.action else "message", m, text=text))
+            await self._broadcast(self._event("action" if cmd.action else "message", m, text=text, mask=m.mask))
         elif isinstance(cmd, NickChange):
             try:
                 new = self._check_nick(cmd.nick, m.trip, me=m)
@@ -444,6 +465,9 @@ class ChatHub:
                 return True
             self.topic = clean(cmd.text, MAX_TOPIC) or DEFAULT_TOPIC
             await self._broadcast(self._event("topic", m, text=self.topic))
+        elif isinstance(cmd, Part):
+            await self.leave(m, clean(cmd.reason, MAX_REASON) or "Leaving", parted=True)
+            return False
         elif isinstance(cmd, Whois):
             who = self._members.get(cmd.nick.strip().lower())
             if who is None:
@@ -468,13 +492,14 @@ class ChatHub:
             return
         reason = clean(cmd.reason, MAX_REASON) or m.nick
         victim.gone = True
+        self._cancel_grace(victim)
         del self._members[victim.nick.lower()]
         # a kick keeps them out a while, or a reload would undo it
         self._bans[victim.ip] = self._clock() + self.ban_s
         event = self._event("kick", m, target=victim.nick, text=reason)
         await self._send(victim.ws, {"type": "event", "event": event.model_dump()})
         try:
-            await victim.ws.close(code=4001)
+            await victim.ws.close(code=KICKED)
         except Exception:
             pass
         await self._broadcast(event)

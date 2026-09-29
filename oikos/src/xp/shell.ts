@@ -27,8 +27,8 @@ export interface Shell {
   tuneIn(id: string): void;
   /** open the home directory */
   home(): void;
-  /** open mIRC on #aethera */
-  chat(): void;
+  /** open mIRC (on `channel`, if given; else wherever it was) */
+  chat(channel?: string): void;
   eject(): void;
   balloon(title: string, text: string, at?: { x: number; y: number }): void;
   /** where you've been: ~ and the tapes played, in order, like Explorer's history */
