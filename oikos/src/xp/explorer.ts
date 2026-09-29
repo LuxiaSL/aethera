@@ -88,7 +88,7 @@ export class Explorer {
       title: '~  (home directory)',
       icon: icons.folderHome(),
       body,
-      width: 680,
+      width: Math.round(Math.min(680, Math.max(420, innerWidth * 0.46))),
       dock: 'left',
       onClose: () => {
         this.win = null;

@@ -64,6 +64,8 @@ function boot(root: HTMLElement): void {
   let paneId: string | null = null;
   let leaving = false;
   let tuned: { id: string; bar: HTMLElement; hidden: XPWindow[]; tube: HTMLElement } | null = null;
+  let playSeq = 0; // the latest tape asked for; a slower one arriving late is ignored
+  let folded = false; // the directory was folded away for the tape playing now
 
   // ---- the shell: what windows may ask for ----
   const shell: Shell = {
@@ -81,8 +83,8 @@ function boot(root: HTMLElement): void {
       // anything that moves the camera steps out of a tuned-in screen first
       tuneOut(false);
       explorer.select(id);
-      room?.play(id);
       if (paneId === id && pane) {
+        room?.play(id);
         if (pane.win.minimized) pane.win.restore();
         else pane.win.focus();
         return;
@@ -91,16 +93,33 @@ function boot(root: HTMLElement): void {
       pane = null;
       paneId = null;
       old?.win.close();
-      paneId = id;
-      pane = new Pane(site, shell, wm, () => {
-        if (paneId !== id) return;
-        pane = null;
-        paneId = null;
-        room?.eject();
-        if (room?.focusedId === id) room.focus(null);
-        history.replaceState(null, '', location.pathname);
-      });
       history.replaceState(null, '', `#${id}`);
+      // the directory folds away so the tape can be seen going in; it comes
+      // back when this pane closes
+      const home = wm.get('home');
+      if (home && !home.minimized && room) {
+        home.minimize();
+        folded = true;
+      }
+      const token = ++playSeq;
+      const opened = () => {
+        if (token !== playSeq) return; // another tape went in meanwhile
+        paneId = id;
+        pane = new Pane(site, shell, wm, () => {
+          if (paneId !== id) return;
+          pane = null;
+          paneId = null;
+          room?.eject();
+          if (room?.focusedId === id) room.focus(null);
+          history.replaceState(null, '', location.pathname);
+          const dirWin = wm.get('home');
+          if (folded && dirWin?.minimized) dirWin.restore();
+          folded = false;
+        });
+      };
+      // watch the tape go in, the cable light up, the channel change; then the pane
+      if (room) void room.play(id).then(opened);
+      else opened();
     },
     open(site, e) {
       e?.preventDefault();
@@ -143,6 +162,20 @@ function boot(root: HTMLElement): void {
       tube.style.setProperty('--glow', site.accent);
       const frame = h('iframe', { src, title: `${site.title}, live`, allow: 'autoplay; fullscreen; clipboard-write' });
       tube.append(frame, h('i', { class: 'roll' }), h('i', { class: 'glass' }));
+      // once you click into the page, keys go to it, not to us: listen in there
+      // too (same origin), so Esc still steps back out. Not from a text field,
+      // and not when the page has already used the key itself.
+      frame.addEventListener('load', () => {
+        try {
+          frame.contentWindow?.addEventListener('keydown', (e) => {
+            const el = e.target as HTMLElement | null;
+            if (e.key !== 'Escape' || e.defaultPrevented || el?.closest?.('input, textarea, [contenteditable]')) return;
+            tuneOut(true);
+          });
+        } catch {
+          /* a page on another origin: the Eject button is still there */
+        }
+      });
       const bar = h('div', { class: 'oikos-tuned', role: 'toolbar', 'aria-label': 'tuned in' });
       bar.innerHTML = `${icons.tape(site.accent)}<b></b><span>tuned in · live on its screen</span>`;
       (bar.querySelector('b') as HTMLElement).textContent = site.title;
@@ -155,9 +188,15 @@ function boot(root: HTMLElement): void {
       }
       bar.append(eject, full);
       tuned = { id, bar, hidden, tube };
-      // the page lays out at 1024×768 and is scaled onto the glass
+      // the page lays out at a 4:3 size near the glass's own (1024 wide on a
+      // desktop, phone-sized on a phone, so the site uses its own small-screen
+      // layout) and is scaled onto the glass
       const place = (r: DOMRectReadOnly) => {
-        tube.style.transform = `translate(${r.left}px, ${r.top}px) scale(${r.width / 1024}, ${r.height / 768})`;
+        const w = Math.round(Math.min(1024, Math.max(420, r.width * 1.15)));
+        const h = Math.round(w * 0.75);
+        tube.style.width = `${w}px`;
+        tube.style.height = `${h}px`;
+        tube.style.transform = `translate(${r.left}px, ${r.top}px) scale(${r.width / w}, ${r.height / h})`;
       };
       void room.tuneIn(id, place).then(() => {
         if (tuned?.bar !== bar) return;
@@ -235,6 +274,7 @@ function boot(root: HTMLElement): void {
         pick(id: Pickable | null) {
           exitStandby();
           taskbar.hideBalloon();
+          taskbar.showTip(null, null, 0, 0);
           if (id === 'vcr') shell.home();
           else if (id) shell.play(id);
           else if (room?.focusedId && !pane) room.focus(null);
@@ -397,7 +437,8 @@ function boot(root: HTMLElement): void {
     document.fonts?.load('16px "Libertinus Mono"').then(() => undefined) ?? Promise.resolve(),
     new Promise<void>((r) => setTimeout(r, 1500)),
   ]);
-  void Promise.race([Promise.all([fonts, new Promise<void>((r) => setTimeout(r, minBoot))]), skipped]).then(() => {
+  const warmed = room?.warm() ?? Promise.resolve();
+  void Promise.race([Promise.all([fonts, warmed, new Promise<void>((r) => setTimeout(r, minBoot))]), skipped]).then(() => {
     feeds.start();
     room?.start();
     room?.powerOn();

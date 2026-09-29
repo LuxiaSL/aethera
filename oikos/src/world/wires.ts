@@ -27,7 +27,8 @@ export class Cable {
   private surgeLeft = 0;
   private lit = 0;
 
-  constructor(points: THREE.Vector3[], radius: number, accent: string, towardVcr: boolean) {
+  /** Pulses run from the VCR out to the screen (it is playing them). */
+  constructor(points: THREE.Vector3[], radius: number, accent: string) {
     const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5);
     const length = curve.getLength();
     const geo = new THREE.TubeGeometry(curve, Math.max(40, Math.round(length * 18)), radius, 6, false);
@@ -39,7 +40,7 @@ export class Cable {
 
     this.uniforms.uPulseColor.value.set(accent);
     this.uniforms.uPulseCount.value = Math.max(1, Math.round(length / 2.2));
-    this.uniforms.uPulseSpeed.value = (towardVcr ? 1 : -1) * (0.18 + Math.random() * 0.12);
+    this.uniforms.uPulseSpeed.value = 0.18 + Math.random() * 0.12;
     const mat = new THREE.MeshStandardMaterial(rubber);
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.uniforms);

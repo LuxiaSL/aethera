@@ -127,7 +127,8 @@ export class Pane {
       title: `${site.title} — ${addr.replace(/^https?:\/\//, '')}`,
       icon: icons.tape(site.accent),
       body,
-      width: 760,
+      // leave the room at least half the page, beside it
+      width: Math.round(Math.min(760, Math.max(440, innerWidth * 0.5))),
       dock: 'right',
       onClose: () => {
         clearInterval(this.timer);

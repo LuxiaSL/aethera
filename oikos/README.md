@@ -107,6 +107,15 @@ endpoints. Develop against the real server and open `/oikos`.
 - `npm run shot` photographs the room, the home directory, a pane, the start
   menu and a phone layout in headless Chromium. Software WebGL is slow; pass
   `--speed 5` (the `?speed=` debug param runs the room's clock faster).
+- `npm run drive` walks through every interaction a visitor has: hover, orbit,
+  the VCR, a tape going in, tuning in, eject, the start menu, arrow keys, a
+  typed channel, and the dive. It uses `?drive`, which stops the room's own
+  loop and steps it at a true 30 fps from the harness, so the animations can
+  be watched frame by frame on a machine with no GPU. It writes a still for
+  each moment plus `tour.webm`, and prints how long each frame spends painting
+  screens versus rendering. `--phone` does the touch version;
+  `--browser firefox|webkit` runs another engine (after `npx playwright install
+  firefox webkit`; WebKit also needs `install-deps`).
 
 Keys: `~` or `Home` opens the home directory. `←` `→` walk the screens and
 `Enter` plays one. Type a channel number like a remote. `Esc` closes.

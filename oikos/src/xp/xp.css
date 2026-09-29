@@ -209,6 +209,7 @@
    -------------------------------------------------------------------------- */
 
 .xp-window {
+  container-type: inline-size;
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -1092,6 +1093,12 @@
   30% { clip-path: inset(49.6% 0 49.6% 0); background: #fff; opacity: 1; }
   70% { clip-path: inset(49.6% 49.6% 49.6% 49.6%); background: #fff; }
   100% { clip-path: inset(0 0 0 0); background: #000; opacity: 1; }
+}
+
+/* a narrow window folds its blue task pane away, as Explorer's could */
+@container (max-width: 600px) {
+  .xp-tasks { display: none; }
+  .xp-toolbar .xp-tb span { display: none; }
 }
 
 /* --------------------------------------------------------------------------

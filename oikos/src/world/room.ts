@@ -81,6 +81,8 @@ export class Room {
   private hovered: Pickable | null = null;
   private focused: Pickable | null = null;
   private tween: { from: Pose; to: Pose; k: number; dur: number; done?: () => void } | null = null;
+  private playing: string | null = null; // a tape on its way down a cable
+  private later: { at: number; fn: () => void }[] = []; // scheduled on the room's clock, not the wall's
   private clock = new THREE.Clock();
   private t = 0;
   private running = false;
@@ -98,6 +100,14 @@ export class Room {
   private readonly lowPower: boolean;
   /** ?speed=N runs the room's clock faster; only for photographing it headless */
   private readonly speed = Math.min(10, Math.max(1, Number(new URLSearchParams(location.search).get('speed')) || 1));
+  /**
+   * ?drive: no loop of its own. The page exposes window.__oikos.step(n, dt),
+   * which advances exactly n frames of dt seconds and reports where the time
+   * went, so a harness can watch the room frame by frame at a true 30 fps
+   * however slow the machine rendering it (there is no GPU in CI).
+   */
+  private readonly driven = new URLSearchParams(location.search).has('drive');
+  private perf = { frames: 0, paint: 0, render: 0 };
 
   constructor(
     private readonly container: HTMLElement,
@@ -156,7 +166,7 @@ export class Room {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.07;
     this.controls.enablePan = false;
-    this.controls.rotateSpeed = 0.45;
+    this.controls.rotateSpeed = 0.28;
     this.controls.zoomSpeed = 0.6;
     this.controls.addEventListener('start', () => (this.lastInput = this.t));
 
@@ -280,7 +290,7 @@ export class Room {
       } else {
         points = floorRoute(from, back, vcrRear, 0.15 - 0.8, PLINTH_TOP, rand);
       }
-      const cable = new Cable(points, p.hang ? 0.014 : 0.02, site.accent, true);
+      const cable = new Cable(points, p.hang ? 0.014 : 0.02, site.accent);
       this.scene.add(cable.mesh);
 
       // light pooling on the floor in front of the screen
@@ -301,7 +311,8 @@ export class Room {
       let light: THREE.PointLight | null = null;
       if (!this.lowPower) {
         light = new THREE.PointLight(site.accent, 0, 3.2 + p.screenW, 2);
-        light.position.copy(monitor.world(monitor.screenLocal).addScaledVector(monitor.normal(), 0.5));
+        // far enough out that it lights the floor and the neighbours, not a hot spot on its own bezel
+        light.position.copy(monitor.world(monitor.screenLocal).addScaledVector(monitor.normal(), 1.1));
         this.scene.add(light);
       }
 
@@ -319,8 +330,10 @@ export class Room {
   private homePose(): Pose {
     const aspect = this.camera.aspect;
     const portrait = aspect < 1;
-    const back = portrait ? 12.6 - aspect * 3 : 7.8;
-    return { pos: new THREE.Vector3(0, portrait ? 2.9 : 2.4, back), target: new THREE.Vector3(0, portrait ? 2.1 : 1.95, -1.6) };
+    // a phone can't hold the whole arc: frame the VCR and the screens nearest it,
+    // and let the rest be found by dragging
+    const back = portrait ? 7.2 + (1 - aspect) * 2.4 : 7.8;
+    return { pos: new THREE.Vector3(0, portrait ? 2.5 : 2.4, back), target: new THREE.Vector3(0, portrait ? 1.7 : 1.95, -1.6) };
   }
 
   private posesFor(id: Pickable): Pose | null {
@@ -350,8 +363,9 @@ export class Room {
     if (!id) {
       c.minDistance = 3;
       c.maxDistance = 15;
-      c.minAzimuthAngle = -1.05;
-      c.maxAzimuthAngle = 1.05;
+      // the arc is composed to be seen from the front: look round it, not behind it
+      c.minAzimuthAngle = -0.8;
+      c.maxAzimuthAngle = 0.8;
       c.minPolarAngle = 0.95;
       c.maxPolarAngle = 1.56;
       return;
@@ -384,6 +398,7 @@ export class Room {
   focus(id: Pickable | null): void {
     const pose = id ? this.posesFor(id) : this.homePose();
     if (!pose) return;
+    this.playing = null;
     this.focused = id;
     for (const [sid, s] of this.stations) s.cable.setLit(sid === id ? 1 : 0);
     this.flyTo(pose, id ? 1.15 : 1.3, () => {
@@ -397,16 +412,55 @@ export class Room {
     return this.focused;
   }
 
-  /** The VCR takes a tape, the screen changes channel, and we go to it. */
-  play(id: string): void {
+  /**
+   * The VCR takes a tape, and we watch it go in: the camera stops by the VCR
+   * as the tape slides through the door, follows the surge down the cable,
+   * and arrives as the screen changes channel.
+   */
+  play(id: string): Promise<void> {
     const s = this.stations.get(id);
-    if (!s) return;
+    const pose = this.posesFor(id);
+    if (!s || !pose) return Promise.resolve();
+    let arrived: () => void = () => {};
+    const done = new Promise<void>((r) => (arrived = r));
     this.vcr.load(s.site.title);
     this.vcr.vfd.play(s.placement.channel, s.site.title, this.t);
-    s.cable.surge();
-    s.staticLeft = 0.9;
-    this.post.kick(0.7);
-    this.focus(id);
+    this.focused = id;
+    this.playing = id;
+    for (const [sid, st] of this.stations) st.cable.setLit(sid === id ? 1 : 0);
+    const arrive = () => {
+      if (this.playing !== id) return;
+      this.playing = null;
+      s.staticLeft = 0.9;
+      this.post.kick(0.7);
+      this.flyTo(pose, 1.15, () => {
+        this.applyLimits(id);
+        this.controls.enabled = !this.tuned;
+        this.controls.update();
+        arrived();
+      });
+    };
+    if (this.reduced) {
+      arrive();
+      return done;
+    }
+    const side = Math.sign(s.monitor.group.position.x) || 1;
+    const portrait = this.camera.aspect < 1;
+    const glance: Pose = {
+      pos: new THREE.Vector3(side * 0.45, 1.4, portrait ? 3.1 : 2.25),
+      target: new THREE.Vector3(side * 0.05, PLINTH_TOP + 0.1, 0.25),
+    };
+    this.flyTo(glance, 0.8, () => {
+      if (this.playing !== id) return;
+      s.cable.surge();
+      // let the tape finish going in before we leave it
+      this.after(0.35, arrive);
+    });
+    return done;
+  }
+
+  private after(seconds: number, fn: () => void): void {
+    this.later.push({ at: this.t + seconds, fn });
   }
 
   eject(): void {
@@ -611,10 +665,44 @@ export class Room {
     }
   }
 
+  /**
+   * Compile every program (and render one frame through the post chain)
+   * while the boot screen is still up, so the room arrives whole instead of
+   * black. Big lit shaders are slow to compile, most of all on Safari.
+   * Capped: a slow compiler just finishes on the first real frame.
+   */
+  async warm(capMs = 5000): Promise<void> {
+    try {
+      await Promise.race([
+        this.renderer.compileAsync(this.scene, this.camera),
+        new Promise((r) => setTimeout(r, capMs)),
+      ]);
+      this.post.render(0, 0);
+    } catch (err) {
+      console.warn('oikos: warm-up skipped', err);
+    }
+  }
+
   start(): void {
     if (this.running) return;
     this.running = true;
     this.clock.getDelta();
+    if (this.driven) {
+      const gl = this.renderer.getContext();
+      (window as unknown as { __oikos: unknown }).__oikos = {
+        step: (n = 1, dt = 1 / 30) => {
+          this.perf = { frames: 0, paint: 0, render: 0 };
+          for (let i = 0; i < n; i++) {
+            this.frame(dt);
+            gl.finish();
+          }
+          return { ...this.perf, t: this.t, focused: this.focused, hovered: this.hovered, tuned: this.tuned?.id ?? null };
+        },
+        anchor: (id: Pickable) => this.anchor(id),
+        glass: (id: string) => this.glassRect(id),
+      };
+      return;
+    }
     const loop = () => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
@@ -643,13 +731,18 @@ export class Room {
     }
   }
 
-  private frame(): void {
-    const raw = this.clock.getDelta();
+  private frame(fixed?: number): void {
+    const raw = fixed ?? this.clock.getDelta();
     const dt = Math.min(raw, 0.1) * this.speed;
     this.t += dt;
     const t = this.t;
-    this.adapt(Math.min(raw, 0.5));
+    if (!this.driven) this.adapt(Math.min(raw, 0.5));
     this.applyShift(dt);
+    if (this.later.length) {
+      const due = this.later.filter((l) => l.at <= t);
+      this.later = this.later.filter((l) => l.at > t);
+      for (const l of due) l.fn();
+    }
 
     if (this.tween) {
       const tw = this.tween;
@@ -684,6 +777,7 @@ export class Room {
       this.events.hover(id, this.pointerPx.x, this.pointerPx.y);
     }
 
+    const t0 = performance.now();
     for (const [id, s] of this.stations) {
       if (t >= s.powerAt) s.power = Math.min(1, s.power + dt / (this.reduced ? 0.01 : 0.8));
       s.staticLeft = Math.max(0, s.staticLeft - dt);
@@ -698,13 +792,21 @@ export class Room {
       s.monitor.setLed(s.power > 0.5, s.site.accent);
       const glow = s.glow.material as THREE.MeshBasicMaterial;
       glow.opacity = s.power * (0.16 + s.hover * 0.12 + (focused ? 0.1 : 0));
-      if (s.light) s.light.intensity = s.power * (1.6 + s.hover * 1.4 + (focused ? 1 : 0));
+      if (s.light) s.light.intensity = s.power * (2.2 + s.hover * 1.4 + (focused ? 0.6 : 0));
       s.cable.update(t, dt);
     }
     this.vcr.vfd.glow = this.hovered === 'vcr' ? 1 : 0.8;
     this.vcr.vfd.update(t, dt);
     this.vcr.update(dt);
     this.field.update(t);
+    const t1 = performance.now();
     this.post.render(t, dt);
+    if (this.driven) {
+      this.renderer.getContext().finish();
+      const t2 = performance.now();
+      this.perf.frames++;
+      this.perf.paint += t1 - t0;
+      this.perf.render += t2 - t1;
+    }
   }
 }
