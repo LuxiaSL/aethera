@@ -3,8 +3,14 @@
  *
  * Deliberately small. One window per id (opening an open window focuses it);
  * the most recently focused is active and the rest go pale, as in Luna. The
- * taskbar subscribes to changes and draws a button per window.
+ * taskbar subscribes to changes and draws a button per window. Ordinary
+ * windows resize from any edge or corner; dialogs, as in XP, don't.
  */
+
+const MIN_W = 300;
+const MIN_H = 180;
+type Edge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+const EDGES: Edge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
 import { openMenu, type MenuEntry } from './menu';
 
@@ -55,6 +61,7 @@ export class XPWindow {
     el.querySelector('.xp-max')?.addEventListener('click', () => this.toggleMax());
     el.addEventListener('pointerdown', () => this.focus(), true);
     this.bindDrag(el.querySelector('.xp-titlebar') as HTMLElement);
+    if (!opts.dialog) this.bindResize();
     el.querySelector('.xp-titlebar')?.addEventListener('dblclick', (e) => {
       const t = e.target as HTMLElement;
       if (t.closest('.xp-controls') || opts.dialog) return;
@@ -151,6 +158,64 @@ export class XPWindow {
     bar.addEventListener('pointercancel', end);
   }
 
+  /** invisible grips over the frame's edges and corners */
+  private bindResize(): void {
+    for (const edge of EDGES) {
+      const grip = document.createElement('div');
+      grip.className = `xp-grip xp-grip-${edge}`;
+      grip.setAttribute('aria-hidden', 'true');
+      this.el.append(grip);
+      let start: { x: number; y: number; left: number; top: number; w: number; h: number } | null = null;
+      grip.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || this.maximized || innerWidth <= 720) return;
+        e.preventDefault();
+        start = { x: e.clientX, y: e.clientY, left: this.el.offsetLeft, top: this.el.offsetTop, w: this.el.offsetWidth, h: this.el.offsetHeight };
+        grip.setPointerCapture(e.pointerId);
+        this.focus();
+      });
+      grip.addEventListener('pointermove', (e) => {
+        if (!start) return;
+        const desk = this.el.parentElement;
+        if (!desk) return;
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        let { left, top, w, h } = start;
+        if (edge.includes('e')) w = Math.min(desk.clientWidth - left, Math.max(MIN_W, start.w + dx));
+        if (edge.includes('s')) h = Math.min(desk.clientHeight - top, Math.max(MIN_H, start.h + dy));
+        if (edge.includes('w')) {
+          w = Math.max(MIN_W, Math.min(start.left + start.w, start.w - dx));
+          left = start.left + start.w - w;
+        }
+        if (edge.includes('n')) {
+          h = Math.max(MIN_H, Math.min(start.top + start.h, start.h - dy));
+          top = start.top + start.h - h;
+        }
+        this.el.style.left = `${Math.round(left)}px`;
+        this.el.style.top = `${Math.round(top)}px`;
+        this.el.style.width = `${Math.round(w)}px`;
+        this.el.style.height = `${Math.round(h)}px`;
+        // sized by hand now: the opening size limits no longer apply
+        this.el.style.maxHeight = 'none';
+      });
+      const end = () => {
+        if (start) this.wm.changed();
+        start = null;
+      };
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+    }
+  }
+
+  /** after the page shrinks: keep the window where it can still be grabbed */
+  clamp(): void {
+    if (this.maximized || this.minimized) return;
+    const desk = this.el.parentElement;
+    if (!desk) return;
+    if (this.el.offsetWidth > desk.clientWidth) this.el.style.width = `${Math.max(MIN_W, desk.clientWidth - 8)}px`;
+    if (this.el.offsetHeight > desk.clientHeight) this.el.style.height = `${Math.max(MIN_H, desk.clientHeight - 8)}px`;
+    this.moveTo(this.el.offsetLeft, this.el.offsetTop);
+  }
+
   focus(): void {
     this.wm.focus(this);
   }
@@ -192,7 +257,11 @@ export class WindowManager {
   private z = 30;
   private listeners = new Set<() => void>();
 
-  constructor(readonly desk: HTMLElement) {}
+  constructor(readonly desk: HTMLElement) {
+    addEventListener('resize', () => {
+      for (const w of this.windows) w.clamp();
+    });
+  }
 
   get list(): readonly XPWindow[] {
     return this.windows;

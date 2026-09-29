@@ -236,6 +236,37 @@
 
 .xp-window.inactive .xp-titlebar { border-color: #7b9ee6 #6582d0 #7b9ee6 #7b9ee6; }
 
+/* resize grips: invisible, over the frame's edges and corners */
+.xp-grip { position: absolute; z-index: 3; touch-action: none; }
+.xp-grip-n, .xp-grip-s { left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.xp-grip-e, .xp-grip-w { top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.xp-grip-n { top: -3px; }
+.xp-grip-s { bottom: -3px; }
+.xp-grip-e { right: -3px; }
+.xp-grip-w { left: -3px; }
+.xp-grip-ne, .xp-grip-nw, .xp-grip-se, .xp-grip-sw { width: 14px; height: 14px; }
+.xp-grip-ne { top: -3px; right: -3px; cursor: nesw-resize; }
+.xp-grip-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+.xp-grip-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.xp-grip-se { bottom: -3px; right: -3px; cursor: nwse-resize; width: 18px; height: 18px; }
+.xp-window.maximized .xp-grip { display: none; }
+
+/* the size grip in the status bar's corner: XP's dotted diagonal */
+.xp-window:not(.xp-dialog):not(.maximized) .xp-statusbar { position: relative; padding-right: 14px; }
+.xp-window:not(.xp-dialog):not(.maximized) .xp-statusbar::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 12px;
+  height: 12px;
+  background:
+    radial-gradient(circle, #fff 0.9px, transparent 1.2px) 1px 1px / 4px 4px,
+    radial-gradient(circle, #aca899 0.9px, transparent 1.2px) 0 0 / 4px 4px;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+
 /* a hidden part (View ▸ Toolbars, Status Bar) stays hidden whatever its display */
 .xp-window [hidden] { display: none !important; }
 
@@ -607,6 +638,8 @@
 .xp-tile .k,
 .xp-tile .d { display: block; color: #7f7f7f; line-height: 1.35; }
 .xp-tile .d { max-width: 22em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the text may shrink to its column, so a long tagline ellipsises instead of running into the next tile */
+.xp-tile > span { min-width: 0; overflow: hidden; }
 
 .xp-tile:hover .t { color: #0033cc; text-decoration: underline; }
 
@@ -1250,6 +1283,8 @@
    -------------------------------------------------------------------------- */
 
 @media (max-width: 720px) {
+  .xp-grip { display: none; }
+
   .xp-window:not(.xp-dialog) {
     left: 0 !important;
     right: 0 !important;
