@@ -44,6 +44,39 @@ gets a screen straight away (colour bars and its name) and a spot on the outer
 arc. Give it a painter in `src/screens/index.ts` and a placement in
 `src/world/layout.ts` when it deserves one.
 
+## Tuning in
+
+A site's pane can **Watch it here**. The camera squares up to its screen and
+holds still, and the real page is laid over the glass: an iframe under a CRT
+layer (scanlines, the tube's vignette, a reflection, a slow roll bar, the
+power-on line). It is fully alive — links, keys, sound, syrinx waking — while
+the room keeps rendering around it. **⏏ Eject** (or `Esc`) steps back out.
+
+It is a plain 2D rectangle, not CSS3D, and that is deliberate. An iframe
+inside a `preserve-3d` context paints on the glass, but Chrome won't
+hit-test into it, so clicks fell through to the canvas. Square on and held
+still, the glass projects to a rectangle anyway (`Room.glassRect`).
+
+Which sites can be tuned in is set by `tune` in `oikos.py`. It works for
+same-origin pages only. `utils/security.py` lets æthera frame æthera
+(`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`) and nobody else.
+Two things live outside this repo:
+
+- **The proxy in front of æthera** also answers `X-Frame-Options: DENY`.
+  Modern browsers let the app's `frame-ancestors` override it, but the proxy
+  line should go (or become `SAMEORIGIN`) so nothing leans on that rule.
+- **parlor** answers `X-Frame-Options: DENY`. It would need
+  `Content-Security-Policy: frame-ancestors https://aetherawi.red` before it
+  can be tuned in.
+
+**The next step is shaders on the page itself.** CSS can only lay effects
+*over* the page. Real GLSL on it (curvature, convergence, bloom) needs the
+page as a texture. For the canvas-built sites (apeiron, syrinx, dreams, the
+irc tube) that is reachable today: same-origin frames can hand their canvas
+over, as an `ImageBitmap` per frame by `postMessage`, and the room forwards
+pointer events back by raycasting to UV. DOM pages need the WICG
+HTML-in-Canvas work (`drawElementImage`) to land in browsers.
+
 ## Layout of the code
 
 ```

@@ -70,3 +70,21 @@ def test_bundle_is_committed():
     """The Docker image never runs npm; the built room must be in the tree."""
     for name in ("oikos.js", "oikos.css", "stage.jpg", "mark.png"):
         assert (STATIC / name).is_file(), name
+
+
+def test_pages_frame_only_for_themselves(client: TestClient):
+    """oikos lays the real pages on its screens, so æthera may frame æthera;
+    nobody else may (clickjacking stays shut)."""
+    r = client.get("/syrinx")
+    assert r.headers["content-security-policy"] == "frame-ancestors 'self'"
+    assert r.headers["x-frame-options"] == "SAMEORIGIN"
+
+
+def test_every_tunable_page_exists(client: TestClient):
+    for site in SITES:
+        tune = site.get("tune")
+        if not tune:
+            continue
+        src = tune if isinstance(tune, str) else site["href"]
+        assert src.startswith("/"), f"{site['id']}: only same-origin pages can be tuned in"
+        assert client.get(src).status_code == 200, src

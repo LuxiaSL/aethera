@@ -704,6 +704,10 @@
   margin-top: 12px;
 }
 
+#oikos .xp-btn {
+  color: #000;
+}
+
 .xp-btn {
   min-width: 75px;
   min-height: 23px;
@@ -1123,3 +1127,97 @@
   gap: 8px;
   margin-top: 12px;
 }
+
+/* --------------------------------------------------------------------------
+   tuned in: the live page laid over a screen's glass
+   -------------------------------------------------------------------------- */
+
+.oikos-tube {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 15;
+  transform-origin: 0 0;
+  width: 1024px;
+  height: 768px;
+  overflow: hidden;
+  border-radius: 38px / 48px;
+  background: #000;
+  pointer-events: auto;
+  box-shadow: 0 0 90px 12px color-mix(in srgb, var(--glow, #fff) 30%, transparent);
+  animation: oikos-tube-on 0.9s ease-out both;
+}
+
+.oikos-tube iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+  filter: saturate(1.08) contrast(1.04);
+}
+
+/* the glass over the page: scanlines, the tube's vignette, a reflection */
+.oikos-tube .glass,
+.oikos-tube .roll {
+  position: absolute;
+  pointer-events: none;
+}
+
+.oikos-tube .glass {
+  inset: 0;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse 115% 95% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.62) 100%),
+    linear-gradient(158deg, rgba(255, 255, 255, 0.08), transparent 34%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.8), inset 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+.oikos-tube .roll {
+  left: 0;
+  right: 0;
+  top: -25%;
+  height: 25%;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.035), transparent);
+  animation: oikos-tube-roll 8s linear infinite;
+}
+
+@keyframes oikos-tube-roll { to { top: 100%; } }
+
+@keyframes oikos-tube-on {
+  0% { clip-path: inset(49.7% 0 49.7% 0); filter: brightness(4); }
+  35% { clip-path: inset(49.7% 0 49.7% 0); filter: brightness(3); }
+  100% { clip-path: inset(0); filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oikos-tube,
+  .oikos-tube .roll { animation: none; }
+}
+
+.oikos-tuned {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 16px);
+  padding: 4px 6px 4px 8px;
+  transform: translateX(-50%);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #0997ff, #0053ee 8%, #0050ee 40%, #06f 88%, #06f 93%, #005bff 95%, #003dd7);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5), inset 0 1px #3d95ff;
+  color: #fff;
+  font-family: var(--xp-title-font);
+  font-size: 13px;
+  white-space: nowrap;
+  text-shadow: 1px 1px #0f1089;
+}
+
+.oikos-tuned svg { width: 24px; height: 24px; flex: none; }
+.oikos-tuned span { font-size: 11px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; }
+.oikos-tuned .xp-btn { display: inline-flex; align-items: center; text-shadow: none; font-family: var(--xp-font); font-size: 11px; }

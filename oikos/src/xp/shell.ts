@@ -22,6 +22,9 @@ export interface Shell {
   open(site: Site, e?: Event): void;
   /** just look at its screen */
   look(id: string): void;
+  /** watch the live page on its own screen, if the room can (WebGL) and the site allows it */
+  readonly canTune: boolean;
+  tuneIn(id: string): void;
   /** open the home directory */
   home(): void;
   eject(): void;

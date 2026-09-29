@@ -91,6 +91,8 @@ export class Room {
   private frameTimes: number[] = [];
   private qualityStep = 0;
   private shift = { x: 0, y: 0 };
+  // tuned in: a live page laid over a screen's glass (see tuneIn)
+  private tuned: { id: string; place: (r: DOMRectReadOnly) => void } | null = null;
   private shiftTarget = { x: 0, y: 0 };
   private readonly reduced: boolean;
   private readonly lowPower: boolean;
@@ -386,7 +388,7 @@ export class Room {
     for (const [sid, s] of this.stations) s.cable.setLit(sid === id ? 1 : 0);
     this.flyTo(pose, id ? 1.15 : 1.3, () => {
       this.applyLimits(id);
-      this.controls.enabled = true;
+      this.controls.enabled = !this.tuned;
       this.controls.update();
     });
   }
@@ -457,6 +459,8 @@ export class Room {
   }
 
   private applyShift(dt: number): void {
+    // a tuned-in page is laid out by CSS3D, which knows nothing of view offsets
+    if (this.tuned) this.shiftTarget = { x: 0, y: 0 };
     const k = this.reduced ? 1 : Math.min(1, dt * 5);
     const sx = this.shift.x + (this.shiftTarget.x - this.shift.x) * k;
     const sy = this.shift.y + (this.shiftTarget.y - this.shift.y) * k;
@@ -465,6 +469,76 @@ export class Room {
     const w = this.container.clientWidth || innerWidth;
     const h = this.container.clientHeight || innerHeight;
     this.camera.setViewOffset(w, h, sx, sy, w, h);
+  }
+
+  /**
+   * Tune in: fly square to a screen and hold the camera there, then report
+   * where its glass landed on the page, so a live page (real DOM, fully
+   * alive: links, keys, sound) can be laid over it while the room keeps
+   * rendering around it. `place` is called again whenever the page resizes.
+   *
+   * Not CSS3D: an iframe inside a preserve-3d context paints on the glass but
+   * Chrome won't hit-test into it, so clicks fell through to the canvas.
+   * Square on and held still, the glass projects to a plain rectangle anyway.
+   */
+  tuneIn(id: string, place: (r: DOMRectReadOnly) => void): Promise<void> {
+    const s = this.stations.get(id);
+    const pose = this.tunePose(id);
+    if (!s || !pose) return Promise.resolve();
+    this.tuneOut();
+    this.focused = id;
+    this.shiftTarget = { x: 0, y: 0 };
+    for (const [sid, st] of this.stations) st.cable.setLit(sid === id ? 1 : 0);
+    return new Promise((resolve) =>
+      this.flyTo(pose, 1.1, () => {
+        this.tuned = { id, place };
+        s.staticLeft = 0;
+        this.resize(); // settles the view offset to zero and lays the page
+        resolve();
+      }),
+    );
+  }
+
+  /** square on to a screen, close enough that its glass nearly fills the view */
+  private tunePose(id: string): Pose | null {
+    const s = this.stations.get(id);
+    if (!s) return null;
+    const m = s.monitor;
+    const sw = m.screenH / 0.75;
+    const target = m.world(m.screenLocal);
+    const vfov = THREE.MathUtils.degToRad(this.camera.fov);
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
+    const d = Math.max(m.screenH / 2 / Math.tan(vfov / 2) / 0.84, sw / 2 / Math.tan(hfov / 2) / 0.94);
+    return { pos: target.clone().addScaledVector(m.normal(), d), target };
+  }
+
+  tuneOut(): void {
+    this.tuned = null;
+  }
+
+  /** the glass of a screen, as a rectangle on the page (CSS px) */
+  glassRect(id: string): DOMRectReadOnly | null {
+    const s = this.stations.get(id);
+    if (!s) return null;
+    const m = s.monitor;
+    const sw = m.screenH / 0.75;
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const xs: number[] = [];
+    const ys: number[] = [];
+    this.camera.updateMatrixWorld();
+    for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+      const p = m.world(m.screenLocal.clone().add(new THREE.Vector3((dx * sw) / 2, (dy * m.screenH) / 2, sw * 0.02)));
+      p.project(this.camera);
+      xs.push(r.left + ((p.x + 1) / 2) * r.width);
+      ys.push(r.top + ((1 - p.y) / 2) * r.height);
+    }
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    return new DOMRectReadOnly(left, top, Math.max(...xs) - left, Math.max(...ys) - top);
+  }
+
+  get tunedId(): string | null {
+    return this.tuned?.id ?? null;
   }
 
   // ---- input --------------------------------------------------------------------
@@ -492,7 +566,7 @@ export class Room {
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       const quick = performance.now() - down.t < 600;
       down = null;
-      if (moved > 7 || !quick) return;
+      if (moved > 7 || !quick || this.tuned) return;
       const r = el.getBoundingClientRect();
       this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       this.events.pick(this.pickAt());
@@ -517,6 +591,19 @@ export class Room {
     this.renderer.domElement.style.width = `${w}px`;
     this.renderer.domElement.style.height = `${h}px`;
     this.post.setSize(w, h, this.pixelRatio);
+    if (this.tuned) {
+      // held still while tuned: re-aim for the new shape, then re-lay the page
+      this.shift = { x: 0, y: 0 };
+      this.camera.setViewOffset(w, h, 0, 0, w, h);
+      const pose = this.tunePose(this.tuned.id);
+      if (pose) {
+        this.camera.position.copy(pose.pos);
+        this.controls.target.copy(pose.target);
+        this.camera.lookAt(pose.target);
+      }
+      const rect = this.glassRect(this.tuned.id);
+      if (rect) this.tuned.place(rect);
+    }
     if (!this.tween && !this.focused && this.controls) {
       const home = this.homePose();
       this.camera.position.copy(home.pos);

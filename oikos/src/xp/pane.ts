@@ -72,7 +72,14 @@ export class Pane {
     openBtn.addEventListener('click', (e) => this.shell.open(site, e));
     const homeBtn = h('button', { class: 'xp-btn', type: 'button' }, ['~ Home directory']);
     homeBtn.addEventListener('click', () => this.shell.home());
-    actions.append(openBtn, homeBtn);
+    actions.append(openBtn);
+    if (site.tune && this.shell.canTune) {
+      const watch = h('button', { class: 'xp-btn', type: 'button' }, ['▣ Watch it here']);
+      watch.title = 'the live page, on its own screen in the room';
+      watch.addEventListener('click', () => this.shell.tuneIn(site.id));
+      actions.append(watch);
+    }
+    actions.append(homeBtn);
     content.append(actions);
 
     // ---- tasks ----
@@ -82,6 +89,9 @@ export class Pane {
         : { icon: icons.lock(), label: 'Restricted: private network' },
       { icon: icons.look(), label: 'Look at its screen', run: () => this.shell.look(site.id) },
     ];
+    if (site.tune && this.shell.canTune) {
+      tapeTasks.splice(1, 0, { icon: icons.tv(), label: 'Watch it on its screen', run: () => this.shell.tuneIn(site.id) });
+    }
     if (site.href) {
       tapeTasks.push({
         icon: icons.copy(),

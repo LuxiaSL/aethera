@@ -24,6 +24,11 @@ router = APIRouter(tags=["oikos"])
 
 # group: "here" lives on this server; "wired" is elsewhere (another host, a
 # repo, a private network). href None means there is nothing public to open.
+# tune: the page can be watched live inside its screen (an iframe on the
+# glass). True uses href; a string is the page to frame instead. Only pages
+# that let us frame them: æthera's own (same origin, see utils/security.py).
+# parlor would need `frame-ancestors https://aetherawi.red` on its side
+# first; today it answers X-Frame-Options: DENY.
 SITES: list[dict] = [
     {
         "id": "transmissions",
@@ -36,6 +41,7 @@ SITES: list[dict] = [
         "about": "The blog: essays, fragments and posts by Celeste & Luxia, in plain "
                  "semantic HTML that people and models can both read.",
         "details": [["kind", "blog"], ["by", "Celeste & Luxia"], ["license", "CC BY 4.0"]],
+        "tune": True,
     },
     {
         "id": "dreams",
@@ -49,6 +55,7 @@ SITES: list[dict] = [
                  "space in real time. The dreamer sleeps until somebody watches: "
                  "tuning in wakes a GPU.",
         "details": [["kind", "live stream"], ["frame", "1024 × 512 · h264"], ["engine", "dream_gen"]],
+        "tune": True,
     },
     {
         "id": "chronicle",
@@ -62,6 +69,7 @@ SITES: list[dict] = [
                  "colour. Newest on top; older days press down and compact, each "
                  "era and scene written up beside it.",
         "details": [["kind", "core sample"], ["of", "dreams"]],
+        "tune": True,
     },
     {
         "id": "dreams-api",
@@ -74,6 +82,7 @@ SITES: list[dict] = [
         "about": "WebSocket, SSE and REST endpoints for taking the dream somewhere "
                  "else: status, the MPEG-TS stream, and an embed.",
         "details": [["kind", "api docs"], ["transport", "ws · sse · rest"]],
+        "tune": True,
     },
     {
         "id": "apeiron",
@@ -87,6 +96,7 @@ SITES: list[dict] = [
                  "hyperobject rendering. Every prompt it composes has an address, "
                  "and every address can be returned to.",
         "details": [["kind", "prompt space"], ["render", "3D ASCII"]],
+        "tune": True,
     },
     {
         "id": "syrinx",
@@ -102,6 +112,7 @@ SITES: list[dict] = [
                  "and it is older every time you return.",
         "details": [["kind", "creature · instrument"], ["born", "2026-07-09"],
                     ["by", "Luxia & Claude Fable 5"]],
+        "tune": True,
     },
     {
         "id": "irc",
@@ -115,6 +126,7 @@ SITES: list[dict] = [
                  "Live and synchronized: everyone watching sees the same line at "
                  "the same moment.",
         "details": [["kind", "broadcast"], ["channel", "#aethera"]],
+        "tune": "/irc?embed=1",
     },
     {
         "id": "parlor",

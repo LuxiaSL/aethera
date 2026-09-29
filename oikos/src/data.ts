@@ -30,6 +30,8 @@ export interface Site {
   tagline: string;
   about: string;
   details: [string, string][];
+  /** can be watched live on its own screen: true frames href, a string frames that page */
+  tune?: boolean | string;
 }
 
 export interface FileEntry {

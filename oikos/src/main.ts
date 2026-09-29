@@ -28,7 +28,7 @@ import * as icons from './xp/icons';
 import { Pane } from './xp/pane';
 import type { Shell } from './xp/shell';
 import { Taskbar } from './xp/taskbar';
-import { WindowManager } from './xp/wm';
+import { WindowManager, type XPWindow } from './xp/wm';
 
 const root = document.getElementById('oikos');
 if (root) boot(root);
@@ -63,6 +63,7 @@ function boot(root: HTMLElement): void {
   let pane: Pane | null = null;
   let paneId: string | null = null;
   let leaving = false;
+  let tuned: { id: string; bar: HTMLElement; hidden: XPWindow[]; tube: HTMLElement } | null = null;
 
   // ---- the shell: what windows may ask for ----
   const shell: Shell = {
@@ -71,11 +72,14 @@ function boot(root: HTMLElement): void {
     screens,
     site: (id) => byId.get(id),
     select(id) {
+      tuneOut(false);
       room?.focus(id);
     },
     play(id) {
       const site = byId.get(id);
       if (!site) return;
+      // anything that moves the camera steps out of a tuned-in screen first
+      tuneOut(false);
       explorer.select(id);
       room?.play(id);
       if (paneId === id && pane) {
@@ -120,13 +124,54 @@ function boot(root: HTMLElement): void {
       setTimeout(go, 1500); // whatever happens to the dive, leave
     },
     look(id) {
+      tuneOut(false);
       room?.focus(id);
     },
+    get canTune() {
+      return !!room;
+    },
+    tuneIn(id) {
+      const site = byId.get(id);
+      if (!room || !site?.tune || !site.href) return;
+      const src = typeof site.tune === 'string' ? site.tune : site.href;
+      tuneOut(false);
+      // step back from the desk: the windows fold away until you eject
+      const hidden = wm.list.filter((w) => !w.minimized && !w.opts.dialog);
+      for (const w of hidden) w.minimize();
+      taskbar.hideBalloon();
+      const tube = h('div', { class: 'oikos-tube' });
+      tube.style.setProperty('--glow', site.accent);
+      const frame = h('iframe', { src, title: `${site.title}, live`, allow: 'autoplay; fullscreen; clipboard-write' });
+      tube.append(frame, h('i', { class: 'roll' }), h('i', { class: 'glass' }));
+      const bar = h('div', { class: 'oikos-tuned', role: 'toolbar', 'aria-label': 'tuned in' });
+      bar.innerHTML = `${icons.tape(site.accent)}<b></b><span>tuned in · live on its screen</span>`;
+      (bar.querySelector('b') as HTMLElement).textContent = site.title;
+      const eject = h('button', { class: 'xp-btn', type: 'button' }, ['⏏ Eject']);
+      eject.addEventListener('click', () => tuneOut(true));
+      const full = h('a', { class: 'xp-btn', href: site.href }, ['Open full ↗']);
+      if (isExternal(site.href)) {
+        full.setAttribute('target', '_blank');
+        full.setAttribute('rel', 'noopener');
+      }
+      bar.append(eject, full);
+      tuned = { id, bar, hidden, tube };
+      // the page lays out at 1024×768 and is scaled onto the glass
+      const place = (r: DOMRectReadOnly) => {
+        tube.style.transform = `translate(${r.left}px, ${r.top}px) scale(${r.width / 1024}, ${r.height / 768})`;
+      };
+      void room.tuneIn(id, place).then(() => {
+        if (tuned?.bar !== bar) return;
+        root.append(tube, bar);
+        frame.focus();
+      });
+    },
     home() {
+      tuneOut(false);
       explorer.open();
       room?.scroll('~ home');
     },
     eject() {
+      tuneOut(false);
       pane?.win.close();
       room?.eject();
       room?.focus(null);
@@ -152,6 +197,18 @@ function boot(root: HTMLElement): void {
       location.reload();
     },
   });
+
+  function tuneOut(restore: boolean): void {
+    if (!tuned) return;
+    const { id, bar, hidden, tube } = tuned;
+    tuned = null;
+    bar.remove();
+    tube.remove();
+    room?.tuneOut();
+    if (!restore) return;
+    for (const w of hidden) if (!w.closed) w.restore();
+    room?.focus(id);
+  }
 
   function errorBox(site: Site): void {
     const body = h('div');
@@ -259,6 +316,11 @@ function boot(root: HTMLElement): void {
     }
     const t = e.target as HTMLElement;
     if (t.closest('input, textarea')) return;
+    if (e.key === 'Escape' && tuned) {
+      tuneOut(true);
+      return;
+    }
+    if (tuned) return;
     if (e.key === 'Escape') {
       if (!taskbarMenuClosed()) return;
       if (wm.closeTop()) return;
