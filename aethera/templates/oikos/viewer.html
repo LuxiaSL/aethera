@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}oikos | æthera{% endblock %}
+
+{% block meta %}
+<meta name="description" content="oikos — æthera's home directory. A room of screens in the dark, wired to one VCR: every part of the site, playing at once.">
+<link rel="canonical" href="https://aetherawi.red/oikos">
+<meta name="license" content="CC BY 4.0">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml" />
+<meta property="og:title" content="oikos | æthera">
+<meta property="og:description" content="æthera's home directory: a room of screens wired to one VCR, every part of the site playing at once.">
+<meta property="og:url" content="https://aetherawi.red/oikos">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="æthera">
+<meta property="og:image" content="{{ request.base_url }}static/uploads/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@slLuxia">
+<meta name="twitter:title" content="oikos | æthera">
+<meta name="twitter:description" content="æthera's home directory: a room of screens wired to one VCR.">
+<meta name="theme-color" content="#000000">
+{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "oikos",
+    "description": "The home directory of æthera: every part of the site in one room.",
+    "url": "https://aetherawi.red/oikos",
+    "hasPart": [
+        {% for s in sites if s.href %}{"@type": "WebPage", "name": {{ s.title | tojson }}, "url": {{ (s.href if s.href.startswith("http") else "https://aetherawi.red" ~ s.href) | tojson }}, "description": {{ s.tagline | tojson }}}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<link href="/static/oikos/oikos.css" rel="stylesheet">
+<style>
+    /* oikos owns the whole viewport: silence the site chrome on this page */
+    .video-bg, body > header, body > footer { display: none !important; }
+    main { max-width: none !important; padding: 0 !important; }
+    html, body { overflow: hidden; margin: 0; padding: 0; background: #000; }
+</style>
+{# without JS nothing would ever lift the boot screen off the <nav> #}
+<noscript><style>#oikos-boot { display: none !important; }</style></noscript>
+{% endblock %}
+
+{% block content %}
+{#
+  hx-boost="false" is load-bearing (see syrinx/viewer.html): the room holds a
+  WebGL context, a websocket and a render loop, and an htmx swap would leave
+  them running under the next page. Every way out is a real navigation.
+#}
+<div id="oikos" hx-boost="false">
+    {# the boot screen is markup, not script, so it paints before the bundle parses #}
+    <div id="oikos-boot" aria-hidden="true">
+        <img class="boot-logo" src="/static/uploads/aethera_trimmed.png" alt="">
+        <div class="boot-bar"><span></span><span></span><span></span></div>
+        <div class="boot-foot"><span>present day, present time</span><span>oikos</span></div>
+    </div>
+
+    {# the plain directory: what crawlers read, and what you get without WebGL #}
+    <nav id="oikos-directory" aria-label="home directory">
+        <h1>~ / æthera</h1>
+        <p>the home directory. every part of the site, and a few places past it.</p>
+        <ul>
+            {% for s in sites %}
+            <li>
+                <a href="{{ s.href }}"{% if s.href.startswith("http") %} rel="noopener"{% endif %}>{{ s.title }}</a>
+                — {{ s.tagline }}
+            </li>
+            {% endfor %}
+        </ul>
+        <ul class="files">
+            {% for f in files %}<li><a href="{{ f.href }}">{{ f.title }}</a> — {{ f.about }}</li>{% endfor %}
+        </ul>
+    </nav>
+
+    <script type="application/json" id="oikos-data">{{ oikos | tojson }}</script>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{# a bundle that never arrives mustn't leave the boot screen over the <nav> either #}
+<script src="/static/oikos/oikos.js" onerror="var b=document.getElementById('oikos-boot');if(b)b.remove()"></script>
+{% endblock %}

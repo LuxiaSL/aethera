@@ -20,6 +20,7 @@ data/
 # because the Dockerfile copies aethera/ and never runs npm)
 apeiron/node_modules/
 syrinx/node_modules/
+oikos/node_modules/
 blog.sqlite
 irc.sqlite
 *.db
