@@ -48,12 +48,15 @@ export interface ChatHandlers {
   event(e: ChatEvent): void;
   whois(w: WhoisReply): void;
   error(code: string, text: string): void;
-  /** the line dropped; `retrying` when it will try again by itself */
-  closed(retrying: boolean, kicked: boolean): void;
+  /** the line dropped; `retrying` when it will try again by itself;
+   *  `takenOver` when another connection of ours took the seat */
+  closed(retrying: boolean, kicked: boolean, takenOver: boolean): void;
 }
 
 /** 4001: the hub closes a kicked member's socket with this */
 const KICKED = 4001;
+/** 4002: our tripcode sat down elsewhere (another tab): don't fight it for the seat */
+const TAKEN_OVER = 4002;
 const RETRIES = 4;
 
 export class ChatLink {
@@ -83,7 +86,7 @@ export class ChatLink {
     try {
       ws = new WebSocket(`${proto}://${location.host}/ws/chat`);
     } catch {
-      this.on.closed(false, false);
+      this.on.closed(false, false, false);
       return;
     }
     this.ws = ws;
@@ -130,9 +133,10 @@ export class ChatLink {
       if (this.ws !== ws) return;
       this.ws = null;
       const kicked = ev.code === KICKED;
-      const retrying = this.wanted && !kicked && !this.refused && this.tries < RETRIES;
+      const takenOver = ev.code === TAKEN_OVER;
+      const retrying = this.wanted && !kicked && !takenOver && !this.refused && this.tries < RETRIES;
       this.welcomed = false;
-      this.on.closed(retrying, kicked);
+      this.on.closed(retrying, kicked, takenOver);
       if (!retrying) {
         this.wanted = false;
         return;

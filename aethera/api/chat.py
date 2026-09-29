@@ -103,7 +103,8 @@ async def chat_socket(websocket: WebSocket):
         logger.warning("chat: %s dropped: %s", member.nick, e)
         reason = "Connection reset by peer"
     finally:
-        await hub.leave(member, reason)
+        # not a quit yet: the seat is held a little while in case they come back
+        await hub.drop(member, websocket, reason)
         await _close(websocket)
 
 

@@ -252,7 +252,7 @@ def test_leave_is_idempotent_and_backlog_is_bounded():
 
 
 def test_route_end_to_end():
-    chat_api._hub = ChatHub()
+    chat_api._hub = ChatHub(grace_s=0)  # a closed socket quits at once here
     try:
         client = TestClient(app)
         with client.websocket_connect("/ws/chat") as ws:
@@ -267,3 +267,101 @@ def test_route_end_to_end():
         assert chat_api._hub.count == 0
     finally:
         chat_api._hub = None
+
+
+# ---- the grace period: a dropped connection keeps its seat a while ----------------
+
+def test_dropped_seat_is_held_then_quit():
+    async def go():
+        hub = ChatHub(grace_s=0.05)
+        a, watcher = FakeSocket(), FakeSocket()
+        m = await hub.admit(a, "1.1.1.1", hello("ada"))
+        await hub.admit(watcher, "2.2.2.2", hello("w"))
+        await hub.drop(m, a)
+        assert m.away and [n.nick for n in hub.names()] == ["ada", "w"]
+        # the channel carries on; nothing sent to the held seat breaks anything
+        await hub.handle(hub._members["w"], say("anyone?"))
+        assert not watcher.events("quit")
+        await asyncio.sleep(0.1)
+        quits = watcher.events("quit")
+        assert quits and quits[-1]["nick"] == "ada" and quits[-1]["text"] == "Client exited"
+        assert [n.nick for n in hub.names()] == ["w"]
+
+    run(go())
+
+
+def test_coming_back_in_time_is_seamless():
+    async def go():
+        hub = ChatHub(grace_s=5)
+        a, watcher = FakeSocket(), FakeSocket()
+        m = await hub.admit(a, "1.1.1.1", hello("ada"))
+        await hub.admit(watcher, "2.2.2.2", hello("w"))
+        await hub.drop(m, a)
+        await hub.handle(hub._members["w"], say("said while ada was away"))
+        back = FakeSocket()
+        again = await hub.admit(back, "1.1.1.1", hello("ada"))
+        assert again is m and not m.away and m.grace is None
+        # no join, no quit: the channel never saw her go
+        assert [e["nick"] for e in watcher.events() if e["kind"] in ("join", "quit")] == []
+        # and her welcome's backlog has what she missed
+        backlog = [e["text"] for e in back.of("welcome")[0]["backlog"]]
+        assert "said while ada was away" in backlog
+        await hub.handle(m, say("i'm back"))
+        assert watcher.events("message")[-1]["text"] == "i'm back"
+
+    run(go())
+
+
+def test_an_untripped_seat_only_comes_back_from_the_same_address():
+    async def go():
+        hub = ChatHub(grace_s=5)
+        a = FakeSocket()
+        m = await hub.admit(a, "1.1.1.1", hello("ada"))
+        await hub.drop(m, a)
+        thief = FakeSocket()
+        with pytest.raises(Refused):
+            await hub.admit(thief, "6.6.6.6", hello("ada"))
+        assert thief.of("error")[0]["code"] == "433"
+        # nor can someone with a tripcode claim an untripped seat
+        with pytest.raises(Refused):
+            await hub.admit(FakeSocket(), "1.1.1.1", hello("ada", "whatever"))
+
+    run(go())
+
+
+def test_a_tripcode_takes_its_seat_back_even_from_a_live_connection():
+    async def go():
+        hub = ChatHub(grace_s=5)
+        first, watcher = FakeSocket(), FakeSocket()
+        m = await hub.admit(first, "1.1.1.1", hello("ada", "sesame"))
+        await hub.admit(watcher, "2.2.2.2", hello("w"))
+        second = FakeSocket()
+        # a new address, the old socket not yet known dead: the trip is proof enough
+        again = await hub.admit(second, "9.9.9.9", hello("ada", "sesame"))
+        assert again is m and m.ws is second
+        assert first.closed == 4002
+        # the old connection's cleanup must not unseat the new one
+        await hub.drop(m, first)
+        assert not m.away and hub.count == 2
+        # the wrong password is just a taken nick
+        with pytest.raises(Refused):
+            await hub.admit(FakeSocket(), "9.9.9.9", hello("ada", "wrong"))
+        assert [e["nick"] for e in watcher.events() if e["kind"] in ("join", "quit")] == []
+
+    run(go())
+
+
+def test_explicit_exits_are_immediate_even_while_held():
+    async def go():
+        hub = ChatHub(grace_s=5)
+        a, watcher = FakeSocket(), FakeSocket()
+        m = await hub.admit(a, "1.1.1.1", hello("ada"))
+        await hub.admit(watcher, "2.2.2.2", hello("w"))
+        await hub.drop(m, a)
+        await hub.leave(m, "Leaving")
+        assert m.grace is None and hub.count == 1
+        assert watcher.events("quit")[-1]["text"] == "Leaving"
+        await asyncio.sleep(0)
+        assert len(watcher.events("quit")) == 1
+
+    run(go())

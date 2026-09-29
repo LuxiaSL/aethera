@@ -184,6 +184,10 @@ export class Mirc {
   private me = GUEST;
   private link: ChatLink | null = null;
   private hintedOikos = false;
+  /** the newest #oikos line shown (epoch ms): a rejoin plays back only what's newer */
+  private livingSeenAt = 0;
+  /** been welcomed into #oikos since the last part: a new welcome is a rejoin */
+  private livingOnce = false;
 
   // #aethera's feed state
   private hung = false;
@@ -503,6 +507,9 @@ export class Mirc {
     this.nicksChanged(LIVING);
     this.push(LIVING, 'part', `* You have left ${LIVING}`);
     this.push('status', 'info', `* Disconnected from ${LIVING}`);
+    // a fresh join next time: the full welcome and playback
+    this.livingSeenAt = 0;
+    this.livingOnce = false;
     this.renameMe(GUEST);
   }
 
@@ -559,7 +566,7 @@ export class Mirc {
       event: (e) => this.event(e),
       whois: (w) => this.whoisReply(w),
       error: (code, text) => this.chatError(code, text),
-      closed: (retrying, kicked) => this.dropped(retrying, kicked),
+      closed: (retrying, kicked, takenOver) => this.dropped(retrying, kicked, takenOver),
     });
     this.link = link;
     link.connect();
@@ -573,13 +580,22 @@ export class Mirc {
     o.nicks.clear();
     for (const n of w.names) o.setNick(n.nick, n.op ? '@' : '');
     this.renameMe(w.nick);
-    this.push('status', 'text', `* You are now known as ${w.nick} (${w.mask})`);
-    if (w.op) this.push('status', 'mode', `* ${SERVER} sets mode: +o ${w.nick}`);
-    this.push(LIVING, 'join', `* Now talking in ${LIVING}`);
-    this.push(LIVING, 'topic', `* Topic is '${w.topic}'`);
-    if (w.backlog.length) {
+    // back after a drop (the server held the seat, or we rejoined): don't
+    // replay what's already on screen, only what happened while we were gone
+    const again = this.livingOnce;
+    this.livingOnce = true;
+    const missed = w.backlog.filter((e) => e.at > this.livingSeenAt);
+    if (again) {
+      this.push(LIVING, 'join', `* Rejoined ${LIVING}`);
+    } else {
+      this.push('status', 'text', `* You are now known as ${w.nick} (${w.mask})`);
+      if (w.op) this.push('status', 'mode', `* ${SERVER} sets mode: +o ${w.nick}`);
+      this.push(LIVING, 'join', `* Now talking in ${LIVING}`);
+      this.push(LIVING, 'topic', `* Topic is '${w.topic}'`);
+    }
+    if (missed.length) {
       this.push(LIVING, 'info', '*** Buffer Playback...');
-      for (const e of w.backlog) this.event(e, true);
+      for (const e of missed) this.event(e, true);
       this.push(LIVING, 'info', '*** Playback Complete.');
     }
     this.nicksChanged(LIVING);
@@ -591,6 +607,7 @@ export class Mirc {
     const o = this.wins[LIVING];
     const put = (tone: Tone, text: string) => this.push(LIVING, tone, text, e.at);
     const mine = e.nick === this.me;
+    this.livingSeenAt = Math.max(this.livingSeenAt, e.at);
     switch (e.kind) {
       case 'message':
         put(mine ? 'own' : 'text', `<${e.nick}> ${e.text}`);
@@ -657,13 +674,14 @@ export class Mirc {
     }
   }
 
-  private dropped(retrying: boolean, kicked: boolean): void {
+  private dropped(retrying: boolean, kicked: boolean, takenOver: boolean): void {
     const o = this.wins[LIVING];
     const was = o.joined;
     o.joined = false;
     o.nicks.clear();
     this.nicksChanged(LIVING);
-    if (was && !kicked) this.push(LIVING, 'info', `* Disconnected${retrying ? ' (reconnecting...)' : ''}`);
+    if (takenOver) this.push(LIVING, 'info', `* ${this.me} is connected from somewhere else now (another window?); this one let go`);
+    else if (was && !kicked) this.push(LIVING, 'info', `* Disconnected${retrying ? ' (reconnecting...)' : ''}`);
     this.push('status', 'info', `* Disconnected from ${LIVING}${retrying ? ' (reconnecting...)' : ''}`);
     if (!retrying) {
       this.link = null;

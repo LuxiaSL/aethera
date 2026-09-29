@@ -14,6 +14,13 @@ their IP) leaves the server.
 
 Nothing is stored. The channel keeps its last few lines in memory for whoever
 joins next and forgets everything on restart, the way IRC did.
+
+A dropped connection isn't a quit, not at once: the seat is held for
+GRACE_S, and whoever comes back in time (the same tripcode; or, without one,
+the same address) sits straight back down with nobody the wiser. Tabs that
+are frozen and thawed, laptops that sleep, networks that blink: no join/quit
+churn. A tripcode can also take its seat back from a connection that hasn't
+noticed it's dead yet (that one is closed with 4002).
 """
 
 from __future__ import annotations
@@ -35,6 +42,11 @@ logger = logging.getLogger(__name__)
 CHANNEL = "#oikos"
 DEFAULT_TOPIC = "the living room | be kind, you are being haunted next door"
 HOST = "aetherawi.red"
+
+#: how long a dropped connection keeps its seat
+GRACE_S = 30.0
+#: the close code for a connection whose seat was taken back by its own tripcode
+TAKEN_OVER = 4002
 
 MAX_TEXT = 400
 MAX_TOPIC = 200
@@ -142,11 +154,31 @@ class Member:
     refill_s: float
     strikes: deque[float] = field(default_factory=deque)
     gone: bool = False
+    #: while the connection is lost and the seat is held: the timer that ends it
+    grace: asyncio.Task[None] | None = None
+
+    @property
+    def away(self) -> bool:
+        """Connection lost, seat still held (see ChatHub.drop)."""
+        return self.ws is VOID
 
     @property
     def mask(self) -> str:
         ident = f"~{self.nick.lower()[:9]}"
         return f"{ident}@{self.trip}.trip.{HOST}" if self.trip else f"{ident}@guest.oikos"
+
+
+class _Void:
+    """Where a dropped member's messages go while their seat is held: nowhere."""
+
+    async def send_json(self, data: Any) -> None:
+        return None
+
+    async def close(self, code: int = 1000) -> None:
+        return None
+
+
+VOID = _Void()
 
 
 class Refused(Exception):
@@ -173,6 +205,7 @@ class ChatHub:
         refill_s: float = 1.2,
         ban_s: float = 600.0,
         send_timeout_s: float = 5.0,
+        grace_s: float = GRACE_S,
         clock: Callable[[], float] = time.monotonic,
         wall: Callable[[], float] = time.time,
     ):
@@ -185,6 +218,7 @@ class ChatHub:
         self.refill_s = refill_s
         self.ban_s = ban_s
         self.send_timeout_s = send_timeout_s
+        self.grace_s = grace_s
         self._clock = clock
         self._wall = wall
         self._members: dict[str, Member] = {}  # nick.lower() -> member
@@ -247,11 +281,14 @@ class ChatHub:
                 raise Refused("451", "You have not registered")
             if self._banned(ip):
                 raise Refused("474", f"{self.channel} :Cannot join channel (+b)")
+            trip = Comment.generate_tripcode(hello.password) if hello.password else None
+            seat = self._members.get(hello.nick.strip().lower())
+            if seat is not None and self._may_reclaim(seat, trip, ip):
+                return await self._reclaim(seat, ws, ip)
             if len(self._members) >= self.max_members:
                 raise Refused("471", f"{self.channel} :Cannot join channel (+l)")
             if sum(1 for m in self._members.values() if m.ip == ip) >= self.per_ip:
                 raise Refused("465", "Too many connections from your host")
-            trip = Comment.generate_tripcode(hello.password) if hello.password else None
             nick = self._check_nick(hello.nick, trip)
         except Refused as r:
             await self._send(ws, {"type": "error", "code": r.code, "text": r.text})
@@ -266,7 +303,12 @@ class ChatHub:
         self._members[nick.lower()] = m
         logger.info("chat: %s joined %s (%d here)", nick, self.channel, len(self._members))
 
-        await self._send(ws, {
+        await self._welcome(m)
+        await self._broadcast(self._event("join", m, mask=m.mask), skip=m)
+        return m
+
+    async def _welcome(self, m: Member) -> None:
+        await self._send(m.ws, {
             "type": "welcome",
             "channel": self.channel,
             "nick": m.nick,
@@ -276,14 +318,65 @@ class ChatHub:
             "names": [n.model_dump() for n in self.names()],
             "backlog": [e.model_dump() for e in self._backlog],
         })
-        await self._broadcast(self._event("join", m, mask=m.mask), skip=m)
+
+    @staticmethod
+    def _may_reclaim(seat: Member, trip: str | None, ip: str) -> bool:
+        """May this hello have that seat back? A tripcode proves it's them (and may
+        even take the seat from a connection that hasn't noticed it's dead); with
+        no tripcode, only a held seat, and only from the same address."""
+        if seat.gone:
+            return False
+        if seat.trip:
+            return trip == seat.trip
+        return trip is None and seat.away and seat.ip == ip
+
+    async def _reclaim(self, m: Member, ws: Socket, ip: str) -> Member:
+        """Sit back down: no join, no quit; the channel never saw them go."""
+        old = m.ws
+        self._cancel_grace(m)
+        m.ws = ws
+        m.ip = ip
+        if old is not VOID:
+            try:
+                await old.close(code=TAKEN_OVER)
+            except Exception:
+                pass
+        logger.info("chat: %s is back in %s", m.nick, self.channel)
+        await self._welcome(m)
         return m
 
+    def _cancel_grace(self, m: Member) -> None:
+        t, m.grace = m.grace, None
+        if t is not None and t is not asyncio.current_task():
+            t.cancel()
+
+    async def drop(self, m: Member, ws: Socket, reason: str = "Client exited") -> None:
+        """Their connection (`ws`) is gone. Hold the seat for grace_s before
+        telling the channel they quit; nothing to do if the seat has already
+        moved to a newer connection, or they already left."""
+        if m.gone or m.ws is not ws:
+            return
+        if self.grace_s <= 0:
+            await self.leave(m, reason)
+            return
+        m.ws = VOID
+        m.grace = asyncio.get_running_loop().create_task(self._expire(m, reason))
+
+    async def _expire(self, m: Member, reason: str) -> None:
+        try:
+            await asyncio.sleep(self.grace_s)
+        except asyncio.CancelledError:
+            return
+        if m.away and not m.gone:
+            await self.leave(m, reason)
+
     async def leave(self, m: Member, reason: str = "Client exited") -> None:
-        """They're gone (closed the tab, flooded, lost the connection). Idempotent."""
+        """They're gone (parted, kicked, flooded, timed out, or their seat's
+        grace ran out). Idempotent."""
         if m.gone:
             return
         m.gone = True
+        self._cancel_grace(m)
         if self._members.get(m.nick.lower()) is m:
             del self._members[m.nick.lower()]
         await self._broadcast(self._event("quit", m, mask=m.mask, text=reason))
