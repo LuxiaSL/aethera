@@ -112,7 +112,7 @@
   animation: afterlife-breathe 5.6s ease-in-out infinite;
 }
 
-#afterlife-root #splash .go span {
+#afterlife-root #splash .go .sep {
   margin: 0 0.4em;
 }
 
@@ -203,7 +203,8 @@
   outline: none;
 }
 
-#afterlife-root #keys kbd {
+#afterlife-root #keys kbd,
+#afterlife-root #keys .nokey {
   min-width: 3.2em;
   color: #ffaf00;
   font: inherit;
@@ -223,16 +224,30 @@
   color: var(--fg);
 }
 
-#afterlife-root #keys .touch {
+/* words for the pointer at hand: a phone has no clicks and no q */
+#afterlife-root .touch {
   display: none;
 }
 
 @media (pointer: coarse) {
-  #afterlife-root #keys .mouse {
+  #afterlife-root .mouse {
     display: none;
   }
-  #afterlife-root #keys .touch {
+  #afterlife-root .touch {
     display: inline;
+  }
+}
+
+/* the splash still says its piece, just without the colour drift and the breath */
+@media (prefers-reduced-motion: reduce) {
+  #afterlife-root #splash,
+  #afterlife-root #splash .logo,
+  #afterlife-root #splash .go {
+    animation: none;
+    transition: none;
+  }
+  #afterlife-root #splash .go {
+    opacity: 0.8;
   }
 }
 

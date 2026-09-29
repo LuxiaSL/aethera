@@ -16,9 +16,9 @@
  */
 
 import './style.css';
-import { AUTOSAVE_EVERY } from './engine/constants';
+import { AUTOSAVE_EVERY, GHOST_FRAMES } from './engine/constants';
 import { InfiniteLife } from './engine/life';
-import { load, save } from './engine/persist';
+import { KEY, load, save } from './engine/persist';
 import { StatsLogger } from './engine/stats';
 import { Music } from './music/audio';
 import type { SimulationSnapshot } from './music/engine';
@@ -31,6 +31,8 @@ const keysPanel = document.getElementById('keys');
 const ctx = canvas?.getContext('2d', { alpha: false });
 if (!root || !canvas || !ctx) throw new Error('afterlife: the page is missing its terminal');
 
+// Inside an oikos screen the page shows your universe but never writes it:
+// the /afterlife tab (or nobody) is its keeper.
 const embedded = window.top !== window;
 const term = new Terminal(ctx);
 const music = new Music();
@@ -43,7 +45,9 @@ let showStats = false;
 // Playhead state for music scanning
 let playheadCol = 0;
 
-// Snapshot recording state (toggled with 'd'): kept in memory, downloaded on stop
+// Snapshot recording state (toggled with 'd'): kept in memory, downloaded on stop.
+// Capped (~20 min at 15 snapshots/s) so a forgotten recording can't eat the tab.
+const MAX_RECORDED = 18_000;
 let recording = false;
 let recorded: string[] = [];
 
@@ -69,29 +73,129 @@ function fitTerminal(): void {
   canvas!.style.height = `${ph / dpr}px`;
 }
 
-/** Resize the vessel, keep the universe (life.py's KEY_RESIZE). */
+/** Refit the canvas; a new world only when the grid itself changed. */
+function refit(): void {
+  const rows = term.gridRows;
+  const cols = term.cols;
+  fitTerminal();
+  // a phone's URL bar nudges the height by a few pixels as it scrolls away;
+  // that's not a resize the universe needs to hear about
+  if (term.gridRows !== rows || term.cols !== cols) rebuild();
+}
+
+/**
+ * Resize the vessel, keep the universe (life.py's KEY_RESIZE). The old
+ * world is the new one's floor, so a smaller window never crops it, and the
+ * session (pause, speed, zoom, camera, modes, ticker) carries across.
+ */
 function rebuild(): void {
   const old = life;
-  fitTerminal();
-  life = new InfiniteLife(term.gridRows, term.cols, false);
-  life.haunted = old.haunted;
+  const [cy, cx] = old.viewCenter();
+  life = new InfiniteLife(term.gridRows, term.cols, false, { minH: old.worldH, minW: old.worldW });
   life.adopt(old.snapshot());
+  // adopt() centres the old world in the new; the camera follows it there
+  const dy = Math.floor((life.worldH - old.worldH) / 2);
+  const dx = Math.floor((life.worldW - old.worldW) / 2);
+  if (old.haunted) {
+    // adopt() retires ghosts deeper than normal decay reaches; in haunted
+    // mode those are the point, and a resize shouldn't exorcise them
+    for (let y = 0; y < old.worldH; y++) {
+      for (let x = 0; x < old.worldW; x++) {
+        const a = old.age[y * old.worldW + x] ?? 0;
+        if (a < -GHOST_FRAMES) life.age[(dy + y) * life.worldW + dx + x] = a;
+      }
+    }
+  }
+  life.camY = Math.max(0, Math.min(cy + dy - Math.floor(life.viewH / 2), life.worldH - life.viewH));
+  life.camX = Math.max(0, Math.min(cx + dx - Math.floor(life.viewW / 2), life.worldW - life.viewW));
+  life.haunted = old.haunted;
+  life.paused = old.paused;
+  life.delay = old.delay;
+  life.zoomLevel = old.zoomLevel;
+  life.autoCam = old.autoCam;
+  life.autoFocusMode = old.autoFocusMode;
+  life.autoFocusFrame = old.autoFocusFrame;
+  life.dilation = old.dilation;
+  life.ticker = old.ticker;
+  // world-wide telemetry: nothing was cropped, so it's all still true
+  life.popHistory = old.popHistory.slice();
+  life.spread = old.spread;
+  life.popFloor = old.popFloor;
+  life.cyclePeriod = old.cyclePeriod;
+  life.lastEvent = old.lastEvent;
+  life.lastEventGen = old.lastEventGen;
   playheadCol = 0;
 }
 
-function persist(): void {
-  if (!life) return;
-  save({ ...life.snapshot(), bornAt, savedAt: Date.now() });
+let resizeTimer = 0;
+function scheduleRefit(): void {
+  clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    refit();
+    paint();
+  }, 200);
 }
+
+// ── Keeping the universe, politely ───────────────────────────────────────
+// Every tab on this origin saves to the same key. The savedAt of the save we
+// loaded or last wrote is our mark: a stored save with another mark and a
+// later generation was written by someone else, and isn't ours to clobber.
+
+let ourSavedAt = 0;
+let yielded = false;
+
+/** savedAt + generation of the stored save, without decoding its cells. */
+function storedHeader(raw: string | null): { savedAt: number; generation: number } | null {
+  if (!raw) return null;
+  // the small fields come before `cells` (see persist.ts's Stored), so the
+  // head of the string is enough
+  const head = raw.slice(0, 400);
+  const savedAt = /"savedAt":(\d+)/.exec(head)?.[1];
+  const generation = /"generation":(\d+)/.exec(head)?.[1];
+  if (savedAt === undefined || generation === undefined) return null;
+  return { savedAt: Number(savedAt), generation: Number(generation) };
+}
+
+function someoneElsesIsNewer(raw: string | null): boolean {
+  const h = storedHeader(raw);
+  return h !== null && h.savedAt !== ourSavedAt && h.generation > life.generation;
+}
+
+function yieldTo(): void {
+  if (yielded) return;
+  yielded = true;
+  console.info('afterlife: another window has saved a later universe; this one will not overwrite it');
+  life.ticker.queueSpecial('another window keeps this universe now');
+}
+
+function persist(): void {
+  if (!life || embedded) return;
+  try {
+    if (someoneElsesIsNewer(localStorage.getItem(KEY))) {
+      yieldTo();
+      return;
+    }
+  } catch {
+    // storage blocked: save() will say so
+  }
+  const savedAt = Date.now();
+  if (save({ ...life.snapshot(), bornAt, savedAt })) ourSavedAt = savedAt;
+}
+
+window.addEventListener('storage', (e) => {
+  if (e.key === KEY && !embedded && someoneElsesIsNewer(e.newValue)) yieldTo();
+});
 
 // ── Genesis, or the universe remembers ───────────────────────────────────
 
 fitTerminal();
 const saved = load();
 if (saved) {
-  life = new InfiniteLife(term.gridRows, term.cols, false);
+  // the saved world is the floor: a smaller screen than last time never crops it
+  life = new InfiniteLife(term.gridRows, term.cols, false, { minH: saved.h, minW: saved.w });
   life.adopt(saved);
   bornAt = saved.bornAt;
+  ourSavedAt = saved.savedAt;
   life.ticker.queueSpecial(`the universe remembers generation ${life.generation.toLocaleString('en-US')}`);
 } else {
   life = new InfiniteLife(term.gridRows, term.cols);
@@ -131,7 +235,14 @@ function frame(): void {
         activity_x: life.activityCenterX(),
       };
       music.update(snap);
-      if (recording) recorded.push(JSON.stringify({ ...snap, playhead_column: column.map((b) => (b ? 1 : 0)) }));
+      if (recording) {
+        recorded.push(JSON.stringify({ ...snap, playhead_column: column.map((b) => (b ? 1 : 0)) }));
+        if (recorded.length > MAX_RECORDED) {
+          // keep the latest stretch; the oldest go
+          if (recorded.length === MAX_RECORDED + 1) life.ticker.queueSpecial('the recording is full; its oldest moments are letting go');
+          recorded.splice(0, recorded.length - MAX_RECORDED);
+        }
+      }
     } catch {
       // Never let music crash the sim
     }
@@ -175,16 +286,26 @@ function paint(): void {
 let nextAt = 0;
 let raf = 0;
 
+/** Past this much work in one paint, stop and let input and the paint through. */
+const FRAME_BUDGET_MS = 12;
+
 function loop(now: number): void {
   raf = requestAnimationFrame(loop);
+  const started = performance.now();
   let ran = 0;
   // Time breathes: savor catastrophes, hurry through the calm. A frame is due
   // delay × dilation after the last one; a fast setting may owe a few per paint.
   // Half a vsync early counts as on time, or a 35 ms frame would wait for 50.
-  while (now >= nextAt - 8 && ran < 4) {
+  while (now >= nextAt - 8) {
     frame();
     ran++;
     nextAt = Math.max(nextAt, now - 100) + life.delay * life.timeDilation();
+    if (ran >= 4 || performance.now() - started > FRAME_BUDGET_MS) {
+      // a big screen can't keep this pace: drop what's owed rather than catch
+      // up, or every paint would stall the keys for the whole backlog
+      nextAt = Math.max(nextAt, now);
+      break;
+    }
   }
   if (ran) paint();
 }
@@ -212,12 +333,12 @@ function download(name: string, text: string, type: string): void {
 }
 
 function leave(): void {
-  persist();
   if (embedded) {
     // there is no leaving from inside a screen in oikos; ⏏ is out there
     life.ticker.queueSpecial('the glass holds; eject from the other side');
     return;
   }
+  persist();
   const ref = document.referrer;
   const back = ref && new URL(ref, location.href).origin === location.origin && !ref.includes('/afterlife') ? ref : '/';
   location.href = back;
@@ -256,10 +377,15 @@ const ACTIONS: Record<string, () => void> = {
   },
   record: () => {
     // Snapshot recording for music diagnostics (life_music_diag.py --replay)
-    if (!music.running) return;
+    if (!music.running) {
+      life.ticker.queueSpecial('nothing to record without the music');
+      return;
+    }
     recording = !recording;
     if (recording) recorded = [];
     else if (recorded.length) download('snapshots.jsonl', `${recorded.join('\n')}\n`, 'application/x-ndjson');
+    // snapshots come every other generation, and none while paused
+    else life.ticker.queueSpecial('the recording caught nothing; no snapshots to keep');
   },
   mute: () => music.running && music.toggleMute(),
   style: () => music.running && music.cycleStyle(),
@@ -280,6 +406,9 @@ const KEYMAP: Record<string, keyof typeof ACTIONS> = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', '?': 'help',
 };
 
+/** Held keys repeat only where more of the same is the point (speed, volume, pan, zoom). */
+const REPEATS = new Set<string>(['faster', 'slower', 'volDown', 'volUp', 'up', 'down', 'left', 'right', 'zoomOut', 'zoomIn']);
+
 function act(name: string): void {
   ACTIONS[name]?.();
   paint();
@@ -288,14 +417,16 @@ function act(name: string): void {
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') {
+    // closing a panel isn't entering: no music for it
     if (keysPanel && !keysPanel.hidden) toggleKeys(false);
-    wake();
     return;
   }
   const name = KEYMAP[e.key.length === 1 ? e.key.toLowerCase() : e.key] ?? KEYMAP[e.key];
   if (!name) return;
   e.preventDefault();
-  wake();
+  if (e.repeat && !REPEATS.has(name)) return;
+  // reading the keys isn't entering either
+  if (name !== 'help') wake();
   act(name);
 });
 
@@ -315,6 +446,20 @@ splash?.addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   wake();
 });
+splash?.addEventListener('keydown', (e) => {
+  // it's a button: Enter or Space on it enters, and doesn't also pause
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (!e.repeat) wake();
+});
+// iOS may unlock audio only as a gesture ends, not as it starts; once the
+// visitor is in, every tap's end gets a chance to (re)start the music
+for (const type of ['pointerup', 'click'] as const) {
+  root.addEventListener(type, () => {
+    if (awake) void music.start();
+  });
+}
 
 function toggleKeys(show = keysPanel?.hidden ?? false): void {
   if (!keysPanel) return;
@@ -329,8 +474,8 @@ keysPanel?.addEventListener('click', (e) => {
   act(el.dataset.act ?? '');
 });
 document.getElementById('keys-toggle')?.addEventListener('click', (e) => {
+  // like ?, opening the keys doesn't start the music
   e.preventDefault();
-  wake();
   toggleKeys();
 });
 
@@ -343,6 +488,11 @@ function cellAt(e: { clientX: number; clientY: number }): [number, number, numbe
   const col = Math.floor((e.clientX - r.left) / cssCw);
   const px = Math.floor((e.clientY - r.top) / cssCw); // half-block pixel row
   return [Math.floor(px / 2), col, px % 2];
+}
+
+/** Pointer capture keeps a drag coming from outside the canvas; those aren't cells on screen. */
+function onGrid(row: number, col: number): boolean {
+  return row >= 0 && row < term.gridRows && col >= 0 && col < term.cols;
 }
 
 interface Drag {
@@ -361,10 +511,12 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('pointerdown', (e) => {
   wake();
   touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (touches.size === 2) {
-    // two fingers: pinch to zoom, never paint
-    const [a, b] = [...touches.values()];
-    pinch = a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  if (touches.size >= 2) {
+    // two fingers: pinch to zoom, never paint (nor does a third)
+    if (touches.size === 2) {
+      const [a, b] = [...touches.values()];
+      pinch = a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+    }
     drag = null;
     return;
   }
@@ -374,7 +526,7 @@ canvas.addEventListener('pointerdown', (e) => {
   drag = { id: e.pointerId, kind: pan ? 'pan' : 'paint', x: e.clientX, y: e.clientY, last: '', moved: false };
   // a mouse click toggles at once (as a terminal click did); a touch waits to
   // see whether it's a tap or a drag across the universe
-  if (!pan && e.pointerType === 'mouse' && row < term.gridRows) {
+  if (!pan && e.pointerType === 'mouse' && onGrid(row, col)) {
     life.toggleCell(row, col, half);
     drag.last = `${row},${col},${half}`;
     paint();
@@ -415,7 +567,7 @@ canvas.addEventListener('pointermove', (e) => {
   // mouse drag: draw living cells along the way
   const [row, col, half] = cellAt(e);
   const key = `${row},${col},${half}`;
-  if (key === drag.last || row >= term.gridRows) return;
+  if (key === drag.last || !onGrid(row, col)) return;
   drag.last = key;
   const [gy, gx] = life.termToWorld(row, col, half);
   life.setCell(gy, gx, 1);
@@ -427,7 +579,7 @@ const endPointer = (e: PointerEvent): void => {
   if (!drag || drag.id !== e.pointerId) return;
   if (e.type === 'pointerup' && e.pointerType !== 'mouse' && !drag.moved) {
     const [row, col, half] = cellAt(e);
-    if (row < term.gridRows) {
+    if (onGrid(row, col)) {
       life.toggleCell(row, col, half);
       paint();
     }
@@ -452,14 +604,26 @@ canvas.addEventListener(
 
 // ── Resizes, and leaving ─────────────────────────────────────────────────
 
-let resizeTimer = 0;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = window.setTimeout(() => {
-    rebuild();
-    paint();
-  }, 200);
-});
+window.addEventListener('resize', scheduleRefit);
+
+// Moving the window to another screen (or browser zoom) changes the pixel
+// ratio, sometimes without a resize; the query has to be re-made each time
+function watchPixelRatio(): void {
+  try {
+    const mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    mq.addEventListener(
+      'change',
+      () => {
+        scheduleRefit();
+        watchPixelRatio();
+      },
+      { once: true },
+    );
+  } catch {
+    // no matchMedia listeners here: resize alone will do
+  }
+}
+watchPixelRatio();
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
