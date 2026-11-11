@@ -375,7 +375,9 @@ export class Room {
       if (!p.hang) this.scene.add(glow);
 
       let light: THREE.PointLight | null = null;
-      if (!this.lowPower) {
+      // the dreams set lights its shoulders already; their own lights only made
+      // a white glare on the bezel in front of them
+      if (!this.lowPower && p.light !== false) {
         light = new THREE.PointLight(site.accent, 0, 3.2 + p.screenW, 2);
         // far enough out that it lights the floor and the neighbours, not a hot spot on its own bezel
         light.position.copy(monitor.world(monitor.screenLocal).addScaledVector(monitor.normal(), 1.1));

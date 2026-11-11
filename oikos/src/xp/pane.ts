@@ -119,7 +119,7 @@ export class Pane {
     tapeTasks.push({ icon: icons.copy(), label: 'Copy address', run: () => copyAddress(this.shell, site) });
     tapeTasks.push({ icon: icons.eject(), label: 'Close', run: () => this.win.close() });
 
-    const places: TaskItem[] = [{ icon: icons.folderHome(), label: '~ (home directory)', run: () => this.shell.home() }];
+    const places: TaskItem[] = [{ icon: icons.folderHome(), label: '~', run: () => this.shell.home() }];
     for (const rid of RELATED[site.id] ?? []) {
       const r = this.shell.site(rid);
       if (r) places.push({ icon: icons.tape(r.accent), label: r.title, run: () => this.shell.play(r.id) });

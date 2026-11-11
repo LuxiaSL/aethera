@@ -121,7 +121,7 @@ export class Explorer {
 
     this.win = this.wm.open({
       id: 'home',
-      title: '~  (home directory)',
+      title: '~ æthera',
       icon: icons.folderHome(),
       body,
       width: Math.round(Math.min(680, Math.max(420, innerWidth * 0.46))),
@@ -311,7 +311,7 @@ export class Explorer {
     this.tasks.replaceChildren(
       ...(tapeTasks.length ? [taskGroup('tasks', tapeTasks, true)] : []),
       taskGroup('places', places),
-      taskGroup('Details', details),
+      taskGroup('details', details),
     );
   }
 

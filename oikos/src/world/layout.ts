@@ -22,7 +22,9 @@ export interface Placement {
   stand?: boolean;
   on?: string; // stacked on this site's monitor
   hang?: boolean;
-  feeds?: string; // its cable runs into this site's screen, not the VCR
+  feeds?: string; // its cable runs into this site's screen, not to æthera
+  /** false: no light of its own (a raised screen's light lands on its neighbours' bezels) */
+  light?: boolean;
   channel: number;
 }
 
@@ -32,8 +34,8 @@ export const PLACEMENTS: Record<string, Placement> = {
   // bezel spans about ±14° from here, so they stand clear of it), their cables
   // running into it rather than to the machine
   dreams: { angle: 0, r: 4.9, y: 0.5, style: 'tv', screenW: 2.0, channel: 1 },
-  chronicle: { angle: -19.5, r: 5.35, y: 1.25, style: 'black', screenW: 1.0, feeds: 'dreams', channel: 3 },
-  'dreams-api': { angle: 19.5, r: 5.35, y: 1.25, style: 'grey', screenW: 0.85, feeds: 'dreams', channel: 4 },
+  chronicle: { angle: -19.5, r: 5.35, y: 1.25, style: 'black', screenW: 1.0, feeds: 'dreams', light: false, channel: 3 },
+  'dreams-api': { angle: 19.5, r: 5.35, y: 1.25, style: 'grey', screenW: 0.85, feeds: 'dreams', light: false, channel: 4 },
   // the arc, even either side of it
   transmissions: { angle: -30, r: 4.5, y: 0.34, style: 'beige', screenW: 1.22, stand: true, channel: 2 },
   afterlife: { angle: 30, r: 4.5, y: 0, style: 'black', screenW: 1.08, channel: 10 },

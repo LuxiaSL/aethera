@@ -271,7 +271,7 @@ export class Taskbar {
           'sep',
           ...this.shell.dir.sites.filter((s) => s.group === 'wired').map(tapeEntry),
           'sep',
-          { label: '~ (home directory)', icon: icons.folderHome(), run: () => { this.toggleMenu(false); this.shell.home(); } },
+          { label: '~', icon: icons.folderHome(), run: () => { this.toggleMenu(false); this.shell.home(); } },
         ],
         allBtn,
         { onClose: () => close(allBtn), takeFocus: !hover, focusFirst: !hover && viaKeyboard() },
