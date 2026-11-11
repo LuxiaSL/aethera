@@ -25,6 +25,8 @@ export type Pickable = string; // a site id, or 'vcr'
 export interface RoomEvents {
   pick(id: Pickable | null): void;
   hover(id: Pickable | null, x: number, y: number): void;
+  /** the GPU took the room away (false) or gave it back (true) */
+  context?(alive: boolean): void;
 }
 
 /**
@@ -147,6 +149,7 @@ export class Room {
   private calm = 0; // consecutive quick windows, for stepping quality back up
   private paceSum = 0; // the display's own frame interval, summed over the adapt() window
   private visibility: RoomVisibility = 'full';
+  private contextLost = false;
   private sinceRender = 0; // room seconds since a frame was last rendered
   private lastStep = 0; // rAF time the loop last ran a frame
   private ticks = 0; // rAF callbacks since then (a capped loop skips some)
@@ -175,6 +178,7 @@ export class Room {
     this.renderer.domElement.setAttribute('role', 'img');
     this.renderer.domElement.setAttribute('aria-label', 'a dark room full of screens, each one a place on æthera');
     container.prepend(this.renderer.domElement);
+    this.bindContext();
     try {
       this.build(sites, screens);
     } catch (err) {
@@ -866,7 +870,7 @@ export class Room {
   /** Seconds the loop waits between frames: none while something moves. */
   private minInterval(): number {
     const lively = this.tween !== null || this.later.length > 0 || this.t - this.lastInput < INPUT_GRACE;
-    if (this.visibility === 'full') return lively ? 0 : 1 / IDLE_FPS;
+    if (this.visibility === 'full' && !this.contextLost) return lively ? 0 : 1 / IDLE_FPS;
     // nothing to render (or only glass to render through, see frame): the
     // clock, flights and the open pane's screen still want a steady beat
     return lively || this.kept ? 1 / IDLE_FPS : 0.25;
@@ -878,6 +882,46 @@ export class Room {
     const h = this.container.clientHeight || innerHeight;
     const device = Math.min(devicePixelRatio || 1, this.lowPower ? 1.25 : 1.6);
     return Math.min(device, Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h)));
+  }
+
+  /**
+   * A GPU reset (a driver update, a sleeping laptop, too many tabs) takes the
+   * context away. three already asks for it back; meanwhile the room stops
+   * rendering, hides its dead canvas so the desktop runs alone over black (as
+   * it does with no WebGL at all), and keeps its clock and the open pane's
+   * screen going. When the context returns three rebuilds its GPU state
+   * lazily on the next render.
+   */
+  private bindContext(): void {
+    const el = this.renderer.domElement;
+    const tell = (alive: boolean) => {
+      try {
+        this.events.context?.(alive);
+      } catch (err) {
+        console.warn('oikos: context listener failed', err);
+      }
+    };
+    el.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault(); // without this the browser never offers it back
+      if (this.contextLost) return;
+      this.contextLost = true;
+      el.style.visibility = 'hidden';
+      console.warn('oikos: the GPU took the room away; waiting for it back');
+      tell(false);
+    });
+    el.addEventListener('webglcontextrestored', () => {
+      if (!this.contextLost) return;
+      this.contextLost = false;
+      el.style.visibility = '';
+      try {
+        for (const s of this.stations.values()) s.monitor.texture.needsUpdate = true;
+        this.frameTimes = [];
+        this.paceSum = 0;
+      } catch (err) {
+        console.warn('oikos: restoring the room', err);
+      }
+      tell(true);
+    });
   }
 
   stop(): void {
@@ -1037,7 +1081,7 @@ export class Room {
 
   /** whether this frame reaches the GPU (see setVisibility) */
   private shouldRender(): boolean {
-    if (this.visibility === 'hidden') return false;
+    if (this.contextLost || this.visibility === 'hidden') return false;
     if (this.visibility === 'glimpsed') return this.sinceRender >= 1 / GLIMPSED_FPS - 1e-3;
     return true;
   }
