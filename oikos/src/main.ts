@@ -564,7 +564,7 @@ function boot(root: HTMLElement): void {
     const W = innerWidth;
     const H = innerHeight - 30;
     const open = wm.list.filter((w) => !w.minimized && !w.opts.dialog && !w.el.classList.contains('maximized'));
-    if (W <= 720) {
+    if (isSheet()) {
       room.setShift(0, open.length ? H * 0.3 : 0);
       return;
     }
@@ -773,7 +773,7 @@ function boot(root: HTMLElement): void {
       const at = room?.anchor('vcr') ?? undefined;
       taskbar.balloon(
         'This is the way in',
-        innerWidth <= 720
+        isSheet()
           ? 'Tap the VCR for the home directory, or any screen to tune in. Drag to look around.'
           : 'Click the VCR for your home directory, or any screen to tune in. Drag to look around; ← → walk the screens.',
         at,

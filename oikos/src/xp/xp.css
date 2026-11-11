@@ -1555,7 +1555,8 @@
    small screens: windows become sheets over the bottom of the room
    -------------------------------------------------------------------------- */
 
-@media (max-width: 720px) {
+/* the same query as env.ts SHEET_QUERY: narrow, or a phone on its side */
+@media (max-width: 720px), (max-height: 500px) and (pointer: coarse) {
   .xp-grip { display: none; }
 
   .xp-window:not(.xp-dialog) {
@@ -1566,6 +1567,14 @@
     width: auto !important;
     height: 62% !important;
     max-height: 62%;
+    min-width: 0;
+  }
+
+  /* maximise still means the whole desk (the rule above would otherwise win) */
+  .xp-window.maximized:not(.xp-dialog) {
+    top: 0 !important;
+    height: auto !important;
+    max-height: none;
   }
 
   .xp-window:not(.xp-dialog) .xp-menubar,

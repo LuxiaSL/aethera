@@ -211,7 +211,22 @@ export class Explorer {
     (b.querySelector('.k') as HTMLElement).textContent = site.kind;
     (b.querySelector('.d') as HTMLElement).textContent = site.tagline;
     b.title = site.tagline;
-    b.addEventListener('click', () => this.select(site.id, true));
+    b.setAttribute('aria-selected', 'false');
+    // touch has no double click: a second tap on the selected tape plays it.
+    // On the click, not the pointerup: a window opened at pointerup is under
+    // the finger when the browser's click arrives, and the click lands in it
+    // (with no room, on the pane's preview, which leaves the page)
+    let touch = false;
+    b.addEventListener('pointerdown', (e) => (touch = e.pointerType === 'touch'));
+    b.addEventListener('click', () => {
+      if (touch && this.selected === site.id && b.dataset.armed) {
+        delete b.dataset.armed;
+        this.shell.play(site.id);
+        return;
+      }
+      this.select(site.id, true);
+      if (touch) b.dataset.armed = '1';
+    });
     b.addEventListener('dblclick', () => this.shell.play(site.id));
     b.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.shell.play(site.id);
@@ -224,11 +239,6 @@ export class Explorer {
         next?.focus();
         if (next?.dataset.id) this.select(next.dataset.id, true);
       }
-    });
-    // touch has no double click: a second tap on the selected tape plays it
-    b.addEventListener('pointerup', (e) => {
-      if (e.pointerType === 'touch' && this.selected === site.id && b.dataset.armed) this.shell.play(site.id);
-      b.dataset.armed = '1';
     });
     this.tiles.set(site.id, b);
     return b;

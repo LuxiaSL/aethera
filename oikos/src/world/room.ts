@@ -674,18 +674,24 @@ export class Room {
   private bindPointer(): void {
     const el = this.renderer.domElement;
     let down: { x: number; y: number; t: number } | null = null;
+    let tap: { x: number; y: number; touch: boolean } | null = null;
+    // a finger has no hover: it only ever says where it pressed, and a
+    // tooltip set from a tap would stay up long after the finger left
+    const unhover = () => {
+      this.pointer.set(-9, -9);
+      this.pointerDirty = true;
+    };
     el.addEventListener('pointermove', (e) => {
+      this.lastInput = this.t;
+      if (e.pointerType === 'touch') return;
       const r = el.getBoundingClientRect();
       this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       this.pointerPx = { x: e.clientX, y: e.clientY };
       this.pointerDirty = true;
-      this.lastInput = this.t;
     });
-    el.addEventListener('pointerleave', () => {
-      this.pointer.set(-9, -9);
-      this.pointerDirty = true;
-    });
+    el.addEventListener('pointerleave', unhover);
     el.addEventListener('pointerdown', (e) => {
+      tap = null;
       // a right or middle click is not a pick
       if (e.button !== 0 || !e.isPrimary) {
         down = null;
@@ -699,10 +705,30 @@ export class Room {
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       const quick = performance.now() - down.t < 600;
       down = null;
+      if (e.pointerType === 'touch') unhover();
       if (moved > 7 || !quick || this.tuned) return;
+      // a pick, but not yet: see the click
+      tap = { x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
+    });
+    el.addEventListener('pointercancel', () => {
+      down = null;
+      tap = null;
+    });
+    // The pick happens on the click, not the pointerup. A pick opens a window
+    // at once; opened at pointerup, it is under the finger when the browser's
+    // own click follows, and that click lands on whatever is there (a tile,
+    // a button) instead of the room.
+    el.addEventListener('click', () => {
+      const t = tap;
+      tap = null;
+      if (!t || this.tuned) return;
       const r = el.getBoundingClientRect();
-      this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-      this.events.pick(this.pickAt());
+      const saved = this.pointer.clone();
+      this.pointer.set(((t.x - r.left) / r.width) * 2 - 1, -((t.y - r.top) / r.height) * 2 + 1);
+      const id = this.pickAt();
+      if (t.touch) this.pointer.set(-9, -9);
+      else this.pointer.copy(saved);
+      this.events.pick(id);
     });
   }
 

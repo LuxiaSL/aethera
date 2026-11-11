@@ -26,6 +26,7 @@ import { ChatLink, type ChatEvent, type Welcome, type WhoisReply } from '../chat
 import type { Irc, IrcLine } from '../data';
 import { hash01 } from '../screens/screen';
 import { h, menubar } from './chrome';
+import { isSheet } from './env';
 import * as icons from './icons';
 import type { MenuEntry } from './menu';
 import type { Shell } from './shell';
@@ -286,7 +287,8 @@ export class Mirc {
         onClose();
       },
       onFocus: () => {
-        if (innerWidth > 720) this.input.focus({ preventScroll: true });
+        // not on a phone: the keyboard would slide up over the sheet
+        if (!isSheet()) this.input.focus({ preventScroll: true });
       },
     });
     this.win.el.classList.add('mirc-window');
