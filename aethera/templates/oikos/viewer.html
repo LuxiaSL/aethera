@@ -55,6 +55,12 @@
 {% set font_mono = asset_url('fonts/LibertinusMono-Regular.ttf') %}
 <link rel="preload" href="{{ font_typed }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ font_mono }}" as="font" type="font/ttf" crossorigin>
+{# the desktop's own faces (static/fonts/ui-fonts.txt) #}
+{% set font_face = asset_url('fonts/VT323-Regular-latin.woff2') %}
+{% set font_ui = asset_url('fonts/IBMPlexMono-Regular-latin.woff2') %}
+{% set font_ui_medium = asset_url('fonts/IBMPlexMono-Medium-latin.woff2') %}
+<link rel="preload" href="{{ font_face }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ font_ui }}" as="font" type="font/woff2" crossorigin>
 <style>
     @font-face {
         font-family: 'Libertinus Mono';
@@ -64,6 +70,23 @@
     @font-face {
         font-family: 'Love Letter Typewriter';
         src: url('{{ font_typed }}') format('woff2');
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'VT323';
+        src: url('{{ font_face }}') format('woff2');
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'IBM Plex Mono';
+        src: url('{{ font_ui }}') format('woff2');
+        font-weight: 400;
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'IBM Plex Mono';
+        src: url('{{ font_ui_medium }}') format('woff2');
+        font-weight: 500 700;
         font-display: swap;
     }
     /* the page is the room: nothing scrolls, nothing shows past it */

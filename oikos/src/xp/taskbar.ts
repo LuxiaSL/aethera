@@ -50,7 +50,8 @@ export class Taskbar {
     private readonly hooks: TaskbarHooks,
   ) {
     this.el = h('nav', { class: 'xp-taskbar', 'aria-label': 'taskbar' });
-    this.start = h('button', { class: 'xp-start', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: `${icons.markImg(22, false)}<span>start</span>` });
+    // the start button is the system's own letter; its name is for whoever can't see it
+    this.start = h('button', { class: 'xp-start', type: 'button', 'aria-label': 'æthera', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: '<span aria-hidden="true">æ</span>' });
     this.buttons = h('div', { class: 'xp-taskbuttons' });
     const tray = h('div', { class: 'xp-tray' });
     const net = h('span', { class: 'tray-icon net', title: 'Connected to the Wired', html: icons.network() });

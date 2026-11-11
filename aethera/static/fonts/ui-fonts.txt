@@ -1,0 +1,16 @@
+The æthera desktop's type (the room at /oikos)
+
+VT323-Regular-latin.woff2
+  VT323, by Peter Hull. Copyright 2011, The VT323 Project Authors.
+  SIL Open Font License 1.1 (see OFL.txt for the license text).
+  Title bars, the start button, the clock: the face of a terminal.
+
+IBMPlexMono-Regular-latin.woff2, IBMPlexMono-Medium-latin.woff2
+  IBM Plex Mono. Copyright © 2017 IBM Corp.
+  SIL Open Font License 1.1 (see OFL.txt for the license text).
+  Everything else in the windows and menus.
+
+All three are the Latin subsets as Google Fonts serves them (U+0000-00FF
+and a little more: æ is in, arrows and box glyphs are not, and fall back to
+the next font in the stack), unmodified, served from here so the page never
+calls out to a font CDN.
