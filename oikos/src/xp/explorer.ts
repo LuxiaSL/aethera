@@ -83,16 +83,20 @@ export class Explorer {
     this.tasks = h('aside', { class: 'xp-tasks' });
     main.append(this.tasks);
 
-    const content = h('div', { class: `xp-content view-${this.view}`, role: 'listbox', 'aria-label': 'tapes' });
+    // the folder is a region; each group of tapes is its own listbox (a listbox
+    // may hold only options, not the group headings or the file links)
+    const content = h('div', { class: `xp-content view-${this.view}`, role: 'region', 'aria-label': 'tapes' });
     this.content = content;
     // a click on the folder's blank space clears the selection (the camera stays put)
     content.addEventListener('pointerdown', (e) => {
       if (e.button === 0 && !(e.target as HTMLElement).closest('.xp-tile')) this.select(null);
     });
+    let groups = 0;
     const group = (title: string, sites: Site[]) => {
       if (!sites.length) return;
-      content.append(h('h3', { class: 'xp-group-head' }, [title]));
-      const grid = h('div', { class: 'xp-tiles' });
+      const headId = `xp-group-${++groups}`;
+      content.append(h('h3', { class: 'xp-group-head', id: headId }, [title]));
+      const grid = h('div', { class: 'xp-tiles', role: 'listbox', 'aria-labelledby': headId });
       for (const s of sites) grid.append(this.tile(s));
       content.append(grid);
     };
@@ -124,8 +128,12 @@ export class Explorer {
       dock: 'left',
       onClose: () => {
         offNav();
+        // let the closed window's DOM go: nothing here may keep it alive
         this.win = null;
         this.content = null;
+        this.tasks = null;
+        this.status = null;
+        this.tiles.clear();
         this.selected = null;
       },
     });
@@ -136,6 +144,14 @@ export class Explorer {
 
   close(): void {
     this.win?.close();
+  }
+
+  /** give the keyboard to the tiles: the selected tape's, else the first one showing */
+  focusTiles(): void {
+    if (!this.isOpen || this.win?.minimized) return;
+    const sel = this.selected ? this.tiles.get(this.selected) : undefined;
+    const first = sel && !sel.hidden ? sel : [...this.tiles.values()].find((t) => !t.hidden);
+    first?.focus({ preventScroll: true });
   }
 
   private fileMenu(): MenuEntry[] {
@@ -203,7 +219,22 @@ export class Explorer {
     (b.querySelector('.k') as HTMLElement).textContent = site.kind;
     (b.querySelector('.d') as HTMLElement).textContent = site.tagline;
     b.title = site.tagline;
-    b.addEventListener('click', () => this.select(site.id, true));
+    b.setAttribute('aria-selected', 'false');
+    // touch has no double click: a second tap on the selected tape plays it.
+    // On the click, not the pointerup: a window opened at pointerup is under
+    // the finger when the browser's click arrives, and the click lands in it
+    // (with no room, on the pane's preview, which leaves the page)
+    let touch = false;
+    b.addEventListener('pointerdown', (e) => (touch = e.pointerType === 'touch'));
+    b.addEventListener('click', () => {
+      if (touch && this.selected === site.id && b.dataset.armed) {
+        delete b.dataset.armed;
+        this.shell.play(site.id);
+        return;
+      }
+      this.select(site.id, true);
+      if (touch) b.dataset.armed = '1';
+    });
     b.addEventListener('dblclick', () => this.shell.play(site.id));
     b.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.shell.play(site.id);
@@ -216,11 +247,6 @@ export class Explorer {
         next?.focus();
         if (next?.dataset.id) this.select(next.dataset.id, true);
       }
-    });
-    // touch has no double click: a second tap on the selected tape plays it
-    b.addEventListener('pointerup', (e) => {
-      if (e.pointerType === 'touch' && this.selected === site.id && b.dataset.armed) this.shell.play(site.id);
-      b.dataset.armed = '1';
     });
     this.tiles.set(site.id, b);
     return b;

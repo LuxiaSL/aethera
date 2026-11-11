@@ -27,40 +27,74 @@ export type MenuSpec = Record<string, () => MenuEntry[]>;
 
 /**
  * The menu bar. Click a title to drop its menu; while one is down, moving
- * across the bar swaps to the menu under the pointer, as XP's did.
+ * across the bar swaps to the menu under the pointer, as XP's did. From the
+ * keyboard: ↓, Enter or Space drops a menu onto its first item, ← and → walk
+ * the titles (or, with a menu down, the neighbouring menus), Esc comes back
+ * to the title.
  */
 export function menubar(menus: MenuSpec): HTMLElement {
   const bar = h('div', { class: 'xp-menubar', role: 'menubar' });
   let openTitle: HTMLElement | null = null;
-  const drop = (title: HTMLElement, name: string, focusFirst: boolean) => {
+  const titles: HTMLButtonElement[] = [];
+  const names = Object.keys(menus);
+  const drop = (i: number, focusFirst: boolean, takeFocus = true) => {
+    const title = titles[i];
+    const name = names[i];
+    if (!title || name === undefined) return;
     const entries = menus[name]?.();
     if (!entries) return;
     const r = title.getBoundingClientRect();
-    openMenu(entries, r.left, r.bottom, () => {
-      title.classList.remove('open');
-      if (openTitle === title) openTitle = null;
-    }, focusFirst);
+    openMenu(entries, r.left, r.bottom, {
+      onClose: () => {
+        title.classList.remove('open');
+        title.setAttribute('aria-expanded', 'false');
+        if (openTitle === title) openTitle = null;
+      },
+      focusFirst,
+      takeFocus,
+      returnTo: title,
+      owner: title,
+      onNav: (d) => {
+        const j = (i + d + titles.length) % titles.length;
+        titles[j]?.focus({ preventScroll: true });
+        drop(j, true);
+      },
+    });
     title.classList.add('open');
+    title.setAttribute('aria-expanded', 'true');
     openTitle = title;
   };
-  for (const name of Object.keys(menus)) {
-    const title = h('button', { type: 'button', class: 'xp-menutitle', role: 'menuitem', 'aria-haspopup': 'menu', 'data-menu-owner': '' }, [name]);
+  names.forEach((name, i) => {
+    const title = h('button', { type: 'button', class: 'xp-menutitle', role: 'menuitem', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-menu-owner': '' }, [name]);
+    // one stop in the tab order for the whole bar; the arrows walk it
+    if (i > 0) title.tabIndex = -1;
     title.addEventListener('click', () => {
       if (openTitle === title) closeMenus();
-      else drop(title, name, false);
+      else drop(i, false);
     });
     title.addEventListener('pointerenter', () => {
-      if (openTitle && openTitle !== title && menuOpen()) drop(title, name, false);
+      if (openTitle && openTitle !== title && menuOpen()) {
+        // the keyboard moves with the pointer, so ↓ opens this menu, not the last one
+        title.focus({ preventScroll: true });
+        drop(i, false);
+      }
     });
     title.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        drop(title, name, true);
+        e.stopPropagation();
+        drop(i, true);
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        e.stopPropagation();
+        const j = (i + (e.key === 'ArrowRight' ? 1 : -1) + titles.length) % titles.length;
+        titles[j]?.focus();
       }
     });
+    titles.push(title);
     bar.append(title);
-  }
-  bar.append(h('span', { class: 'xp-throbber', html: icons.markImg(18, true) }));
+  });
+  bar.append(h('span', { class: 'xp-throbber', 'aria-hidden': 'true', html: icons.markImg(18, true) }));
   return bar;
 }
 
@@ -110,7 +144,8 @@ export function addressBar(icon: string, value: string, editable: boolean, onGo?
     field.append(input);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && input) onGo?.(input.value);
-      e.stopPropagation();
+      // Tab goes on to the window, which keeps it inside
+      if (e.key !== 'Tab') e.stopPropagation();
     });
   } else {
     field.append(h('span', {}, [value]));
@@ -132,18 +167,16 @@ export interface TaskItem {
 
 export function taskGroup(title: string, items: TaskItem[] | HTMLElement, primary = false): HTMLElement {
   const g = h('section', { class: `xp-taskgroup${primary ? ' primary' : ''}` });
-  const head = h('header', { role: 'button', tabindex: '0', 'aria-expanded': 'true' }, [title]);
+  // the header is a heading; the control in it is a real button (it was a <header role=button>)
+  const head = h('header');
+  const btn = h('button', { type: 'button', class: 'xp-taskgroup-toggle', 'aria-expanded': 'true' }, [title]);
+  head.append(btn);
   const toggle = () => {
     g.classList.toggle('collapsed');
-    head.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
+    btn.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
   };
+  // the whole header is the target (its ▴ too), the button carries the keyboard and the name
   head.addEventListener('click', toggle);
-  head.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggle();
-    }
-  });
   g.append(head);
   const body = h('div', { class: 'xp-taskbody' });
   if (items instanceof HTMLElement) body.append(items);

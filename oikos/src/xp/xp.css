@@ -280,7 +280,7 @@
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  min-width: 260px;
+  min-width: 340px; /* wm.ts MIN_W */
   max-height: calc(100% - 16px);
   padding: 0 1px 1px;
   color: var(--ae-text);
@@ -289,6 +289,10 @@
 /* the strip beside the tab is the room's, not the window's: clicks go through it */
 #oikos-desktop > .xp-window { pointer-events: none; }
 .xp-window > * { pointer-events: auto; }
+
+/* a window takes the keyboard when clicked (wm.ts); being the active one is its focus ring */
+#oikos .xp-window:focus-visible,
+#oikos .xp-menu:focus-visible { outline: none; }
 
 /* the glass: everything below the tab */
 .xp-window::before {
@@ -612,6 +616,20 @@
   font-size: 18px;
   font-weight: normal;
   cursor: pointer;
+}
+
+/* the group's toggle is a real button in the header, wearing the header's look */
+.xp-taskgroup > header > button {
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-shadow: inherit;
 }
 
 .xp-taskgroup > header::after {
@@ -1031,6 +1049,7 @@
 .xp-taskbuttons {
   flex: 1;
   min-width: 0;
+  overflow: hidden; /* past their icons, the rest wait behind » (taskbar.ts) */
   display: flex;
   gap: 4px;
   padding: 3px 8px;
@@ -1063,6 +1082,9 @@
 .xp-taskbtn.active::before { color: var(--ae-amber); }
 .xp-taskbtn svg { width: 16px; height: 16px; flex: none; }
 .xp-taskbtn span { overflow: hidden; text-overflow: ellipsis; }
+.xp-taskbtn.xp-taskmore { flex: none; width: auto; min-width: 0; margin-right: 4px; padding: 0 8px; }
+.xp-taskbtn.xp-taskmore::before { content: none; }
+.xp-taskbtn.xp-taskmore[hidden] { display: none; }
 
 .xp-tray {
   display: flex;
@@ -1547,7 +1569,8 @@
    small screens: windows become sheets over the bottom of the room
    -------------------------------------------------------------------------- */
 
-@media (max-width: 720px) {
+/* the same query as env.ts SHEET_QUERY: narrow, or a phone on its side */
+@media (max-width: 720px), (max-height: 500px) and (pointer: coarse) {
   .xp-grip { display: none; }
 
   .xp-window:not(.xp-dialog) {
@@ -1558,6 +1581,14 @@
     width: auto !important;
     height: 62% !important;
     max-height: 62%;
+    min-width: 0;
+  }
+
+  /* maximise still means the whole desk (the rule above would otherwise win) */
+  .xp-window.maximized:not(.xp-dialog) {
+    top: 0 !important;
+    height: auto !important;
+    max-height: none;
   }
 
   .xp-window:not(.xp-dialog) .xp-menubar,

@@ -26,7 +26,8 @@ import { h } from './xp/chrome';
 import { Explorer } from './xp/explorer';
 import { Mirc } from './xp/mirc';
 import * as icons from './xp/icons';
-import { bindContextMenu, closeMenus, setMenuHost, type MenuEntry } from './xp/menu';
+import { isSheet } from './xp/env';
+import { bindContextMenu, closeMenus, menuOpen, setMenuHost, type MenuEntry } from './xp/menu';
 import { siteMenu } from './xp/menus';
 import { Pane } from './xp/pane';
 import type { Shell } from './xp/shell';
@@ -81,37 +82,106 @@ function boot(root: HTMLElement): void {
   const wm = new WindowManager(desk);
   setMenuHost(root);
 
-  // ---- history: ~ and the tapes played, as Explorer's Back/Forward knew them ----
-  const nav = { stack: [] as string[], i: -1, moving: false, listeners: new Set<() => void>() };
-  const visit = (loc: string) => {
-    if (nav.moving || nav.stack[nav.i] === loc) return;
-    nav.stack = nav.stack.slice(0, nav.i + 1);
-    nav.stack.push(loc);
-    nav.i = nav.stack.length - 1;
-    for (const fn of nav.listeners) fn();
+  // ---- routes: the hash names a place on the desk ----
+  //
+  // #~ is the home directory, #mirc the chat, #<tape> a tape's pane. Opening
+  // one pushes it onto the browser's history, so Back and Forward walk the
+  // desk (bringing each place forward, reopening it if it was closed) instead
+  // of leaving the page; a hash typed or linked opens its place; closing a
+  // window takes its hash off the address. Explorer's own Back and Forward
+  // are the browser's, and grey out at the ends of this visit.
+  const routeOf = (w: XPWindow): string | null => {
+    const id = w.opts.id;
+    if (id === 'home') return '~';
+    if (id === 'mirc') return 'mirc';
+    return id.startsWith('site:') ? id.slice(5) : null;
   };
-  const travel = (step: number) => {
-    const to = nav.stack[nav.i + step];
-    if (to === undefined) return;
-    nav.i += step;
-    nav.moving = true;
+  const currentRoute = (): string => {
     try {
-      if (to === '~') shell.home();
-      else shell.play(to);
-    } finally {
-      nav.moving = false;
+      return decodeURIComponent(location.hash.slice(1));
+    } catch {
+      return ''; // a malformed hash is no place
     }
+  };
+  const urlFor = (route: string) => (route ? `${here()}#${encodeURIComponent(route)}` : here());
+  // where this visit stands in the history: steps we pushed, and how far forward there is
+  const nav = { i: 0, top: 0, listeners: new Set<() => void>() };
+  const navChanged = () => {
     for (const fn of nav.listeners) fn();
   };
+  try {
+    history.replaceState({ oikos: 0 }, '', location.href);
+  } catch {
+    /* a sandboxed frame: the desk still works, without the history */
+  }
+  let lastRoute = currentRoute();
+  const pushRoute = (route: string) => {
+    if (currentRoute() === route) return;
+    nav.i += 1;
+    nav.top = nav.i;
+    try {
+      history.pushState({ oikos: nav.i }, '', urlFor(route));
+    } catch {
+      /* as above */
+    }
+    lastRoute = route;
+    navChanged();
+  };
+  const clearRoute = (route: string) => {
+    if (currentRoute() !== route) return;
+    try {
+      history.replaceState({ oikos: nav.i }, '', here());
+    } catch {
+      /* as above */
+    }
+    lastRoute = '';
+  };
+  /** the browser moved (Back, Forward, a hash typed into the address bar): follow it */
+  const followHistory = () => {
+    const route = currentRoute();
+    const st = history.state as { oikos?: unknown } | null;
+    if (typeof st?.oikos === 'number') nav.i = Math.max(0, Math.min(st.oikos, nav.top));
+    else {
+      // a hash typed by hand is a new step of its own
+      nav.i = nav.top + 1;
+      nav.top = nav.i;
+      try {
+        history.replaceState({ oikos: nav.i }, '', location.href);
+      } catch {
+        /* as above */
+      }
+    }
+    navChanged();
+    if (route === lastRoute) return; // popstate and hashchange both report one move
+    lastRoute = route;
+    go(route, false);
+  };
+  addEventListener('popstate', followHistory);
+  addEventListener('hashchange', followHistory);
+  /** open (or bring forward) the place a route names */
+  function go(route: string, push: boolean): void {
+    if (route === '~' || route === 'home') openHome(push);
+    else if (route === 'mirc') openChat(undefined, push);
+    else if (byId.has(route)) playTape(route, push);
+    else if (route === '') {
+      // back to before any place was opened: the desk stays, the room has the keyboard
+      tuneOut(false);
+      wm.deactivate();
+    }
+  }
 
   let room: Room | null = null;
-  let pane: Pane | null = null;
-  let paneId: string | null = null;
+  /** every tape's pane that's open, by tape: as many as you like, as on any desktop */
+  const panes = new Map<string, Pane>();
+  /** the tape in the VCR (its pane is open, or it's on its way in) */
+  let inVcr: string | null = null;
+  /** the screen kept painting off camera: the pane in front's */
+  let kept: string | null = null;
   let mirc: Mirc | null = null;
   let leaving = false;
-  let tuned: { id: string; bar: HTMLElement; hidden: XPWindow[]; tube: HTMLElement } | null = null;
+  /** tuned in: what it folded away (in stacking order) and which window was active, to put back exactly */
+  let tuned: { id: string; bar: HTMLElement; hidden: XPWindow[]; active: XPWindow | null; tube: HTMLElement } | null = null;
   let playSeq = 0; // the latest tape asked for; a slower one arriving late is ignored
-  let folded = false; // the directory was folded away for the tape playing now
 
   // ---- the shell: what windows may ask for ----
   const shell: Shell = {
@@ -124,62 +194,7 @@ function boot(root: HTMLElement): void {
       room?.focus(id);
     },
     play(id) {
-      const site = byId.get(id);
-      if (!site) return;
-      visit(id);
-      // anything that moves the camera steps out of a tuned-in screen first
-      tuneOut(false);
-      explorer.select(id);
-      if (paneId === id && pane) {
-        room?.play(id);
-        if (pane.win.minimized) pane.win.restore();
-        else pane.win.focus();
-        return;
-      }
-      const old = pane;
-      pane = null;
-      paneId = null;
-      old?.win.close();
-      history.replaceState(null, '', `${here()}#${id}`);
-      // the directory folds away so the tape can be seen going in; it comes
-      // back when this pane closes
-      const home = wm.get('home');
-      if (home && !home.minimized && room) {
-        home.minimize();
-        folded = true;
-      }
-      const token = ++playSeq;
-      const opened = (arrived: boolean) => {
-        if (token !== playSeq) return; // another tape went in meanwhile
-        if (!arrived) {
-          // called off on the way (a click on the floor, a key): take the tape
-          // back out and put the directory back as it was
-          room?.eject();
-          history.replaceState(null, '', here());
-          const dirWin = wm.get('home');
-          if (folded && dirWin?.minimized) dirWin.restore();
-          folded = false;
-          return;
-        }
-        paneId = id;
-        // the pane shows this screen's canvas: keep it painting off camera too
-        room?.keepAlive(id);
-        pane = new Pane(site, shell, wm, () => {
-          if (paneId !== id) return;
-          pane = null;
-          paneId = null;
-          room?.keepAlive(null);
-          room?.eject();
-          if (room?.focusedId === id) room.focus(null);
-          history.replaceState(null, '', here());
-          const dirWin = wm.get('home');
-          if (folded && dirWin?.minimized) dirWin.restore();
-          folded = false;
-        });
-      };
-      // watch the tape go in, the cable light up, the channel change; then the pane
-      if (room) void room.play(id).then(opened);
-      else opened(true);
+      playTape(id, true);
     },
     open(site, e) {
       e?.preventDefault();
@@ -215,8 +230,11 @@ function boot(root: HTMLElement): void {
       if (!room || !site?.tune) return;
       const src = typeof site.tune === 'string' ? site.tune : site.href;
       tuneOut(false);
-      // step back from the desk: the windows fold away until you eject
-      const hidden = wm.list.filter((w) => !w.minimized && !w.opts.dialog);
+      // step back from the desk: the windows fold away until you step out,
+      // and come back as they were (order and the active one) however you do
+      const active = wm.activeWindow;
+      const z = (w: XPWindow) => Number(w.el.style.zIndex) || 0;
+      const hidden = wm.list.filter((w) => !w.minimized && !w.opts.dialog).sort((a, b) => z(a) - z(b));
       for (const w of hidden) w.minimize();
       taskbar.hideBalloon();
       const tube = h('div', { class: 'oikos-tube' });
@@ -248,7 +266,7 @@ function boot(root: HTMLElement): void {
         full.setAttribute('rel', 'noopener');
       }
       bar.append(eject, full);
-      tuned = { id, bar, hidden, tube };
+      tuned = { id, bar, hidden, active, tube };
       // the page lays out at a 4:3 size near the glass's own (1024 wide on a
       // desktop, phone-sized on a phone, so the site uses its own small-screen
       // layout) and is scaled onto the glass
@@ -266,32 +284,35 @@ function boot(root: HTMLElement): void {
       });
     },
     chat(channel) {
-      tuneOut(false);
-      if (!mirc) mirc = new Mirc(shell, wm, () => (mirc = null));
-      mirc.focus(channel);
+      openChat(channel, true);
     },
     home() {
-      visit('~');
-      tuneOut(false);
-      explorer.open();
-      room?.scroll('~ home');
+      openHome(true);
     },
     eject() {
       tuneOut(false);
-      pane?.win.close();
+      // the tape in the VCR comes out, and its pane with it
+      const id = inVcr;
+      if (id) panes.get(id)?.win.close();
+      inVcr = null;
       room?.eject();
       room?.focus(null);
     },
     balloon(title, text, at) {
       taskbar.balloon(title, text, at);
     },
-    back: () => travel(-1),
-    forward: () => travel(1),
+    // the browser's own Back and Forward, but never out of the page from here
+    back: () => {
+      if (nav.i > 0) history.back();
+    },
+    forward: () => {
+      if (nav.i < nav.top) history.forward();
+    },
     get canBack() {
       return nav.i > 0;
     },
     get canForward() {
-      return nav.i < nav.stack.length - 1;
+      return nav.i < nav.top;
     },
     onNav(fn) {
       nav.listeners.add(fn);
@@ -311,9 +332,15 @@ function boot(root: HTMLElement): void {
       // clear the desk: every window closed, the tape out, the camera home
       tuneOut(false);
       for (const w of [...wm.list]) w.close();
+      inVcr = null;
       room?.eject();
       room?.focus(null);
-      history.replaceState(null, '', here());
+      try {
+        history.replaceState({ oikos: nav.i }, '', here());
+      } catch {
+        /* fine */
+      }
+      lastRoute = '';
       taskbar.balloon('Logged off', 'The desk is clear. Click the VCR to begin again.', room?.anchor('vcr') ?? undefined);
     },
     restart() {
@@ -326,16 +353,111 @@ function boot(root: HTMLElement): void {
     },
   });
 
-  function tuneOut(restore: boolean): void {
+  // a window closed by any path (its ✕, a menu, Log Off) takes its hash off the address
+  wm.onClose((w) => {
+    const r = routeOf(w);
+    if (r) {
+      clearRoute(r);
+      if (lastRoute === r) lastRoute = '';
+    }
+  });
+  wm.on(() => keepPainting());
+
+  /**
+   * Step out of a tuned-in screen, whichever way (Eject, Esc, another tape,
+   * ~, a hidden tab): the windows it folded away come back as they were.
+   * `look` also turns the camera back to that screen (when nothing else is
+   * about to take it).
+   */
+  function tuneOut(look: boolean): void {
     if (!tuned) return;
-    const { id, bar, hidden, tube } = tuned;
+    const { id, bar, hidden, active, tube } = tuned;
     tuned = null;
     bar.remove();
     tube.remove();
     room?.tuneOut();
-    if (!restore) return;
-    for (const w of hidden) if (!w.closed) w.restore();
-    room?.focus(id);
+    for (const w of hidden) if (!w.closed && w.minimized) w.restore();
+    if (active && !active.closed && !active.minimized) active.focus();
+    else if (!active) wm.deactivate();
+    if (look) room?.focus(id);
+  }
+
+  /** the tape's pane: open it (after watching the tape go in), or bring it forward */
+  function playTape(id: string, push: boolean): void {
+    const site = byId.get(id);
+    if (!site) return;
+    // anything that moves the camera steps out of a tuned-in screen first
+    tuneOut(false);
+    explorer.select(id);
+    const open = panes.get(id);
+    if (open) {
+      inVcr = id;
+      void room?.play(id);
+      if (open.win.minimized) open.win.restore();
+      else open.win.focus();
+      if (push) pushRoute(id);
+      return;
+    }
+    const token = ++playSeq;
+    const opened = (arrived: boolean) => {
+      if (token !== playSeq) return; // another tape went in meanwhile
+      if (!arrived) {
+        // called off on the way (a click on the floor, a key): take the tape back out
+        room?.eject();
+        inVcr = null;
+        return;
+      }
+      const again = panes.get(id); // opened meanwhile, by another way in
+      if (again) {
+        again.win.focus();
+        return;
+      }
+      inVcr = id;
+      const pane = new Pane(site, shell, wm, () => {
+        panes.delete(id);
+        if (inVcr === id) {
+          inVcr = null;
+          room?.eject();
+        }
+        if (room?.focusedId === id) room.focus(null);
+        keepPainting();
+      });
+      panes.set(id, pane);
+      keepPainting();
+      if (push) pushRoute(id);
+    };
+    // watch the tape go in, the cable light up, the channel change; then the pane
+    if (room) {
+      inVcr = id;
+      void room.play(id).then(opened);
+    } else opened(true);
+  }
+
+  /** the pane in front shows its screen's canvas: keep that one painting off camera too */
+  function keepPainting(): void {
+    const a = wm.activeWindow;
+    const r = a ? routeOf(a) : null;
+    let id = r && panes.has(r) ? r : kept && panes.has(kept) ? kept : null;
+    if (!id) id = [...panes.keys()].at(-1) ?? null;
+    if (id === kept) return;
+    kept = id;
+    room?.keepAlive(id);
+  }
+
+  function openHome(push: boolean): void {
+    tuneOut(false);
+    explorer.open();
+    // the keyboard goes to the tapes, so Enter plays one straight away
+    explorer.focusTiles();
+    room?.scroll('~ home');
+    if (push) pushRoute('~');
+  }
+
+  function openChat(channel: string | undefined, push: boolean): void {
+    tuneOut(false);
+    if (!mirc) mirc = new Mirc(shell, wm, () => (mirc = null));
+    mirc.focus(channel);
+    if (push) pushRoute('mirc');
   }
 
   function aboutBox(): void {
@@ -372,7 +494,7 @@ function boot(root: HTMLElement): void {
           taskbar.showTip(null, null, 0, 0);
           if (id === 'vcr') shell.home();
           else if (id) shell.play(id);
-          else if (room?.focusedId && !pane && !room.busy) room.focus(null);
+          else if (room?.focusedId && !panes.size && !room.busy) room.focus(null);
         },
         hover(id, x, y) {
           if (id === 'vcr') taskbar.showTip(null, { title: 'VCR', text: 'your home directory · click to open ~' }, x, y);
@@ -401,7 +523,7 @@ function boot(root: HTMLElement): void {
     if (id === 'vcr') {
       return [
         { label: 'Open ~', bold: true, run: () => shell.home() },
-        { label: 'Eject', run: () => shell.eject(), disabled: !paneId },
+        { label: 'Eject', run: () => shell.eject(), disabled: !inVcr },
         'sep',
         { label: 'Properties', disabled: true },
       ];
@@ -431,7 +553,7 @@ function boot(root: HTMLElement): void {
       requestAnimationFrame(loop);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (paneId) screens.get(paneId)?.tick(now / 1000, dt, true);
+      for (const id of panes.keys()) screens.get(id)?.tick(now / 1000, dt, true);
     };
     requestAnimationFrame(loop);
   }
@@ -442,7 +564,7 @@ function boot(root: HTMLElement): void {
     const W = innerWidth;
     const H = innerHeight - 30;
     const open = wm.list.filter((w) => !w.minimized && !w.opts.dialog && !w.el.classList.contains('maximized'));
-    if (W <= 720) {
+    if (isSheet()) {
       room.setShift(0, open.length ? H * 0.3 : 0);
       return;
     }
@@ -487,7 +609,10 @@ function boot(root: HTMLElement): void {
       return;
     }
     const t = e.target as HTMLElement;
-    if (t.closest('input, textarea')) return;
+    // keys typed into a field are the field's; only Esc still closes what's
+    // transient (a menu, a dialog), unless the field used it itself
+    const typing = !!t.closest('input, textarea, [contenteditable]');
+    if (typing && (e.key !== 'Escape' || e.defaultPrevented)) return;
     if (e.key === 'Escape' && tuned) {
       tuneOut(true);
       return;
@@ -498,22 +623,49 @@ function boot(root: HTMLElement): void {
       // closes an ordinary window. With nothing left, it steps the camera back.
       if (closeMenus()) return;
       if (taskbar.dismiss()) return;
-      if (!taskbarMenuClosed()) return;
-      const top = wm.activeWindow;
-      if (top?.opts.dialog && !top.minimized) {
-        top.close();
+      if (taskbar.startOpen) {
+        taskbar.toggleMenu(false, true);
         return;
       }
-      if (room?.focusedId) room.focus(null);
+      // the topmost dialog, whichever window is active
+      const dlg = wm.topDialog();
+      if (dlg) {
+        dlg.close();
+        return;
+      }
+      if (room?.focusedId && !wm.activeWindow && !typing) room.focus(null);
       return;
     }
-    // Alt+← / Alt+→: Back and Forward, anywhere
+    if (typing) return;
+    // Alt+← / Alt+→: Back and Forward through the desk, never out of the page
     if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
-      travel(e.key === 'ArrowLeft' ? -1 : 1);
+      if (e.key === 'ArrowLeft') shell.back();
+      else shell.forward();
       return;
     }
-    if (t.closest('.xp-window, .xp-startmenu, .xp-menu, .xp-shutdown')) return;
+    // F10: the active window's menu bar
+    if (e.key === 'F10' && !e.shiftKey) {
+      const title = wm.activeWindow?.el.querySelector('.xp-menutitle') as HTMLElement | null;
+      if (title) {
+        e.preventDefault();
+        title.focus();
+      }
+      return;
+    }
+    // F6: between the active window and the taskbar (Tab never leaves a window)
+    if (e.key === 'F6') {
+      e.preventDefault();
+      const w = wm.activeWindow;
+      if (w && !w.el.contains(t)) w.el.focus();
+      else (root.querySelector('.xp-start') as HTMLElement | null)?.focus();
+      return;
+    }
+    // the room's own keys, only when nothing on the desk has the keyboard: no
+    // active window, no menu, no dialog, and focus not on some control
+    if (wm.activeWindow || menuOpen() || taskbar.startOpen || taskbar.dialogUp) return;
+    if (t.closest('.xp-window, .xp-startmenu, .xp-menu, .xp-shutdown, .xp-taskbar, .xp-balloon, .oikos-tuned')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === '~' || e.key === 'Home') {
       shell.home();
       return;
@@ -546,14 +698,6 @@ function boot(root: HTMLElement): void {
       }, 700);
     }
   });
-  function taskbarMenuClosed(): boolean {
-    const menu = root?.querySelector('.xp-startmenu') as HTMLElement | null;
-    if (menu && !menu.hidden) {
-      taskbar.toggleMenu(false);
-      return false;
-    }
-    return true;
-  }
 
   // ---- visibility: nothing runs, polls or listens in a hidden tab ----
   let booted = false;
@@ -613,22 +757,14 @@ function boot(root: HTMLElement): void {
 
     const look = new URLSearchParams(location.search).get('look');
     if (look && room && (look === 'vcr' || byId.has(look))) setTimeout(() => room?.focus(look), 300);
-    let hash = '';
-    try {
-      hash = decodeURIComponent(location.hash.slice(1));
-    } catch {
-      /* a malformed hash is no tape */
-    }
-    if (hash === 'mirc') {
-      setTimeout(() => shell.chat(), 600);
-      return;
-    }
-    if (hash && byId.has(hash)) {
-      setTimeout(() => shell.play(hash), 900);
+    // a linked place (#~, #mirc, #<tape>) opens as if it had been clicked to
+    const route = currentRoute();
+    if (route && (route === '~' || route === 'home' || route === 'mirc' || byId.has(route))) {
+      setTimeout(() => go(route, false), route === 'mirc' || route === '~' || route === 'home' ? 600 : 900);
       return;
     }
     if (!room) {
-      shell.home(); // through the shell, so ~ is the first place in the history
+      openHome(false); // the place the visit starts at: not a step of its own
       taskbar.balloon('No room tonight', 'This browser has no WebGL, so the room of screens is dark. The tapes all still play.');
       return;
     }
@@ -637,7 +773,7 @@ function boot(root: HTMLElement): void {
       const at = room?.anchor('vcr') ?? undefined;
       taskbar.balloon(
         'This is the way in',
-        innerWidth <= 720
+        isSheet()
           ? 'Tap the VCR for the home directory, or any screen to tune in. Drag to look around.'
           : 'Click the VCR for your home directory, or any screen to tune in. Drag to look around; ← → walk the screens.',
         at,
