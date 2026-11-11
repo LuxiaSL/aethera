@@ -618,6 +618,20 @@
   cursor: pointer;
 }
 
+/* the group's toggle is a real button in the header, wearing the header's look */
+.xp-taskgroup > header > button {
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-shadow: inherit;
+}
+
 .xp-taskgroup > header::after {
   content: '▴';
   font-family: var(--ae-font);

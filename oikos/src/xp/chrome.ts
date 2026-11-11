@@ -167,18 +167,16 @@ export interface TaskItem {
 
 export function taskGroup(title: string, items: TaskItem[] | HTMLElement, primary = false): HTMLElement {
   const g = h('section', { class: `xp-taskgroup${primary ? ' primary' : ''}` });
-  const head = h('header', { role: 'button', tabindex: '0', 'aria-expanded': 'true' }, [title]);
+  // the header is a heading; the control in it is a real button (it was a <header role=button>)
+  const head = h('header');
+  const btn = h('button', { type: 'button', class: 'xp-taskgroup-toggle', 'aria-expanded': 'true' }, [title]);
+  head.append(btn);
   const toggle = () => {
     g.classList.toggle('collapsed');
-    head.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
+    btn.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
   };
+  // the whole header is the target (its ▴ too), the button carries the keyboard and the name
   head.addEventListener('click', toggle);
-  head.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggle();
-    }
-  });
   g.append(head);
   const body = h('div', { class: 'xp-taskbody' });
   if (items instanceof HTMLElement) body.append(items);

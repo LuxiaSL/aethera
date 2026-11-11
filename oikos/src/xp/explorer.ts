@@ -83,16 +83,20 @@ export class Explorer {
     this.tasks = h('aside', { class: 'xp-tasks' });
     main.append(this.tasks);
 
-    const content = h('div', { class: `xp-content view-${this.view}`, role: 'listbox', 'aria-label': 'tapes' });
+    // the folder is a region; each group of tapes is its own listbox (a listbox
+    // may hold only options, not the group headings or the file links)
+    const content = h('div', { class: `xp-content view-${this.view}`, role: 'region', 'aria-label': 'tapes' });
     this.content = content;
     // a click on the folder's blank space clears the selection (the camera stays put)
     content.addEventListener('pointerdown', (e) => {
       if (e.button === 0 && !(e.target as HTMLElement).closest('.xp-tile')) this.select(null);
     });
+    let groups = 0;
     const group = (title: string, sites: Site[]) => {
       if (!sites.length) return;
-      content.append(h('h3', { class: 'xp-group-head' }, [title]));
-      const grid = h('div', { class: 'xp-tiles' });
+      const headId = `xp-group-${++groups}`;
+      content.append(h('h3', { class: 'xp-group-head', id: headId }, [title]));
+      const grid = h('div', { class: 'xp-tiles', role: 'listbox', 'aria-labelledby': headId });
       for (const s of sites) grid.append(this.tile(s));
       content.append(grid);
     };
