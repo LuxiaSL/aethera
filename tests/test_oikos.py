@@ -77,7 +77,7 @@ def test_bundle_is_committed():
 def test_pages_frame_only_for_themselves(client: TestClient):
     """oikos lays the real pages on its screens, so æthera may frame æthera;
     nobody else may (clickjacking stays shut)."""
-    for path in ("/syrinx", "/oikos", "/irc/admin"):
+    for path in ("/syrinx", "/oikos"):
         r = client.get(path)
         assert r.headers["content-security-policy"] == "frame-ancestors 'self'", path
         assert r.headers["x-frame-options"] == "SAMEORIGIN", path

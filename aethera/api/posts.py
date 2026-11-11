@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, Form, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlmodel import Session, select
 from typing import List, Optional
@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from aethera.models.base import get_session
 from aethera.models.models import Post, Comment, SlugRedirect
 from aethera.utils.markdown import render_markdown
-from aethera.utils.posts import save_post
 from aethera.utils.templates import templates
 from aethera.api.comments import compute_backlinks_with_cross_post
 
@@ -357,74 +356,3 @@ def get_post_json(slug: str, session: Session = Depends(get_session)):
     
     # Return the post directly, FastAPI will convert it to the response model
     return post
-
-
-@router.post("/api/posts", status_code=status.HTTP_201_CREATED)
-def create_post(
-    title: str = Form(...),
-    content: str = Form(...),
-    author: str = Form(...),
-    tags: Optional[str] = Form(None),
-    categories: Optional[str] = Form(None),
-    canonical_url: Optional[str] = Form(None),
-    license: str = Form("CC BY 4.0"),
-    published: bool = Form(False),
-    session: Session = Depends(get_session),
-):
-    """Create a new post from Markdown content."""
-    # Use the shared save_post utility function
-    post = save_post(
-        session=session,
-        title=title,
-        content=content,
-        author=author,
-        tags=tags,
-        categories=categories,
-        canonical_url=canonical_url,
-        license=license,
-        published=published
-    )
-    
-    return {"id": post.id, "slug": post.slug}
-
-
-@router.put("/api/posts/{slug}", status_code=status.HTTP_200_OK)
-def update_post(
-    slug: str,
-    title: Optional[str] = Form(None),
-    content: Optional[str] = Form(None),
-    tags: Optional[str] = Form(None),
-    categories: Optional[str] = Form(None),
-    canonical_url: Optional[str] = Form(None),
-    license: Optional[str] = Form(None),
-    published: Optional[bool] = Form(None),
-    session: Session = Depends(get_session),
-):
-    """Update an existing post."""
-    # Find the existing post
-    post = session.exec(select(Post).where(Post.slug == slug)).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-    
-    # Preserve existing values for fields that weren't provided
-    current_title = post.title if title is None else title
-    current_content = post.content if content is None else content
-    current_author = post.author
-    current_license = post.license if license is None else license
-    current_published = post.published if published is None else published
-    
-    # Use the shared save_post utility function
-    updated_post = save_post(
-        session=session,
-        title=current_title,
-        content=current_content,
-        author=current_author,
-        tags=tags,
-        categories=categories,
-        canonical_url=canonical_url,
-        license=current_license,
-        published=current_published,
-        existing_post=post
-    )
-    
-    return {"id": updated_post.id, "slug": updated_post.slug}
