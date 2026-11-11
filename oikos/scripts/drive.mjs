@@ -191,7 +191,7 @@ async function desktopTour() {
   }
 
   // close the pane: the tape comes back out
-  await page.keyboard.press('Escape');
+  await page.locator('.xp-window[data-win="site:apeiron"] .xp-close').click();
   await run(40, 1);
   await key('tape-out');
   await page.keyboard.press('Escape');
@@ -221,7 +221,8 @@ async function desktopTour() {
   await key('channel-7');
 
   // open it: the dive through the glass (then the page leaves)
-  const open = page.locator('.xp-window .xp-btn.default').first();
+  // several tapes can be open at once now: syrinx's own Open button
+  const open = page.locator('.xp-window[data-win="site:syrinx"] .xp-btn.default').first();
   if (await open.count()) {
     const bound = await page.evaluate(() => location.origin);
     await open.click();
