@@ -10,8 +10,11 @@ blocked loop per cold visit to /oikos, for zero bytes saved on the MP4).
 
 - `asset_url("oikos/oikos.js")` gives "/static/oikos/oikos.js?v=<hash>". The
   hash is of the file's bytes, so the URL changes exactly when the file does.
-- `CachedStaticFiles` serves a `?v=` URL as immutable for a year, and anything
-  else for five minutes, then revalidates with the ETag Starlette already sends.
+- `CachedStaticFiles` serves a URL as immutable for a year only when its `?v=`
+  is the file's current content hash (what asset_url wrote). Anything else,
+  hand-written versions like `?v=2` included, gets five minutes and then
+  revalidates with the ETag Starlette already sends: a hand-bumped number can
+  be forgotten, and a year-long pin on a stale file can't be taken back.
 - `SelectiveGZipMiddleware` passes already-compressed formats straight through
   and compresses the rest at level 6 (level 9 costs far more CPU for ~1% more).
 """
@@ -22,6 +25,7 @@ import hashlib
 import logging
 import mimetypes
 from pathlib import Path
+from urllib.parse import parse_qs
 from typing import Final
 
 from starlette.middleware.gzip import GZipMiddleware
@@ -53,6 +57,22 @@ SHORT: Final[str] = "public, max-age=300"
 _hashes: dict[str, tuple[int, int, str]] = {}
 
 
+def content_hash(rel: str) -> str:
+    """Short sha256 of a file under /static; recomputed only when it changes.
+    Raises OSError / ValueError for a missing file or a path outside /static."""
+    rel = rel.lstrip("/")
+    path = (STATIC_ROOT / rel).resolve()
+    if STATIC_ROOT not in path.parents:
+        raise ValueError("outside /static")
+    st = path.stat()
+    cached = _hashes.get(rel)
+    if cached and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+        return cached[2]
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    _hashes[rel] = (st.st_mtime_ns, st.st_size, digest)
+    return digest
+
+
 def asset_url(rel: str) -> str:
     """
     URL for a file under /static, versioned by its content.
@@ -62,30 +82,30 @@ def asset_url(rel: str) -> str:
     """
     rel = rel.lstrip("/")
     bare = f"/static/{rel}"
-    path = (STATIC_ROOT / rel).resolve()
     try:
-        if STATIC_ROOT not in path.parents:
-            raise ValueError("outside /static")
-        st = path.stat()
-        cached = _hashes.get(rel)
-        if cached and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
-            return f"{bare}?v={cached[2]}"
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
-        _hashes[rel] = (st.st_mtime_ns, st.st_size, digest)
-        return f"{bare}?v={digest}"
+        return f"{bare}?v={content_hash(rel)}"
     except (OSError, ValueError) as e:
         log.warning("asset_url(%r): %s; serving it unversioned", rel, e)
         return bare
 
 
+def _pinned(path: str, query: bytes) -> bool:
+    """True when the URL's ?v= is this file's current content hash."""
+    try:
+        v = parse_qs(query.decode("latin-1")).get("v", [""])[0]
+        return len(v) == 12 and v == content_hash(path)
+    except (OSError, ValueError, UnicodeDecodeError):
+        return False
+
+
 class CachedStaticFiles(StaticFiles):
-    """StaticFiles with Cache-Control: a year for versioned URLs, five minutes otherwise."""
+    """StaticFiles with Cache-Control: a year for content-hashed URLs, five minutes otherwise."""
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         if response.status_code in (200, 206, 304):
-            versioned = b"v=" in scope.get("query_string", b"")
-            response.headers["Cache-Control"] = IMMUTABLE if versioned else SHORT
+            pinned = _pinned(path, scope.get("query_string", b""))
+            response.headers["Cache-Control"] = IMMUTABLE if pinned else SHORT
         return response
 
 

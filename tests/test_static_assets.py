@@ -46,3 +46,13 @@ def test_fonts_have_font_types(client: TestClient):
     # under nosniff, a font served as text/plain is refused
     assert client.get("/static/fonts/LoveLetterTypewriter.woff2").headers["content-type"] == "font/woff2"
     assert client.get("/static/fonts/LibertinusMono-Regular.ttf").headers["content-type"] == "font/ttf"
+
+
+def test_hand_written_versions_are_not_pinned(client: TestClient):
+    """?v=2 by hand can be forgotten when the file changes: only a URL whose v
+    is the file's own content hash may be cached for a year."""
+    r = client.get("/static/oikos/oikos.js?v=2")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "public, max-age=300"
+    # a stale hash (the file changed since the URL was written) is not pinned either
+    assert client.get("/static/oikos/oikos.js?v=000000000000").headers["cache-control"] == "public, max-age=300"
