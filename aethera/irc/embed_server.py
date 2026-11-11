@@ -1,18 +1,15 @@
 """
 Minimal OpenAI-compatible /v1/embeddings server (sentence-transformers).
 
-This is NOT part of the core package runtime — it runs on **the GPU node**, in the
-user's `~/luxi-files/.venv-shared` (which has torch+CUDA, transformers,
-sentence-transformers, fastapi/uvicorn). It exists because the GPU node's production
-vLLM (conda env `blackwell`) can't serve embeddings (a flashinfer-cubin version
-bug), so we host embeddings directly. `aethera/irc/semantic_dedup.py` calls this
-endpoint (default http://localhost:8001/v1).
+This is NOT part of the core package runtime. It runs on whatever GPU machine
+serves the generation model, in any Python environment with torch+CUDA,
+transformers, sentence-transformers and fastapi/uvicorn. It exists because the
+vLLM build serving generation couldn't serve embeddings (a flashinfer-cubin
+version bug), so embeddings are hosted directly. `aethera/irc/semantic_dedup.py`
+calls this endpoint (default http://localhost:8001/v1).
 
-Deploy (scp this file to the GPU node:~/luxi-files/, then):
-  CUDA_VISIBLE_DEVICES=1 PORT=8001 EMBED_MODEL=BAAI/bge-large-en-v1.5 \
-    HF_HOME=~/luxi-files/.hf-cache setsid nohup \
-    ~/luxi-files/.venv-shared/bin/python embed_server.py > embed_server.log 2>&1 &
-  # reachable from the laptop over the VPN at the node's :8001 (like :8000).
+Run it:
+  PORT=8001 EMBED_MODEL=BAAI/bge-large-en-v1.5 python embed_server.py
 
 bge-large is 512-token context; for long (two-act) fragments swap EMBED_MODEL for
 a bigger-context model (e.g. Alibaba-NLP/gte-large-en-v1.5, nomic — 8192 tokens).
