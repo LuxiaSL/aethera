@@ -134,8 +134,48 @@ function catenary(a: THREE.Vector3, b: THREE.Vector3, sag: number, segs = 32): T
   return pts;
 }
 
+/**
+ * Positions and normals of many meshes as one (what the poles' plain material
+ * reads), without pulling in BufferGeometryUtils for it.
+ */
+function mergeSolid(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const pos: number[] = [];
+  const nor: number[] = [];
+  const idx: number[] = [];
+  for (const g of geos) {
+    const p = g.getAttribute('position');
+    const n = g.getAttribute('normal');
+    const base = pos.length / 3;
+    for (let i = 0; i < p.count; i++) {
+      pos.push(p.getX(i), p.getY(i), p.getZ(i));
+      nor.push(n.getX(i), n.getY(i), n.getZ(i));
+    }
+    const index = g.getIndex();
+    if (index) for (let i = 0; i < index.count; i++) idx.push(base + index.getX(i));
+    else for (let i = 0; i < p.count; i++) idx.push(base + i);
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  out.setIndex(idx);
+  return out;
+}
+
+/** a polyline as line-segment pairs, so many lines can share one draw */
+function segments(pts: THREE.Vector3[], out: number[]): void {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (a && b) out.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  }
+}
+
 export function makePowerLines(): THREE.Group {
   const g = new THREE.Group();
+  // built as separate pieces, drawn as two: every pole and arm in one mesh,
+  // every wire in one set of line segments (was ~50 draw calls)
+  const wood: THREE.BufferGeometry[] = [];
+  const wire: number[] = [];
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x0d0b0b, roughness: 0.9 });
   const lineMat = new THREE.LineBasicMaterial({ color: 0x050404 });
   const poles = [
@@ -148,18 +188,20 @@ export function makePowerLines(): THREE.Group {
   const H = 12.5;
   const arms: THREE.Vector3[][] = [];
   poles.forEach((p, i) => {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.17, H, 8), poleMat);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.17, H, 8));
     pole.position.set(p.x, H / 2, p.z);
-    g.add(pole);
+    pole.updateMatrix();
+    wood.push(pole.geometry.applyMatrix4(pole.matrix));
     const next = poles[i + 1] ?? poles[i - 1] ?? p;
     const dir = new THREE.Vector3().subVectors(next, p).setY(0).normalize();
     const across = new THREE.Vector3(-dir.z, 0, dir.x);
     const tips: THREE.Vector3[] = [];
     for (const [y, span] of [[H - 0.4, 1.9], [H - 1.5, 1.4]] as const) {
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(span * 2, 0.12, 0.12), poleMat);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(span * 2, 0.12, 0.12));
       arm.position.set(p.x, y, p.z);
       arm.rotation.y = Math.atan2(-across.z, across.x);
-      g.add(arm);
+      arm.updateMatrix();
+      wood.push(arm.geometry.applyMatrix4(arm.matrix));
       for (const s of [-1, -0.45, 0.45, 1]) {
         tips.push(new THREE.Vector3(p.x, y + 0.08, p.z).addScaledVector(across, s * span * 0.95));
       }
@@ -173,8 +215,7 @@ export function makePowerLines(): THREE.Group {
     a.forEach((pa, k) => {
       const pb = b[k];
       if (!pb) return;
-      const geo = new THREE.BufferGeometry().setFromPoints(catenary(pa, pb, 1.4 + (k % 3) * 0.25));
-      g.add(new THREE.Line(geo, lineMat));
+      segments(catenary(pa, pb, 1.4 + (k % 3) * 0.25), wire);
     });
   }
   // and a few that come down toward the room, where the hanging screens are
@@ -186,8 +227,13 @@ export function makePowerLines(): THREE.Group {
   ] as const;
   for (const [a, b] of drops) {
     if (!a) continue;
-    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(catenary(a, b, 2.2)), lineMat));
+    segments(catenary(a, b, 2.2), wire);
   }
+  g.add(new THREE.Mesh(mergeSolid(wood), poleMat));
+  for (const geo of wood) geo.dispose();
+  const wires = new THREE.BufferGeometry();
+  wires.setAttribute('position', new THREE.Float32BufferAttribute(wire, 3));
+  g.add(new THREE.LineSegments(wires, lineMat));
   return g;
 }
 
