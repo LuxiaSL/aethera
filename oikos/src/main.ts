@@ -439,6 +439,14 @@ function boot(root: HTMLElement): void {
   // keep the focused screen out from under the windows
   const reframe = () => {
     if (!room) return;
+    // a maximised window covers the room but for its glass (see RoomVisibility);
+    // not on a phone, where even a maximised window is a sheet over the room
+    const covered = wm.list.some((w) => {
+      if (w.minimized || !w.maximized) return false;
+      const r = w.el.getBoundingClientRect();
+      return r.top <= 1 && r.height >= innerHeight - 40;
+    });
+    room.setVisibility(covered ? 'glimpsed' : 'full');
     const W = innerWidth;
     const H = innerHeight - 30;
     const open = wm.list.filter((w) => !w.minimized && !w.opts.dialog && !w.el.classList.contains('maximized'));
