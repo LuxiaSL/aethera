@@ -1,140 +1,80 @@
+<div align="center">
+
 # æthera
 
-A lightweight, AI-friendly blog platform with semantic HTML, markdown support, and simple commenting.
+**thoughts, fragments, and transmissions from the digital aether**
 
-## Features
+The code behind [aetherawi.red](https://aetherawi.red): a blog, a dream that never<br>
+stops, a room of old televisions, and a few small creatures.
 
-- Semantic HTML structure optimized for AI crawling
-- Markdown post authoring with preview
-- Real-time comments with tripcodes
-- Infinite scroll via HTMX
-- SEO-optimized with sitemap, RSS feed, and JSON-LD
-- Minimal, responsive design with Tailwind CSS
-- SQLite database for simplicity
-- **Dream Window Integration** - Live AI art streaming at `/dreams`
+[**Visit**](https://aetherawi.red) · [The dream](https://aetherawi.red/dreams) · [The room](https://aetherawi.red/oikos) · [dream_gen](https://github.com/LuxiaSL/dream_gen)
 
-## Quick Start
+</div>
 
-### Prerequisites
+## What's here
 
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/) for dependency management
+| | |
+|---|---|
+| [`/`](https://aetherawi.red) | **transmissions**, the blog. There are no accounts: comments carry tripcodes and arrive live. |
+| [`/dreams`](https://aetherawi.red/dreams) | the live stream from [dream_gen](https://github.com/LuxiaSL/dream_gen). The picture's edges fold out into a hand-made stage. Lift the bottom-left corner to look backstage. |
+| [`/dreams/chronicle`](https://aetherawi.red/dreams/chronicle) | the dream's history: every era as a band in one long strip, with its scenes and prompts. |
+| [`/oikos`](https://aetherawi.red/oikos) | the home directory, as a 3D room of CRT screens wired to a VCR. Each screen shows one part of the site, live wherever it can be. |
+| [`/oikos#mirc`](https://aetherawi.red/oikos#mirc) | **#oikos**, a small live chat in an mIRC window. |
+| [`/irc`](https://aetherawi.red/irc) | **#aethera**, a haunted IRC channel. Everyone watching sees the same fragments at the same time. |
+| [`/apeiron`](https://aetherawi.red/apeiron) | the prompt space that feeds the dream, drawn as 3D ASCII geometry. |
+| [`/syrinx`](https://aetherawi.red/syrinx) | a creature made of springs that you can hear. |
+| [`/afterlife`](https://aetherawi.red/afterlife) | a universe that runs in your browser and makes music. |
 
-### Installation
+For machines and feed readers there are [`/llms.txt`](https://aetherawi.red/llms.txt),
+[`/feed.xml`](https://aetherawi.red/feed.xml) and a plain-text or Markdown copy of every post.
 
-1. Clone the repository
-2. Setup the development environment:
+## Run it
+
+You need Python 3.11 or newer and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# Install dependencies
+git clone https://github.com/LuxiaSL/aethera && cd aethera
 uv sync
-```
-
-### Configuration
-
-Create a `.env` file with your configuration:
-
-```bash
-# Copy example configuration (if exists)
-cp .env.example .env
-
-# Edit with your settings
-nano .env
-```
-
-Key environment variables:
-- `DATABASE_URL`: SQLite or other database URL
-- `AETHERA_TRIPCODE_SALT`: Salt for comment tripcodes
-- `DREAM_GEN_AUTH_TOKEN`: Shared secret for GPU worker authentication (Dreams module)
-
-### Database Setup
-
-The application uses SQLite with SQLModel and Alembic for migrations:
-
-```bash
-# Apply migrations to create the database
 uv run alembic upgrade head
+uv run python -m aethera.main      # http://localhost:2222
+uv run pytest -q
 ```
 
-### Running the Development Server
+The 3D pages are separate [Vite](https://vite.dev) projects in `oikos/`, `syrinx/`,
+`afterlife/` and `apeiron/`. Each one builds into `aethera/static/<name>/`. The built
+bundles are committed, so the server never needs Node. To rebuild one:
 
 ```bash
-# Start the development server
-uv run python -m aethera.main
+cd oikos && npm ci && npm run build
 ```
 
-The blog will be available at [http://localhost:8000](http://localhost:8000).
+### Settings
 
-### Docker Deployment
+| Variable | What it does |
+|---|---|
+| `DATABASE_URL` | where the blog database lives |
+| `AETHERA_TRIPCODE_SALT` | the secret behind comment and chat tripcodes |
+| `DREAM_GEN_AUTH_TOKEN` | the token a GPU must present to stream a dream. Always set it. |
+| `CHRONICLE_RETENTION_DAYS` | how long the chronicle keeps its detail (default 14) |
+| `BLOG_PREVIEW_TOKEN` | unlocks draft previews |
 
-```bash
-# Build the Docker image
-docker build -t aethera:latest .
+## How the dream gets here
 
-# Run the container
-docker run -p 8000:8000 \
-  -e AETHERA_TRIPCODE_SALT=your_secure_salt \
-  -v ./data:/app/data \
-  aethera:latest
-```
+A GPU running [dream_gen](https://github.com/LuxiaSL/dream_gen) connects to `/ws/gpu`
+with its token and streams H.264. The server passes the stream straight through to every
+viewer on `/ws/dreams`. It keeps the last full frame for anyone who joins late, and it
+moves a viewer who falls behind on to the next full frame. The same connection carries
+the dream's chronicle records. The server sorts them into eras and scenes, and adds
+them to the history strip as they arrive. The public API is documented at
+[`/dreams/api`](https://aetherawi.red/dreams/api).
 
-## Project Structure
+## Deploy
 
-- `aethera/` - Main package
-  - `api/` - API routers for posts, comments, SEO, and dreams
-  - `models/` - SQLModel database models
-  - `templates/` - Jinja2 templates
-  - `static/` - Static files (CSS, JS, uploads)
-  - `utils/` - Utility functions
-  - `dreams/` - Dream Window streaming module
+Every push to `main` runs the tests and, at the same time, deploys: the server pulls the
+new code and restarts it in Docker, behind [Caddy](https://caddyserver.com). The deploy
+does not wait for the tests.
 
-## 🌙 Dream Window Integration
+## Credits
 
-æthera hosts the web viewer for [Dream Window](https://github.com/LuxiaSL/dream_gen), a continuously morphing AI art generator. Visit `/dreams` to watch live AI-generated art that never repeats.
-
-### Routes
-
-| Route | Description |
-|-------|-------------|
-| `/dreams` | Live viewer page with WebSocket streaming |
-| `/api/dreams/status` | System status (GPU state, frame count, viewers) |
-| `/api/dreams/current` | Current frame as WebP image |
-| `/api/dreams/embed` | Embeddable snippet for third-party sites |
-| `/ws/dreams` | WebSocket endpoint for live frame streaming |
-
-### Architecture
-
-The Dreams module acts as a relay between browsers and a GPU cloud worker:
-
-```
-Browsers ←→ æthera (VPS) ←→ GPU Worker (Heimdall/B200)
-         WebSocket        WebSocket
-```
-
-- **ViewerPresenceTracker**: Tracks viewer count and GPU connection state
-- **FrameCache**: Stores recent frames for instant display on connect
-- **DreamWebSocketHub**: Broadcasts frames to all connected viewers
-
-### Configuration
-
-Set these environment variables for Dreams functionality:
-
-```bash
-# Required for GPU worker authentication
-DREAM_GEN_AUTH_TOKEN=your_secure_shared_secret
-```
-
-
-## Production Considerations
-
-### Rate Limiting
-
-æthera includes a simple in-memory rate limiter to prevent comment spam. Important limitations:
-
-- The rate limiter is in-memory and will reset when the server restarts
-- In a multi-worker/process deployment, each worker maintains its own rate limit state
-- For production with multiple workers or load balancing, consider implementing a Redis-backed rate limiter
-
-## License
-
-Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+By [luxia](https://x.com/slLuxia). The code is [MIT](LICENSE); posts, writing and art are
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
