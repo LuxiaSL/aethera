@@ -128,8 +128,12 @@ export class Explorer {
       dock: 'left',
       onClose: () => {
         offNav();
+        // let the closed window's DOM go: nothing here may keep it alive
         this.win = null;
         this.content = null;
+        this.tasks = null;
+        this.status = null;
+        this.tiles.clear();
         this.selected = null;
       },
     });
