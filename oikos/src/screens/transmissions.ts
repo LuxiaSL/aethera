@@ -16,6 +16,8 @@ export class TransmissionsScreen extends Screen {
   constructor(site: Site, env: ScreenEnv) {
     super(site, env);
     this.fps = 12;
+    // between excerpts only the dust, the star and the logo's breath move
+    this.idleFps = 4;
     const rand = rng(7);
     this.specks = Array.from({ length: 70 }, () => ({
       x: rand() * W, y: rand() * H, r: rand() * 1.2 + 0.3, red: rand() < 0.35, v: rand() * 4 + 1,
@@ -48,6 +50,7 @@ export class TransmissionsScreen extends Screen {
     ctx.fillRect(40, 132, W - 80, 1);
 
     const posts = this.env.dir.posts.slice(0, 6);
+    this.settled = true;
     if (!posts.length) {
       ctx.fillStyle = '#9a9a9a';
       ctx.font = `16px ${MONO}`;
@@ -60,6 +63,8 @@ export class TransmissionsScreen extends Screen {
     const period = 3.6;
     const active = Math.floor(t / period) % posts.length;
     const phase = (t % period) / period;
+    // typing the excerpt (and just before the next one starts) runs at full rate
+    this.settled = phase * 1.6 >= 1 && period - (t % period) > 0.3;
     posts.forEach((p, i) => {
       const y = 162 + i * 29;
       const on = i === active;

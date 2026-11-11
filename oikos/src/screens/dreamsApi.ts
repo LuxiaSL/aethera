@@ -32,27 +32,32 @@ export class DreamsApiScreen extends Screen {
     this.fps = 12;
   }
 
-  protected draw(t: number): void {
+  protected draw(t: number): boolean | void {
     const ctx = this.ctx;
-    this.clear(BG);
     const raw = this.env.feeds.dreams.value.raw;
     if (raw !== this.lastRaw) {
       this.lastRaw = raw;
       this.askedAt = t;
     }
     const since = t - this.askedAt;
-
-    ctx.font = `13px ${MONO}`;
     const cmd = `curl -s ${location.host}/api/dreams/status`;
     const typed = cmd.slice(0, Math.floor(since * 38));
+    const cursor = typed.length < cmd.length || Math.floor(t * 2) % 2 === 1;
+    // the answer is at most 11 lines; past that, more time shows nothing new
+    const shown = Math.min(12, Math.floor((since - cmd.length / 38) * 30));
+    const lit = Math.floor(t / 2.5) % ENDPOINTS.length;
+    // between polls the terminal only blinks and moves its highlight
+    if (this.unchanged(raw, typed.length, cursor, shown, lit)) return false;
+
+    this.clear(BG);
+    ctx.font = `13px ${MONO}`;
     ctx.fillStyle = DIM;
     ctx.fillText('$', 16, 28);
     ctx.fillStyle = FG;
-    ctx.fillText(typed + (typed.length < cmd.length || Math.floor(t * 2) % 2 ? '▌' : ''), 32, 28);
+    ctx.fillText(typed + (cursor ? '▌' : ''), 32, 28);
 
     if (typed.length >= cmd.length) {
       const lines = raw ? jsonLines(raw, 11) : [[{ text: 'curl: (52) the dream did not answer', color: '#e58a8a' }]];
-      const shown = Math.floor((since - cmd.length / 38) * 30);
       lines.slice(0, shown).forEach((segs, i) => {
         let x = 16;
         for (const s of segs) {
@@ -74,10 +79,9 @@ export class DreamsApiScreen extends Screen {
     ctx.fillText('ENDPOINTS', 20, top - 4);
     ENDPOINTS.forEach(([m, path, note], i) => {
       const y = top + 16 + i * 19;
-      const lit = Math.floor(t / 2.5) % ENDPOINTS.length === i;
-      ctx.fillStyle = lit ? NUM : DIM;
+      ctx.fillStyle = lit === i ? NUM : DIM;
       ctx.fillText(m, 20, y);
-      ctx.fillStyle = lit ? '#ffffff' : FG;
+      ctx.fillStyle = lit === i ? '#ffffff' : FG;
       ctx.fillText(path, 58, y);
       ctx.fillStyle = DIM;
       ctx.fillText(note, 250, y);

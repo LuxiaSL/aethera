@@ -24,6 +24,9 @@ export class ChronicleScreen extends Screen {
   constructor(site: Site, env: ScreenEnv) {
     super(site, env);
     this.fps = 10;
+    // the core is still; only the reading head drifts (14 px/s) and a dot blinks
+    this.idleFps = 4;
+    this.settled = true;
     this.standIn = makeStandIn();
   }
 

@@ -104,6 +104,7 @@ export class Monitor {
   readonly portLocal: THREE.Vector3;
   readonly topLocal: THREE.Vector3;
   private led: THREE.Mesh;
+  private ledState = ''; // what the LED shows now, so a frame that changes nothing parses no colour
 
   constructor(opts: MonitorOpts) {
     const sw = opts.screenW;
@@ -191,7 +192,10 @@ export class Monitor {
   }
 
   setLed(on: boolean, color: string): void {
-    (this.led.material as THREE.MeshBasicMaterial).color.set(on ? color : '#1a2a1a');
+    const want = on ? color : '#1a2a1a';
+    if (want === this.ledState) return;
+    this.ledState = want;
+    (this.led.material as THREE.MeshBasicMaterial).color.set(want);
   }
 
   /** world position of a local point */

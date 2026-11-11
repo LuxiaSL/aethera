@@ -108,10 +108,16 @@ export class IrcScreen extends Screen {
     return rows;
   }
 
-  protected draw(t: number): void {
+  protected draw(t: number): boolean | void {
     this.layout();
     const ctx = this.ctx;
     const irc = this.env.feeds.irc.value;
+    const liveOn = Math.sin(t * 3) > -0.3;
+    // between lines the channel only blinks its live dot; a line fading in or
+    // a collapse tearing it moves every frame
+    const at = performance.now();
+    const fading = this.laidOut.length > 0 && at - (this.laidOut[this.laidOut.length - 1]?.at ?? 0) < 600;
+    if (!irc.collapse && !fading && this.unchanged(irc, liveOn)) return false;
     this.clear(COL.bg);
     ctx.fillStyle = COL.screen;
     ctx.fillRect(6, 6, W - 12, H - 12);
@@ -125,7 +131,7 @@ export class IrcScreen extends Screen {
     ctx.fillStyle = COL.dim;
     ctx.font = `11px ${MONO}`;
     ctx.textAlign = 'right';
-    const live = irc.connected ? (Math.sin(t * 3) > -0.3 ? '● live' : '○ live') : '○ connecting…';
+    const live = irc.connected ? (liveOn ? '● live' : '○ live') : '○ connecting…';
     ctx.fillStyle = irc.connected ? COL.join : COL.dim;
     ctx.fillText(live, W - PAD_X, 25);
     ctx.textAlign = 'left';

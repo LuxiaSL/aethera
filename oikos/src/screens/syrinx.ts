@@ -30,7 +30,10 @@ export class SyrinxScreen extends Screen {
 
   constructor(site: Site, env: ScreenEnv) {
     super(site, env);
-    this.fps = 24;
+    // 20, not 24: what a 60 Hz display actually showed when screens dropped
+    // their remainder (24 fps needed three vsyncs, i.e. 20); the base class
+    // now keeps the remainder, so a nominal 24 would mean a fifth more paints
+    this.fps = 20;
     const rand = rng(33);
     this.stars = Array.from({ length: 90 }, () => ({ x: rand() * W, y: rand() * H, a: rand() * 0.5 + 0.1 }));
     this.body = unborn();

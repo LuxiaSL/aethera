@@ -119,8 +119,13 @@ export class ParlorScreen extends Screen {
     if (this.owner.size > 22) this.owner.clear();
   }
 
-  protected draw(t: number, dt: number): void {
+  protected draw(t: number, dt: number): boolean | void {
     this.step(Math.min(dt, 0.2));
+    // between turns the table is still: a token hopping (and the dice
+    // wobbling with it) is the only motion
+    if (this.hop.left === 0 && this.unchanged(this.log, this.dice, this.turn, this.owner.size, this.pos[0], this.pos[1], this.pos[2], this.pos[3])) {
+      return false;
+    }
     const ctx = this.ctx;
     const bg = ctx.createRadialGradient(W / 2, OY, 40, W / 2, OY, W * 0.7);
     bg.addColorStop(0, '#2a241f');

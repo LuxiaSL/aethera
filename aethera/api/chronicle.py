@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -110,8 +110,12 @@ def _era_json(e: ChronicleEra, scenes: list) -> dict:
     }
 
 
+def _clamp_hours(hours: int) -> int:
+    return max(1, min(int(hours), MAX_HOURS))
+
+
 def build_timeline(before: Optional[float], hours: int) -> dict[str, Any]:
-    hours = max(1, min(int(hours), MAX_HOURS))
+    hours = _clamp_hours(hours)
     tiles = strata.list_tiles(before=strata.utc_naive(before) if before else None, limit=hours)
     out: dict[str, Any] = {"now": round(time.time(), 1), "tiles": [], "eras": [],
                            "annotations": [], "older": None, "live": None}
@@ -212,10 +216,38 @@ async def chronicle_page(request: Request):
     )
 
 
+# The live timeline (no ?before=) is the same for every viewer: every open
+# /oikos polls it every two minutes and the chronicle page opens on it. Each
+# build is a filesystem scan plus four SQLite queries, so the encoded answer
+# is kept for TIMELINE_TTL seconds per span, and viewers who ask while one
+# is being built wait for it instead of building their own. Paged requests
+# (?before=) are per-viewer and stay uncached.
+TIMELINE_TTL = 30.0
+_timeline_cache: dict[int, tuple[float, bytes]] = {}
+_timeline_locks: dict[int, asyncio.Lock] = {}
+
+
+async def _live_timeline(hours: int) -> bytes:
+    hit = _timeline_cache.get(hours)
+    if hit and time.monotonic() - hit[0] < TIMELINE_TTL:
+        return hit[1]
+    lock = _timeline_locks.setdefault(hours, asyncio.Lock())
+    async with lock:
+        hit = _timeline_cache.get(hours)  # built while we waited
+        if hit and time.monotonic() - hit[0] < TIMELINE_TTL:
+            return hit[1]
+        body = json.dumps(await asyncio.to_thread(build_timeline, None, hours),
+                          separators=(",", ":")).encode()
+        _timeline_cache[hours] = (time.monotonic(), body)
+        return body
+
+
 @router.get("/api/dreams/chronicle/timeline")
 async def chronicle_timeline(request: Request, before: Optional[float] = None, hours: int = 24):
     _limit(request)
     try:
+        if before is None:
+            return Response(await _live_timeline(_clamp_hours(hours)), media_type="application/json")
         return JSONResponse(await asyncio.to_thread(build_timeline, before, hours))
     except Exception:
         logger.warning("Chronicle timeline failed", exc_info=True)

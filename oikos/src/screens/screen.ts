@@ -45,12 +45,36 @@ export interface ScreenEnv {
   feeds: Feeds;
 }
 
+/**
+ * Bumped whenever a web font finishes loading. A screen that skips repainting
+ * an unchanged frame (see Screen.unchanged) would otherwise keep the fallback
+ * face it was first painted in for as long as nothing on it moved.
+ */
+let fontEpoch = 0;
+try {
+  document.fonts?.addEventListener('loadingdone', () => fontEpoch++);
+} catch {
+  /* no FontFaceSet (a worker, an old engine): painters repaint on their own changes */
+}
+
 export abstract class Screen {
   readonly canvas: HTMLCanvasElement;
   protected readonly ctx: CanvasRenderingContext2D;
   /** frames per second while merely visible; the focused screen runs faster */
   protected fps = 15;
+  /**
+   * The rate while the screen is only glimpsed in the room (not focused, not
+   * in an open pane) and `settled`: nothing on it is in transition, only slow
+   * drift that a few frames a second shows just as well. 0: no idle rate.
+   */
+  protected idleFps = 0;
+  /** set by draw(): whether the idle rate may apply to the next frames */
+  protected settled = false;
   private acc = 1; // draw on the first tick
+  private since = 0; // seconds since the last draw, handed to draw()
+  private lastKey: readonly unknown[] | null = null;
+  private keyEpoch = -1;
+  private keyed = false;
   /** set by the painter when it changed something worth uploading */
   version = 0;
 
@@ -67,22 +91,59 @@ export abstract class Screen {
   }
 
   /**
-   * Returns true when the canvas was redrawn (and the texture needs an upload).
+   * Returns true when the canvas was redrawn (and the texture needs an upload);
+   * false when it wasn't time yet, or the painter found nothing had changed.
    * `slow` scales the rate down for a screen at the edge of your attention
-   * (another screen is focused): it still moves, just less often.
+   * (another screen is focused): it still moves, just less often. `watched`:
+   * its pane is open, so it is being looked at full size even if not focused.
    */
-  tick(t: number, dt: number, focused: boolean, slow = 1): boolean {
+  tick(t: number, dt: number, focused: boolean, slow = 1, watched = false): boolean {
     this.acc += dt;
-    const rate = focused ? Math.max(this.fps, 30) : this.fps * slow;
-    if (this.acc < 1 / rate) return false;
-    const step = this.acc;
-    this.acc = 0;
-    this.draw(t, step);
+    this.since += dt;
+    const idle = !focused && !watched && this.settled && this.idleFps > 0;
+    const rate = focused ? Math.max(this.fps, 30) : Math.min(idle ? this.idleFps : this.fps, this.fps * slow);
+    const period = 1 / rate;
+    if (this.acc < period - 1e-4) return false;
+    // keep the remainder, so the average rate holds whatever the loop's own
+    // rate (a 30 fps loop and a 20 fps screen: two frames in three); a long
+    // gap (off camera, a hidden spell) is not paid back in a burst
+    this.acc = this.acc - period > period ? 0 : this.acc - period;
+    const step = this.since;
+    this.since = 0;
+    this.keyed = false;
+    const drawn = this.draw(t, step);
+    // a frame that wasn't keyed moved: whatever is keyed next must repaint
+    if (!this.keyed) this.lastKey = null;
+    if (drawn === false) return false;
     this.version++;
     return true;
   }
 
-  protected abstract draw(t: number, dt: number): void;
+  /**
+   * Paint the frame. Return false (before touching the canvas) when nothing
+   * on it changed: no repaint, no upload. Painters decide that with
+   * `unchanged()`, or by returning false outright.
+   */
+  protected abstract draw(t: number, dt: number): boolean | void;
+
+  /**
+   * True when every part is identical (Object.is) to the parts given on the
+   * last keyed frame, and no font has arrived since. Pass everything the
+   * frame's pixels depend on; a frame with anything continuous in motion
+   * shouldn't be keyed at all.
+   */
+  protected unchanged(...parts: unknown[]): boolean {
+    const prev = this.lastKey;
+    const same =
+      prev !== null &&
+      this.keyEpoch === fontEpoch &&
+      prev.length === parts.length &&
+      parts.every((p, i) => Object.is(p, prev[i]));
+    this.lastKey = parts;
+    this.keyEpoch = fontEpoch;
+    this.keyed = true;
+    return same;
+  }
 
   // ---- helpers shared by painters ----
 

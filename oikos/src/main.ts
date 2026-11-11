@@ -500,6 +500,10 @@ function boot(root: HTMLElement): void {
           if (id === 'vcr') taskbar.showTip(null, { title: 'VCR', text: 'your home directory · click to open ~' }, x, y);
           else taskbar.showTip(id ? (byId.get(id) ?? null) : null, null, x, y);
         },
+        context(alive) {
+          if (!alive) taskbar.balloon('The room went dark', 'The graphics card was reset. The tapes all still play; the room comes back when it does.');
+          else taskbar.hideBalloon();
+        },
       });
     } catch (err) {
       console.warn('oikos: the room would not build; running the desktop alone', err);
@@ -561,6 +565,14 @@ function boot(root: HTMLElement): void {
   // keep the focused screen out from under the windows
   const reframe = () => {
     if (!room) return;
+    // a maximised window covers the room but for its glass (see RoomVisibility);
+    // not on a phone, where even a maximised window is a sheet over the room
+    const covered = wm.list.some((w) => {
+      if (w.minimized || !w.maximized) return false;
+      const r = w.el.getBoundingClientRect();
+      return r.top <= 1 && r.height >= innerHeight - 40;
+    });
+    room.setVisibility(covered ? 'glimpsed' : 'full');
     const W = innerWidth;
     const H = innerHeight - 30;
     const open = wm.list.filter((w) => !w.minimized && !w.opts.dialog && !w.el.classList.contains('maximized'));

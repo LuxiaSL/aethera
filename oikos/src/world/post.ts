@@ -11,7 +11,6 @@
 
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -63,6 +62,11 @@ const WiredShader = {
       col += (g - 0.5) * 0.035;
       col *= smoothstep(1.05, 0.35, length(d * vec2(1.0, 0.8)));
       gl_FragColor = vec4(col, 1.0);
+      // and out to the screen: three fills these in for the last pass (the
+      // renderer's ACES and exposure, then sRGB), which is what OutputPass
+      // did as a whole extra full-screen pass of its own
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
     }`,
 };
 
@@ -81,10 +85,15 @@ export class Post {
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(scene, camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.7, 0.5, 0.78);
+    // the bloom chain only blurs full-screen quads: its eleven targets need no
+    // depth buffers (set before they first reach the GPU; setSize keeps it)
+    for (const rt of [this.bloom.renderTargetBright, ...this.bloom.renderTargetsHorizontal, ...this.bloom.renderTargetsVertical]) {
+      rt.depthBuffer = false;
+    }
     this.composer.addPass(this.bloom);
+    // the last pass: tone mapping and sRGB happen inside it (see WiredShader)
     this.wired = new ShaderPass(WiredShader);
     this.composer.addPass(this.wired);
-    this.composer.addPass(new OutputPass());
   }
 
   setSize(w: number, h: number, pixelRatio: number): void {

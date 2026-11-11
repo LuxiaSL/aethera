@@ -25,7 +25,30 @@ export type Pickable = string; // a site id, or 'vcr'
 export interface RoomEvents {
   pick(id: Pickable | null): void;
   hover(id: Pickable | null, x: number, y: number): void;
+  /** the GPU took the room away (false) or gave it back (true) */
+  context?(alive: boolean): void;
 }
+
+/**
+ * How much of the room can be seen. `glimpsed`: only through a maximised
+ * window's glass (80% opaque, blurred), so a few frames a second do;
+ * `hidden`: not at all. Either way the room's clock, flights and the open
+ * pane's screen keep going, so nothing jumps when it's seen again.
+ */
+export type RoomVisibility = 'full' | 'glimpsed' | 'hidden';
+
+/** the rate when nothing is moving: no flight, no drag, no input lately */
+const IDLE_FPS = 30;
+/** the rate behind a maximised window's glass */
+const GLIMPSED_FPS = 8;
+/** seconds after the last input that the room still renders at the display's rate */
+const INPUT_GRACE = 1.2;
+/**
+ * The drawing buffer's budget in device pixels: the post chain runs several
+ * full-size passes, so a 4K-class display at the full pixel ratio would cost
+ * 3× the fill of a laptop for no visible gain under bloom and grain.
+ */
+const PIXEL_BUDGET = 2.5e6;
 
 interface Station {
   site: Site;
@@ -35,6 +58,7 @@ interface Station {
   cable: Cable;
   glow: THREE.Mesh;
   light: THREE.PointLight | null;
+  tickedAt: number; // room time of its screen's last tick
   power: number;
   powerAt: number;
   staticLeft: number;
@@ -117,13 +141,19 @@ export class Room {
    * however slow the machine rendering it (there is no GPU in CI).
    */
   private readonly driven = new URLSearchParams(location.search).has('drive');
-  private perf = { frames: 0, paint: 0, render: 0, uploads: 0 };
+  private perf = { frames: 0, rendered: 0, paint: 0, render: 0, uploads: 0 };
   // screens off camera aren't painted or uploaded (see frame)
   private frustum = new THREE.Frustum();
   private viewProj = new THREE.Matrix4();
   // a screen whose pane is open keeps painting even off camera: the pane shows its canvas
   private kept: string | null = null;
   private calm = 0; // consecutive quick windows, for stepping quality back up
+  private paceSum = 0; // the display's own frame interval, summed over the adapt() window
+  private visibility: RoomVisibility = 'full';
+  private contextLost = false;
+  private sinceRender = 0; // room seconds since a frame was last rendered
+  private lastStep = 0; // rAF time the loop last ran a frame
+  private ticks = 0; // rAF callbacks since then (a capped loop skips some)
 
   constructor(
     private readonly container: HTMLElement,
@@ -133,10 +163,13 @@ export class Room {
   ) {
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.lowPower = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 600;
-    this.maxPixelRatio = Math.min(devicePixelRatio || 1, this.lowPower ? 1.25 : 1.6);
+    this.maxPixelRatio = this.pixelCap();
     this.pixelRatio = this.maxPixelRatio;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    // 'default', not 'high-performance': on a dual-GPU laptop the latter wakes
+    // the discrete GPU (and its fans and battery) for a room the integrated
+    // one renders fine
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'default' });
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
@@ -146,6 +179,7 @@ export class Room {
     this.renderer.domElement.setAttribute('role', 'img');
     this.renderer.domElement.setAttribute('aria-label', 'a dark room full of screens, each one a place on æthera');
     container.prepend(this.renderer.domElement);
+    this.bindContext();
     try {
       this.build(sites, screens);
     } catch (err) {
@@ -351,7 +385,7 @@ export class Room {
       monitor.hit.userData.pick = site.id;
       this.pickables.push(monitor.hit);
       this.stations.set(site.id, {
-        site, screen, monitor, placement: p, cable, glow, light,
+        site, screen, monitor, placement: p, cable, glow, light, tickedAt: 0,
         power: 0, powerAt: Infinity, staticLeft: 0, hover: 0,
       });
     }
@@ -448,6 +482,18 @@ export class Room {
   /** keep this screen painting while it's off camera (its pane is open) */
   keepAlive(id: string | null): void {
     this.kept = id;
+  }
+
+  /**
+   * How much of the room shows (see RoomVisibility). Not for a hidden tab:
+   * that stops the loop outright (stop/start).
+   */
+  setVisibility(v: RoomVisibility): void {
+    if (v === this.visibility) return;
+    this.visibility = v;
+    // a window of frames rendered at another rate says nothing about this one
+    this.frameTimes = [];
+    this.paceSum = 0;
   }
 
   /** a tape is on its way to its screen */
@@ -762,6 +808,14 @@ export class Room {
     this.camera.aspect = w / h;
     this.camera.fov = this.camera.aspect < 1 ? 58 : 45;
     this.camera.setViewOffset(w, h, this.shift.x, this.shift.y, w, h);
+    const cap = this.pixelCap();
+    if (Math.abs(cap - this.maxPixelRatio) > 1e-3) {
+      // a new ceiling (a bigger window, another display): keep the quality
+      // steps already taken, counted down from it
+      this.maxPixelRatio = cap;
+      this.pixelRatio = Math.max(Math.min(0.6, cap), cap * Math.pow(0.8, this.qualityStep));
+      this.renderer.setPixelRatio(this.pixelRatio);
+    }
     this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = `${w}px`;
     this.renderer.domElement.style.height = `${h}px`;
@@ -812,7 +866,7 @@ export class Room {
       const gl = this.renderer.getContext();
       (window as unknown as { __oikos: unknown }).__oikos = {
         step: (n = 1, dt = 1 / 30) => {
-          this.perf = { frames: 0, paint: 0, render: 0, uploads: 0 };
+          this.perf = { frames: 0, rendered: 0, paint: 0, render: 0, uploads: 0 };
           for (let i = 0; i < n; i++) {
             this.frame(dt);
             gl.finish();
@@ -824,12 +878,78 @@ export class Room {
       };
       return;
     }
-    const loop = () => {
+    this.lastStep = 0;
+    this.ticks = 0;
+    this.frameTimes = [];
+    this.paceSum = 0;
+    const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
+      this.ticks++;
+      // a frame is due once its interval has (all but) passed; the slack lets
+      // a 30 fps cap land on every second vsync of a 60 Hz display
+      if (this.lastStep && now - this.lastStep < this.minInterval() * 1000 - 4) return;
+      this.lastStep = now;
       this.frame();
     };
     this.raf = requestAnimationFrame(loop);
+  }
+
+  /** Seconds the loop waits between frames: none while something moves. */
+  private minInterval(): number {
+    const lively = this.tween !== null || this.later.length > 0 || this.t - this.lastInput < INPUT_GRACE;
+    if (this.visibility === 'full' && !this.contextLost) return lively ? 0 : 1 / IDLE_FPS;
+    // nothing to render (or only glass to render through, see frame): the
+    // clock, flights and the open pane's screen still want a steady beat
+    return lively || this.kept ? 1 / IDLE_FPS : 0.25;
+  }
+
+  /** the pixel ratio ceiling: the device's (capped), then the pixel budget */
+  private pixelCap(): number {
+    const w = this.container.clientWidth || innerWidth;
+    const h = this.container.clientHeight || innerHeight;
+    const device = Math.min(devicePixelRatio || 1, this.lowPower ? 1.25 : 1.6);
+    return Math.min(device, Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h)));
+  }
+
+  /**
+   * A GPU reset (a driver update, a sleeping laptop, too many tabs) takes the
+   * context away. three already asks for it back; meanwhile the room stops
+   * rendering, hides its dead canvas so the desktop runs alone over black (as
+   * it does with no WebGL at all), and keeps its clock and the open pane's
+   * screen going. When the context returns three rebuilds its GPU state
+   * lazily on the next render.
+   */
+  private bindContext(): void {
+    const el = this.renderer.domElement;
+    const tell = (alive: boolean) => {
+      try {
+        this.events.context?.(alive);
+      } catch (err) {
+        console.warn('oikos: context listener failed', err);
+      }
+    };
+    el.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault(); // without this the browser never offers it back
+      if (this.contextLost) return;
+      this.contextLost = true;
+      el.style.visibility = 'hidden';
+      console.warn('oikos: the GPU took the room away; waiting for it back');
+      tell(false);
+    });
+    el.addEventListener('webglcontextrestored', () => {
+      if (!this.contextLost) return;
+      this.contextLost = false;
+      el.style.visibility = '';
+      try {
+        for (const s of this.stations.values()) s.monitor.texture.needsUpdate = true;
+        this.frameTimes = [];
+        this.paceSum = 0;
+      } catch (err) {
+        console.warn('oikos: restoring the room', err);
+      }
+      tell(true);
+    });
   }
 
   stop(): void {
@@ -837,15 +957,24 @@ export class Room {
     cancelAnimationFrame(this.raf);
   }
 
-  private adapt(dt: number): void {
+  /**
+   * The quality governor. `dt` is the time since the last rendered frame;
+   * `pace` the display's own frame interval meanwhile (the same thing,
+   * unless the idle cap skipped vsyncs: then dt is ~33 ms whatever the GPU,
+   * and only pace can say there's headroom to step back up).
+   */
+  private adapt(dt: number, pace = dt): void {
     this.frameTimes.push(dt);
+    this.paceSum += pace;
     const spent = this.frameTimes.reduce((a, b) => a + b, 0);
     if (this.frameTimes.length < 90 && spent < 2) return;
-    const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+    const avg = spent / this.frameTimes.length;
+    const avgPace = this.paceSum / this.frameTimes.length;
     this.frameTimes = [];
+    this.paceSum = 0;
     // three quick windows in a row (a busy moment passed, or it was a
     // one-off stall): step back up, one notch at a time
-    this.calm = avg < 1 / 50 ? this.calm + 1 : 0;
+    this.calm = avgPace < 1 / 50 ? this.calm + 1 : 0;
     if (this.calm >= 3 && this.qualityStep > 0) {
       this.calm = 0;
       this.qualityStep--;
@@ -858,7 +987,7 @@ export class Room {
     // ~33 ms however idle the GPU is, and shouldn't be stepped down for it
     if (avg > 1 / 27 && this.qualityStep < 3) {
       this.qualityStep++;
-      this.pixelRatio = Math.max(0.6, this.pixelRatio * 0.8);
+      this.pixelRatio = Math.max(Math.min(0.6, this.maxPixelRatio), this.pixelRatio * 0.8);
       if (this.qualityStep >= 3) this.post.bloom.enabled = false;
       this.applyPixelRatio();
     }
@@ -877,7 +1006,13 @@ export class Room {
     const dt = Math.min(raw, 0.1) * this.speed;
     this.t += dt;
     const t = this.t;
-    if (!this.driven) this.adapt(Math.min(raw, 0.5));
+    this.sinceRender += dt;
+    const render = this.shouldRender();
+    if (render && !this.driven && this.visibility === 'full') {
+      const ticks = Math.max(1, this.ticks);
+      this.ticks = 0;
+      this.adapt(Math.min(raw, 0.5), Math.min(raw, 0.5) / ticks);
+    }
     this.applyShift(dt);
     if (this.later.length) {
       const due = this.later.filter((l) => l.at <= t);
@@ -918,14 +1053,25 @@ export class Room {
       this.events.hover(id, this.pointerPx.x, this.pointerPx.y);
     }
 
+    if (!render) {
+      // nothing on the page shows this frame, but the open pane shows its
+      // screen's own canvas: keep that one painting
+      const s = this.kept ? this.stations.get(this.kept) : undefined;
+      if (s && s.power > 0.2) this.tickScreen(s, t, this.focused === this.kept, 1);
+      return;
+    }
+    // everything below moves by the time since the last rendered frame
+    const rdt = Math.min(this.sinceRender, 0.25);
+    this.sinceRender = 0;
+
     const t0 = performance.now();
     this.camera.updateMatrixWorld();
     this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.viewProj);
     for (const [id, s] of this.stations) {
-      if (t >= s.powerAt) s.power = Math.min(1, s.power + dt / (this.reduced ? 0.01 : 0.8));
-      s.staticLeft = Math.max(0, s.staticLeft - dt);
-      s.hover += ((id === this.hovered ? 1 : 0) - s.hover) * Math.min(1, dt * 8);
+      if (t >= s.powerAt) s.power = Math.min(1, s.power + rdt / (this.reduced ? 0.01 : 0.8));
+      s.staticLeft = Math.max(0, s.staticLeft - rdt);
+      s.hover += ((id === this.hovered ? 1 : 0) - s.hover) * Math.min(1, rdt * 8);
       const u = s.monitor.crt.uniforms;
       u.uTime.value = t;
       u.uPower.value = s.power;
@@ -938,26 +1084,45 @@ export class Room {
       // with a screen focused, the rest are in the corner of your eye: half rate
       // (not the pane's screen, which you're looking at in its window)
       const slow = this.focused && this.focused !== 'vcr' && !focused && id !== this.kept ? 0.5 : 1;
-      if (s.power > 0.2 && wanted && s.screen.tick(t, dt, focused, slow)) {
-        s.monitor.texture.needsUpdate = true;
-        this.perf.uploads++;
-      }
+      if (s.power > 0.2 && wanted) this.tickScreen(s, t, focused, slow);
       s.monitor.setLed(s.power > 0.5, s.site.accent);
       const glow = s.glow.material as THREE.MeshBasicMaterial;
       glow.opacity = s.power * (0.16 + s.hover * 0.12 + (focused ? 0.1 : 0));
       if (s.light) s.light.intensity = s.power * (2.2 + s.hover * 1.4 + (focused ? 0.6 : 0));
-      s.cable.update(t, dt);
+      s.cable.update(t, rdt);
     }
-    this.core.update(t, dt, this.hovered === 'vcr');
+    this.core.update(t, rdt, this.hovered === 'vcr');
     this.field.update(t);
     const t1 = performance.now();
-    this.post.render(t, dt);
+    this.post.render(t, rdt);
     if (this.driven) {
       this.renderer.getContext().finish();
       const t2 = performance.now();
       this.perf.frames++;
       this.perf.paint += t1 - t0;
       this.perf.render += t2 - t1;
+    }
+    this.perf.rendered++;
+  }
+
+  /** whether this frame reaches the GPU (see setVisibility) */
+  private shouldRender(): boolean {
+    if (this.contextLost || this.visibility === 'hidden') return false;
+    if (this.visibility === 'glimpsed') return this.sinceRender >= 1 / GLIMPSED_FPS - 1e-3;
+    return true;
+  }
+
+  /**
+   * Give a screen the time since it last ticked (not since the last frame:
+   * a screen skipped while off camera or behind glass resumes where its own
+   * clock left off, capped so a long absence isn't one huge step).
+   */
+  private tickScreen(s: Station, t: number, focused: boolean, slow: number): void {
+    const dt = Math.min(0.25, Math.max(0, t - s.tickedAt));
+    s.tickedAt = t;
+    if (s.screen.tick(t, dt, focused, slow, s.site.id === this.kept)) {
+      s.monitor.texture.needsUpdate = true;
+      this.perf.uploads++;
     }
   }
 }

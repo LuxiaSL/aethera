@@ -86,13 +86,21 @@ export class DreamGenScreen extends Screen {
     }
   }
 
-  protected draw(t: number): void {
+  protected draw(t: number): boolean | void {
     const ctx = this.ctx;
-    this.clear(BG);
     const chron = this.env.feeds.chronicle.value;
     const cycle = 6;
     const p = (t % cycle) / cycle; // 0..1 round the loop
     const kfNo = 400 + Math.floor(t / cycle);
+    const guard = Math.sin(t * 0.8) > 0.6 ? 1 : 0;
+    const frames = 16;
+    const done = p >= 0.5 ? Math.floor(((p - 0.5) / 0.5) * frames) : 0;
+    // the second half of the loop has no pulse in flight: the picture changes
+    // only as interpolation frames fill. (The first half, and the stand-in's
+    // drifting colours, move every frame.)
+    if (p >= 0.5 && chron.thumb && this.unchanged(kfNo, done, guard, chron)) return false;
+
+    this.clear(BG);
 
     ctx.font = `14px ${MONO}`;
     ctx.fillStyle = VIOLET;
@@ -108,7 +116,7 @@ export class DreamGenScreen extends Screen {
     this.box(KF, p >= 0.25 && p < 0.5 ? 1 : 0.2);
     this.box(FRESH, 0);
     this.box(INTERP, p >= 0.5 ? 1 : 0);
-    this.box(GUARD, Math.sin(t * 0.8) > 0.6 ? 1 : 0);
+    this.box(GUARD, guard);
 
     // the latest keyframe, in its box
     if (chron.thumb) {
@@ -136,8 +144,6 @@ export class DreamGenScreen extends Screen {
     this.arrow(KF.x + KF.w / 2, KF.y + KF.h, KF.x + KF.w / 2, INTERP.y, '', p >= 0.25 && p < 0.5 ? (p - 0.25) / 0.25 : -1);
 
     // interpolation frames filling
-    const frames = 16;
-    const done = p >= 0.5 ? Math.floor(((p - 0.5) / 0.5) * frames) : 0;
     for (let i = 0; i < frames; i++) {
       ctx.fillStyle = i < done ? VIOLET : '#1e1629';
       ctx.fillRect(INTERP.x + 8 + i * 18, INTERP.y + 22, 14, 18);
