@@ -36,6 +36,12 @@ export class Taskbar {
   readonly el: HTMLElement;
   private menu: HTMLElement;
   private buttons: HTMLElement;
+  /** one button per window, kept and updated in place (so a focused one keeps focus) */
+  private btns = new Map<XPWindow, HTMLButtonElement>();
+  /** » at the end of the buttons when they no longer fit: every window, as a menu */
+  private more: HTMLButtonElement;
+  /** what Show the Desktop folded away, to unfold on its second use */
+  private shown: { windows: XPWindow[]; active: XPWindow | null } | null = null;
   private clock: HTMLElement;
   private moonEl: HTMLElement;
   private start: HTMLButtonElement;
@@ -53,18 +59,34 @@ export class Taskbar {
     this.el = h('nav', { class: 'xp-taskbar', 'aria-label': 'taskbar' });
     // the start button is the system's own letter; its name is for whoever can't see it
     this.start = h('button', { class: 'xp-start', type: 'button', 'aria-label': 'æthera', 'aria-haspopup': 'menu', 'aria-expanded': 'false', html: '<span aria-hidden="true">æ</span>' });
-    this.buttons = h('div', { class: 'xp-taskbuttons' });
+    this.buttons = h('div', { class: 'xp-taskbuttons', role: 'group', 'aria-label': 'windows' });
+    this.more = h('button', { class: 'xp-taskbtn xp-taskmore', type: 'button', 'aria-label': 'More windows', title: 'More windows', 'aria-haspopup': 'menu', hidden: '' }, ['»']);
+    this.more.addEventListener('click', () => {
+      const r = this.more.getBoundingClientRect();
+      openMenu(this.windowsMenu(), r.left, r.top - 4, { returnTo: this.more, owner: this.more });
+    });
     const tray = h('div', { class: 'xp-tray' });
     const net = h('span', { class: 'tray-icon net', title: 'Connected to the Wired', html: icons.network() });
     this.moonEl = h('span', { class: 'tray-icon dream', title: 'dreams', html: icons.moon(false) });
     this.clock = h('span', { class: 'clock' });
     tray.append(net, this.moonEl, this.clock);
-    this.el.append(this.start, this.buttons, tray);
+    this.el.append(this.start, this.buttons, this.more, tray);
     root.append(this.el);
 
     this.menu = this.buildMenu();
     root.append(this.menu);
     this.start.addEventListener('click', () => this.toggleMenu());
+    // the taskbar is one row: ← and → walk start and the window buttons
+    this.el.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const t = e.target as HTMLElement;
+      if (!t.closest('.xp-start, .xp-taskbtn')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const row = [this.start, ...this.btns.values(), ...(this.more.hidden ? [] : [this.more])];
+      const i = row.indexOf(t as HTMLButtonElement);
+      row[(i + (e.key === 'ArrowRight' ? 1 : -1) + row.length) % row.length]?.focus();
+    });
     root.addEventListener('pointerdown', (e) => {
       const t = e.target as HTMLElement;
       // a cascade (All Programs) is a .xp-menu outside the start menu's box but part of it
@@ -86,6 +108,7 @@ export class Taskbar {
     root.append(this.tip, this.balloonEl);
 
     wm.on(() => this.renderButtons());
+    addEventListener('resize', () => this.fitButtons());
     shell.feeds.dreams.on((d) => {
       this.moonEl.innerHTML = icons.moon(d.awake);
       this.moonEl.title = !d.known ? 'dreams: no answer' : d.awake ? `dreams: awake · frame ${d.frame.toLocaleString('en-US')}` : 'dreams: asleep';
@@ -128,7 +151,7 @@ export class Taskbar {
       { label: 'Cascade Windows', disabled: true },
       { label: 'Tile Windows Horizontally', disabled: true },
       { label: 'Tile Windows Vertically', disabled: true },
-      { label: 'Show the Desktop', run: () => this.showDesktop(), disabled: !this.wm.list.some((w) => !w.minimized && !w.opts.dialog) },
+      { label: 'Show the Desktop', run: () => this.showDesktop(), disabled: !this.wm.list.some((w) => !w.minimized && !w.opts.dialog) && !this.shown },
       'sep',
       { label: 'Task Manager', disabled: true },
       'sep',
@@ -137,21 +160,52 @@ export class Taskbar {
     ];
   }
 
-  private showDesktop(): void {
-    for (const w of [...this.wm.list]) if (!w.opts.dialog && !w.minimized) w.minimize();
+  /**
+   * Show the Desktop folds every window away; used again (with nothing put
+   * back meanwhile) it unfolds exactly those, in their order, as XP's did.
+   */
+  showDesktop(): void {
+    const visible = this.wm.list.filter((w) => !w.opts.dialog && !w.minimized);
+    if (!visible.length && this.shown) {
+      const { windows, active } = this.shown;
+      this.shown = null;
+      for (const w of windows) if (!w.closed && w.minimized) w.restore();
+      if (active && !active.closed && !active.minimized) active.focus();
+      return;
+    }
+    const z = (w: XPWindow) => Number(w.el.style.zIndex) || 0;
+    const shown = { windows: [...visible].sort((a, b) => z(a) - z(b)), active: this.wm.activeWindow };
+    for (const w of visible) w.minimize();
+    // after folding: each minimise above re-renders the buttons, which spends any undo
+    this.shown = shown;
+  }
+
+  /** the » menu: every window, the active one checked */
+  private windowsMenu(): MenuEntry[] {
+    return this.wm.list
+      .filter((w) => !w.opts.dialog)
+      .map((w): MenuEntry => ({
+        label: w.el.getAttribute('aria-label') ?? w.opts.title,
+        icon: w.opts.icon,
+        checked: this.wm.activeWindow === w && !w.minimized,
+        run: () => (w.minimized ? w.restore() : w.focus()),
+      }));
   }
 
   private buildMenu(): HTMLElement {
-    const m = h('div', { class: 'xp-startmenu', role: 'menu', hidden: '' });
-    const head = h('header');
+    const m = h('div', { class: 'xp-startmenu', role: 'menu', 'aria-label': 'Start', hidden: '' });
+    // who's logged in: a picture and a name, nothing to choose
+    const head = h('header', { 'aria-hidden': 'true' });
     head.append(h('span', { class: 'avatar', html: icons.markImg(40) }), h('span', {}, ['guest']));
     m.append(head, h('div', { class: 'orange', 'aria-hidden': 'true' }));
 
-    const cols = h('div', { class: 'cols' });
-    const left = h('ul', { class: 'left' });
-    const right = h('ul', { class: 'right' });
+    // a menu's children must be items, groups or separators: the columns are
+    // groups, and the list markup under them is only layout (role=none)
+    const cols = h('div', { class: 'cols', role: 'none' });
+    const left = h('ul', { class: 'left', role: 'group', 'aria-label': 'Programs' });
+    const right = h('ul', { class: 'right', role: 'group', 'aria-label': 'Places' });
     const li = (ul: HTMLElement, el: HTMLElement) => {
-      const l = h('li');
+      const l = h('li', { role: 'none' });
       l.append(el);
       ul.append(l);
       return el;
@@ -324,6 +378,10 @@ export class Taskbar {
     return true;
   }
 
+  get dialogUp(): boolean {
+    return !!this.dialogEl;
+  }
+
   /**
    * The full-screen XP dialog (greyed desktop behind, a blue panel, big
    * square choices). Modal: nothing behind it takes a click, and only a
@@ -377,20 +435,61 @@ export class Taskbar {
     (this.dialogEl?.querySelector('.off') as HTMLElement | null)?.focus();
   }
 
+  /**
+   * Bring the buttons in line with the windows, in place: a new window gets a
+   * button at the end, a closed one loses its own, and the rest are only
+   * updated. Rebuilding them all on every change (a focus, a drag) threw away
+   * the one that had the keyboard.
+   */
   private renderButtons(): void {
-    this.buttons.replaceChildren();
-    for (const w of this.wm.list) {
-      if (w.opts.dialog) continue;
-      const b = h('button', { class: `xp-taskbtn${this.wm.activeWindow === w && !w.minimized ? ' active' : ''}`, type: 'button', 'data-win': w.opts.id, html: `${w.opts.icon}<span></span>` });
-      (b.querySelector('span') as HTMLElement).textContent = w.opts.title;
-      b.title = w.opts.title;
-      b.addEventListener('click', () => {
-        if (w.minimized) w.restore();
-        else if (this.wm.activeWindow === w) w.minimize();
-        else w.focus();
-      });
-      this.buttons.append(b);
+    const live = this.wm.list.filter((w) => !w.opts.dialog);
+    for (const [w, b] of this.btns) {
+      if (live.includes(w)) continue;
+      b.remove();
+      this.btns.delete(w);
     }
+    for (const w of live) {
+      let b = this.btns.get(w);
+      if (!b) {
+        b = h('button', { class: 'xp-taskbtn', type: 'button', 'data-win': w.opts.id, html: `${w.opts.icon}<span></span>` });
+        b.addEventListener('click', () => {
+          if (w.minimized) w.restore();
+          else if (this.wm.activeWindow === w) w.minimize();
+          else w.focus();
+        });
+        this.btns.set(w, b);
+        this.buttons.append(b);
+      }
+      const active = this.wm.activeWindow === w && !w.minimized;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+      const span = b.querySelector('span') as HTMLElement;
+      // the window's title as it is now (mIRC's changes with the channel)
+      const title = w.el.getAttribute('aria-label') ?? w.opts.title;
+      if (span.textContent !== title) span.textContent = title;
+      b.title = title;
+    }
+    // a window put back by hand since Show the Desktop: its undo is spent
+    if (this.shown && live.some((w) => !w.minimized)) this.shown = null;
+    this.fitButtons();
+  }
+
+  /** the buttons shrink to their icons; past that, the ones that don't fit wait behind » */
+  private fitButtons(): void {
+    const box = this.buttons;
+    this.more.hidden = true;
+    const over = box.scrollWidth > box.clientWidth + 1;
+    this.more.hidden = !over;
+    if (!over) {
+      box.scrollLeft = 0;
+      return;
+    }
+    // keep the active window's button in sight
+    const active = [...this.btns.values()].find((b) => b.classList.contains('active'));
+    if (!active) return;
+    const l = active.offsetLeft - box.offsetLeft;
+    if (l < box.scrollLeft) box.scrollLeft = l;
+    else if (l + active.offsetWidth > box.scrollLeft + box.clientWidth) box.scrollLeft = l + active.offsetWidth - box.clientWidth;
   }
 
   // ---- tooltips and balloons ----

@@ -280,7 +280,7 @@
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  min-width: 260px;
+  min-width: 340px; /* wm.ts MIN_W */
   max-height: calc(100% - 16px);
   padding: 0 1px 1px;
   color: var(--ae-text);
@@ -1035,6 +1035,7 @@
 .xp-taskbuttons {
   flex: 1;
   min-width: 0;
+  overflow: hidden; /* past their icons, the rest wait behind » (taskbar.ts) */
   display: flex;
   gap: 4px;
   padding: 3px 8px;
@@ -1067,6 +1068,9 @@
 .xp-taskbtn.active::before { color: var(--ae-amber); }
 .xp-taskbtn svg { width: 16px; height: 16px; flex: none; }
 .xp-taskbtn span { overflow: hidden; text-overflow: ellipsis; }
+.xp-taskbtn.xp-taskmore { flex: none; width: auto; min-width: 0; margin-right: 4px; padding: 0 8px; }
+.xp-taskbtn.xp-taskmore::before { content: none; }
+.xp-taskbtn.xp-taskmore[hidden] { display: none; }
 
 .xp-tray {
   display: flex;
