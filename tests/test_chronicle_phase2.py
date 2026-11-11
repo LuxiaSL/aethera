@@ -208,3 +208,54 @@ def test_title_uses_the_most_persistent_identity_words():
                  "medium_render": "cyanotype", "color_logic": "oxblood"}, [], None, None, None)
             for i in range(10)]
     assert era_title("site_decay", rows) == "site decay · cyanotype · mason jar"
+
+
+def test_live_timeline_is_memoised_for_everyone(db, client, monkeypatch):
+    """/oikos polls the live timeline from every open tab: one build per TTL
+    serves them all; ?before= pages are per-viewer and never cached."""
+    calls = []
+    real = api.build_timeline
+
+    def counting(before, hours):
+        calls.append((before, hours))
+        return real(before, hours)
+
+    monkeypatch.setattr(api, "build_timeline", counting)
+    monkeypatch.setattr(api, "_timeline_cache", {})
+    clock = [1000.0]
+    monkeypatch.setattr(api.time, "monotonic", lambda: clock[0])
+
+    a = client.get("/api/dreams/chronicle/timeline?hours=3")
+    b = client.get("/api/dreams/chronicle/timeline?hours=3")
+    assert a.status_code == b.status_code == 200
+    assert a.headers["content-type"].startswith("application/json")
+    assert a.json() == b.json() and "tiles" in a.json()
+    assert calls == [(None, 3)], "the second viewer got the first one's answer"
+
+    client.get("/api/dreams/chronicle/timeline?hours=999")  # clamped to MAX_HOURS
+    client.get(f"/api/dreams/chronicle/timeline?hours={api.MAX_HOURS}")
+    assert calls[1:] == [(None, api.MAX_HOURS)], "spans are keyed after clamping"
+
+    client.get("/api/dreams/chronicle/timeline?hours=3&before=1790000000")
+    client.get("/api/dreams/chronicle/timeline?hours=3&before=1790000000")
+    assert calls[2:] == [(1790000000.0, 3)] * 2, "paged requests are not cached"
+
+    clock[0] += api.TIMELINE_TTL + 1
+    client.get("/api/dreams/chronicle/timeline?hours=3")
+    assert calls[-1] == (None, 3) and len(calls) == 5, "rebuilt once the memo expires"
+
+
+def test_live_timeline_failure_is_not_cached(db, client, monkeypatch):
+    monkeypatch.setattr(api, "_timeline_cache", {})
+    boom = [True]
+    real = api.build_timeline
+
+    def flaky(before, hours):
+        if boom[0]:
+            raise RuntimeError("disk went away")
+        return real(before, hours)
+
+    monkeypatch.setattr(api, "build_timeline", flaky)
+    assert client.get("/api/dreams/chronicle/timeline?hours=3").status_code == 500
+    boom[0] = False
+    assert client.get("/api/dreams/chronicle/timeline?hours=3").status_code == 200
