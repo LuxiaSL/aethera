@@ -18,6 +18,8 @@
 const MSG_FRAME = 0x01;
 
 class DreamViewer {
+    static HIDDEN_RELEASE_MS = 60000;   // how long a hidden tab keeps its stream
+
     constructor(options = {}) {
         // DOM elements
         this.canvasId = options.canvasId || 'dream-canvas';
@@ -85,8 +87,21 @@ class DreamViewer {
     // ==================== Initialization ====================
 
     setupEventListeners() {
+        // A tab left in the background shouldn't hold a stream (and one of the
+        // viewer slots) for hours: after a minute out of sight it lets go, with
+        // a clean close (1000, no reconnect). Coming back reconnects at once,
+        // and the server's cached keyframe makes that near-instant.
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && !this.connected) {
+            clearTimeout(this.hiddenTimer);
+            if (document.hidden) {
+                this.hiddenTimer = setTimeout(() => {
+                    if (document.hidden && this.ws && this.ws.readyState <= WebSocket.OPEN) {
+                        this.ws.close(1000, 'hidden');
+                    }
+                }, DreamViewer.HIDDEN_RELEASE_MS);
+                return;
+            }
+            if (!this.connected) {
                 this.reconnectAttempts = 0;
                 this.connect();
             }

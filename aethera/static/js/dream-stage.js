@@ -39,6 +39,7 @@ uniform float uCountOn, uCountHover, uBoil;
 uniform vec2 uFoldN;        // unit normal of the fold line, pointing away from the lifted corner
 uniform float uFoldD;       // the crease: dot(p, uFoldN) = uFoldD; the corner side (dot < D) is lifted
 uniform float uFoldOn;
+uniform float uRest;        // 0 awake .. 1 resting (its GPU is away): the dream dims and breathes
 out vec4 fragColor;
 
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -77,8 +78,15 @@ vec3 tally(vec3 col, vec2 px, vec3 avgC, float stLum) {
 // its top toward the right edge, and every read goes through here
 bool gRot = false;
 vec2 dreamUV(vec2 uv) { return gRot ? vec2(uv.y, 1.0 - uv.x) : uv; }
-vec3 D(vec2 uv) { return texture(uDream, dreamUV(uv)).rgb; }
-vec3 DL(vec2 uv, float lod) { return textureLod(uDream, dreamUV(uv), lod).rgb; }
+// asleep, the picture and its smoke dim, lose some colour and breathe slowly
+vec3 rest(vec3 c) {
+    if (uRest <= 0.0) return c;
+    float breath = 0.5 + 0.5 * sin(uTime * uMotion * 0.9);    // one breath every ~7 s
+    c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), 0.45 * uRest);
+    return c * mix(1.0, 0.42 + 0.14 * breath, uRest);
+}
+vec3 D(vec2 uv) { return rest(texture(uDream, dreamUV(uv)).rgb); }
+vec3 DL(vec2 uv, float lod) { return rest(textureLod(uDream, dreamUV(uv), lod).rgb); }
 
 float sdRoundRect(vec2 p, vec2 half_, float r) {
     vec2 q = abs(p) - half_ + r;
@@ -275,6 +283,8 @@ void main() {
             this.liveLayout = !!opts.liveLayout;
             this.countLayout = opts.countLayout || null;   // (w, h) -> [x, y, w, h] on the floor
             this.count = null;                             // set by the page; null hides the tally
+            this.rest = 0;                                 // set by the page: 1 while the dream is resting
+            this._rest = 0;                                // eased: falls asleep over seconds, wakes quickly
             this.countHover = 0;
             this.fold = null;                              // { n: [x, y], d } from the page; null = lying flat
             this._countCanvas = document.createElement('canvas');
@@ -284,7 +294,7 @@ void main() {
             this._countStep = -1;
             this._countFont = opts.countFont || '"Libertinus Mono", monospace';
             for (const n of ['uRes', 'uPxRatio', 'uTime', 'uStage', 'uDream', 'uStageSize', 'uRect', 'uMelt', 'uMotion', 'uShape',
-                'uCount', 'uCountRect', 'uCountOn', 'uCountHover', 'uBoil', 'uFoldN', 'uFoldD', 'uFoldOn'])
+                'uCount', 'uCountRect', 'uCountOn', 'uCountHover', 'uBoil', 'uFoldN', 'uFoldD', 'uFoldOn', 'uRest'])
                 this._loc[n] = gl.getUniformLocation(prog, n);
 
             const buf = gl.createBuffer();
@@ -404,6 +414,9 @@ void main() {
             gl.uniform2f(L.uFoldN, f ? f.n[0] : 1, f ? f.n[1] : 0);
             gl.uniform1f(L.uFoldD, f ? f.d : 0);
             gl.uniform1f(L.uFoldOn, f ? 1 : 0);
+            const k = Math.min(0.2, Math.max(0, dt) / 1000) * (this.rest > this._rest ? 0.45 : 2.5);
+            this._rest += (this.rest - this._rest) * Math.min(1, k);
+            gl.uniform1f(L.uRest, this.reducedMotion ? this.rest : this._rest);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         }
     }

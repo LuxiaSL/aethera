@@ -149,8 +149,8 @@
 {% block scripts %}
 <!-- jMuxer for Safari MSE fallback (H.264 NAL → fMP4) -->
 <script src="https://cdn.jsdelivr.net/npm/jmuxer@2.0.5/dist/jmuxer.min.js" defer></script>
-<script src="/static/js/dreams.js"></script>
-<script src="/static/js/dream-stage.js?v=2"></script>
+<script src="/static/js/dreams.js?v=2"></script>
+<script src="/static/js/dream-stage.js?v=3"></script>
 <script src="/static/js/dream-rug.js?v=1"></script>
 <script>
 // The tab title: ornaments flow outward from "dreams", mirrored, like the tendrils.
@@ -164,7 +164,8 @@
     function tick() {
         const left = [];
         for (let i = 0; i < SIDE; i++) left.push(ORN[(i + t) % ORN.length]);
-        document.title = left.join('') + ' dreams ' + left.slice().reverse().join('');
+        const word = document.documentElement.dataset.dreamRest ? 'resting' : 'dreams';
+        document.title = left.join('') + ' ' + word + ' ' + left.slice().reverse().join('');
         t = (t + 1) % ORN.length;
     }
     tick();
@@ -261,12 +262,17 @@
     // the numbers dreams.js keeps in the (hidden) status bar, read for the backstage
     const statText = id => document.querySelector(`#${id} .dream-stat-value`)?.textContent || '';
     let lastMirror = 0;
+    const restPreview = new URLSearchParams(location.search).has('rest');
     function mirrorStats(now) {
         const n = parseInt(statText('dream-frame-count').replace(/[^0-9]/g, ''), 10);
         stage.count = Number.isFinite(n) ? n : null;
         if (now - lastMirror < 1000) return;
         lastMirror = now;
         const viewers = statText('dream-viewer-count'), state = statText('dream-connection-status');
+        // resting: dreams.js labels the connection "resting" while the GPU is away (?rest previews it)
+        const resting = state === 'resting' || restPreview;
+        stage.rest = resting ? 1 : 0;
+        document.documentElement.dataset.dreamRest = resting ? '1' : '';
         const live = document.getElementById('bs-live');
         if (live) {
             live.textContent = `${viewers && viewers !== '—' ? viewers + ' watching' : 'watching'} · ${state || 'offline'}`;
