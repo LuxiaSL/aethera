@@ -144,7 +144,8 @@ export function addressBar(icon: string, value: string, editable: boolean, onGo?
     field.append(input);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && input) onGo?.(input.value);
-      e.stopPropagation();
+      // Tab goes on to the window, which keeps it inside
+      if (e.key !== 'Tab') e.stopPropagation();
     });
   } else {
     field.append(h('span', {}, [value]));

@@ -105,7 +105,8 @@ function saveNick(n: string): void {
 /** keys typed into a field belong to the field, not to the room behind it */
 function keepKeys(el: HTMLElement): void {
   el.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') e.stopPropagation();
+    // Tab goes on to the window, which keeps it inside; Esc to whoever closes things
+    if (e.key !== 'Escape' && e.key !== 'Tab') e.stopPropagation();
   });
 }
 

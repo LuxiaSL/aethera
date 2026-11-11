@@ -26,7 +26,8 @@ import { h } from './xp/chrome';
 import { Explorer } from './xp/explorer';
 import { Mirc } from './xp/mirc';
 import * as icons from './xp/icons';
-import { bindContextMenu, closeMenus, setMenuHost, type MenuEntry } from './xp/menu';
+import { isSheet } from './xp/env';
+import { bindContextMenu, closeMenus, menuOpen, setMenuHost, type MenuEntry } from './xp/menu';
 import { siteMenu } from './xp/menus';
 import { Pane } from './xp/pane';
 import type { Shell } from './xp/shell';
@@ -487,7 +488,10 @@ function boot(root: HTMLElement): void {
       return;
     }
     const t = e.target as HTMLElement;
-    if (t.closest('input, textarea')) return;
+    // keys typed into a field are the field's; only Esc still closes what's
+    // transient (a menu, a dialog), unless the field used it itself
+    const typing = !!t.closest('input, textarea, [contenteditable]');
+    if (typing && (e.key !== 'Escape' || e.defaultPrevented)) return;
     if (e.key === 'Escape' && tuned) {
       tuneOut(true);
       return;
@@ -498,22 +502,49 @@ function boot(root: HTMLElement): void {
       // closes an ordinary window. With nothing left, it steps the camera back.
       if (closeMenus()) return;
       if (taskbar.dismiss()) return;
-      if (!taskbarMenuClosed()) return;
-      const top = wm.activeWindow;
-      if (top?.opts.dialog && !top.minimized) {
-        top.close();
+      if (taskbar.startOpen) {
+        taskbar.toggleMenu(false, true);
         return;
       }
-      if (room?.focusedId) room.focus(null);
+      // the topmost dialog, whichever window is active
+      const dlg = wm.topDialog();
+      if (dlg) {
+        dlg.close();
+        return;
+      }
+      if (room?.focusedId && !wm.activeWindow && !typing) room.focus(null);
       return;
     }
-    // Alt+← / Alt+→: Back and Forward, anywhere
+    if (typing) return;
+    // Alt+← / Alt+→: Back and Forward through the desk, never out of the page
     if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
-      travel(e.key === 'ArrowLeft' ? -1 : 1);
+      if (e.key === 'ArrowLeft') shell.back();
+      else shell.forward();
       return;
     }
-    if (t.closest('.xp-window, .xp-startmenu, .xp-menu, .xp-shutdown')) return;
+    // F10: the active window's menu bar
+    if (e.key === 'F10' && !e.shiftKey) {
+      const title = wm.activeWindow?.el.querySelector('.xp-menutitle') as HTMLElement | null;
+      if (title) {
+        e.preventDefault();
+        title.focus();
+      }
+      return;
+    }
+    // F6: between the active window and the taskbar (Tab never leaves a window)
+    if (e.key === 'F6') {
+      e.preventDefault();
+      const w = wm.activeWindow;
+      if (w && !w.el.contains(t)) w.el.focus();
+      else (root.querySelector('.xp-start') as HTMLElement | null)?.focus();
+      return;
+    }
+    // the room's own keys, only when nothing on the desk has the keyboard: no
+    // active window, no menu, no dialog, and focus not on some control
+    if (wm.activeWindow || menuOpen() || taskbar.startOpen || taskbar.dialogUp) return;
+    if (t.closest('.xp-window, .xp-startmenu, .xp-menu, .xp-shutdown, .xp-taskbar, .xp-balloon, .oikos-tuned')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === '~' || e.key === 'Home') {
       shell.home();
       return;
@@ -546,14 +577,6 @@ function boot(root: HTMLElement): void {
       }, 700);
     }
   });
-  function taskbarMenuClosed(): boolean {
-    const menu = root?.querySelector('.xp-startmenu') as HTMLElement | null;
-    if (menu && !menu.hidden) {
-      taskbar.toggleMenu(false);
-      return false;
-    }
-    return true;
-  }
 
   // ---- visibility: nothing runs, polls or listens in a hidden tab ----
   let booted = false;
