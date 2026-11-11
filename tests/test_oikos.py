@@ -119,3 +119,21 @@ def test_oikos_is_a_lean_page(client: TestClient):
     # every versioned URL the page names must actually be served
     for url in set(re.findall(r'/static/[^"\')\s]+\?v=[0-9a-f]{12}', html)):
         assert client.get(url).status_code == 200, url
+
+
+def test_htmx_never_swaps_the_room_in(client: TestClient):
+    """hx-boost swaps only <body>, so a boosted link would boot the room without
+    its <head> (no stylesheet, no fonts). htmx asking for it gets a real load."""
+    r = client.get("/oikos", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert r.headers["HX-Redirect"].endswith("/oikos")
+    assert r.text == ""
+
+
+def test_links_home_are_never_boosted():
+    """Every href="/" in a template opts out of hx-boost: home is about to be the
+    room, which must arrive as a whole page."""
+    root = Path(__file__).resolve().parents[1] / "aethera" / "templates"
+    for path in root.rglob("*.html"):
+        for m in re.finditer(r'<a\b[^>]*href="/"[^>]*>', path.read_text()):
+            assert 'hx-boost="false"' in m.group(0), f"{path.relative_to(root)}: {m.group(0)}"

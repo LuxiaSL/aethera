@@ -23,7 +23,7 @@
     <!-- Open Graph (default for homepage) -->
     <meta property="og:title" content="æthera">
     <meta property="og:description" content="thoughts, fragments, and transmissions from the digital aether">
-    <meta property="og:url" content="{{ request.base_url }}">
+    <meta property="og:url" content="{{ canonical_url or request.url }}">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="æthera">
     <meta property="og:image" content="{{ request.base_url }}static/uploads/og-card.png">
@@ -96,7 +96,7 @@
         "@type": "Blog",
         "name": "æthera",
         "description": "thoughts, fragments, and transmissions from the digital aether",
-        "url": "{{ request.base_url }}",
+        "url": "{{ request.base_url }}blog",
         "inLanguage": "en",
         "license": "https://creativecommons.org/licenses/by/4.0/",
         "author": {
@@ -135,7 +135,7 @@
         <div class="header-content">
             <div class="logo-container">
                 <canvas id="caustics-canvas"></canvas>
-                <a href="/" class="site-logo" aria-label="æthera home">
+                <a href="/" class="site-logo" aria-label="æthera home" hx-boost="false">
                     <img src="/static/uploads/aethera_trimmed.png" alt="æthera" class="site-logo-img">
                 </a>
             </div>

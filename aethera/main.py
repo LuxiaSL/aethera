@@ -90,14 +90,33 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
     )
 
 
-@app.get("/")
-def home(request: Request, session: Session = Depends(get_session)):
-    """Render the homepage with latest posts."""
+#: posts on the blog's first page as served (the page refits to the screen after)
+BLOG_FIRST_PAGE = 5
+
+
+def _blog(request: Request, session: Session, canonical: str | None):
+    """The blog's index, its first page of posts in the HTML."""
     return templates.TemplateResponse(
         request=request,
-        name="index.html", 
-        context={"title": "æthera"}
+        name="blog.html",
+        context={
+            "title": "æthera",
+            "canonical_url": canonical,
+            **posts.post_page(session, 1, BLOG_FIRST_PAGE),
+        },
     )
+
+
+@app.get("/blog")
+def blog(request: Request, session: Session = Depends(get_session)):
+    """The blog: every post, newest first."""
+    return _blog(request, session, canonical=f"{request.base_url}blog")
+
+
+@app.get("/")
+def home(request: Request, session: Session = Depends(get_session)):
+    """The homepage. For now, still the blog; it becomes the room (oikos)."""
+    return _blog(request, session, canonical=None)
 
 
 @app.get("/healthz")

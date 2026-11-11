@@ -12,7 +12,7 @@ same list is embedded as JSON for the scene. One list, two readers.
 """
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlmodel import Session, select
 
 from aethera.models.base import get_session
@@ -24,6 +24,8 @@ router = APIRouter(tags=["oikos"])
 
 # group: "here" lives on this server; "wired" is elsewhere (another host, a
 # repo). Every site has an href: the bundle has no path for one without.
+# screen: False keeps a place out of the room (no monitor); it still shows in
+# the OS. Default: every place has a screen.
 # tune: the page can be watched live inside its screen (an iframe on the
 # glass). True uses href; a string is the page to frame instead. Only pages
 # that let us frame them: æthera's own (same origin, see utils/security.py).
@@ -171,6 +173,9 @@ SITES: list[dict] = [
                  "latent space without ever collapsing. Mutation, a memory cache and "
                  "template swaps keep it moving. It is what dreams is watching.",
         "details": [["kind", "engine · source"], ["feeds", "dreams"]],
+        # a repo, not a place to watch: it lives in the OS (explorer, start
+        # menu), not as a screen in the room
+        "screen": False,
     },
 ]
 
@@ -200,6 +205,10 @@ def _recent_posts(session: Session, limit: int = 12) -> list[dict]:
 
 @router.get("/oikos", response_class=HTMLResponse)
 def oikos_viewer(request: Request, session: Session = Depends(get_session)):
+    # htmx (hx-boost on the blog's pages) swaps only <body>: the room would boot
+    # with none of its <head>. Any htmx request for it becomes a real page load.
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": str(request.url)})
     return templates.TemplateResponse(
         request=request,
         name="oikos/viewer.html",

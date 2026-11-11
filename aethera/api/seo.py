@@ -82,6 +82,7 @@ def rss_feed(request: Request, session: Session = Depends(get_session)):
 #: both the sitemap and urls.txt, so a new page is listed in both or neither.
 #: (path, changefreq, priority)
 PAGES: list[tuple[str, str, str]] = [
+    ("blog", "daily", "0.9"),               # every post, newest first
     ("dreams", "always", "0.7"),            # the dream, live
     ("dreams/chronicle", "hourly", "0.7"),  # what it remembers
     ("dreams/api", "monthly", "0.4"),

@@ -2,10 +2,13 @@
 
 {% block content %}
 <section class="posts-section homepage-content">
+    {# page one is rendered here, so the posts are in the HTML itself (crawlers,
+       readers without JS); the script below only refits it to the screen #}
     <div id="posts-container"
-         hx-get="/posts?page=1&per_page=5"
-         hx-trigger="load"
+         hx-get="/posts?page=1&per_page={{ per_page }}"
+         hx-trigger="refit"
          hx-swap="innerHTML">
+        {% include "fragments/post_list.html" %}
     </div>
 </section>
 {% endblock %}
@@ -24,12 +27,16 @@
         return Math.max(3, Math.min(count, 10)); // between 3 and 10
     }
 
-    // Update the initial load URL with calculated per_page
+    // The first page arrived with the HTML; fetch it again only if this
+    // screen fits a different number of posts than the server guessed.
     document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('posts-container');
+        if (!container || typeof htmx === 'undefined') return;
         const perPage = getPostsPerPage();
+        if (perPage === {{ per_page }}) return;
         container.setAttribute('hx-get', '/posts?page=1&per_page=' + perPage);
         htmx.process(container);
+        htmx.trigger(container, 'refit');
     });
 </script>
 {% endblock %}

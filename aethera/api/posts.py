@@ -77,14 +77,10 @@ class PostListResponse(BaseModel):
     has_next: bool
 
 
-@router.get("/posts", response_class=HTMLResponse)
-def get_posts(
-    request: Request,
-    page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1, le=50),
-    session: Session = Depends(get_session),
-):
-    """Get paginated list of published posts."""
+def post_page(session: Session, page: int, per_page: int) -> dict:
+    """One page of published posts, newest first, with comment counts and
+    whether there are pages either side: the context fragments/post_list.html
+    renders, for the htmx pager (/posts) and for /blog's first page alike."""
     offset = (page - 1) * per_page
 
     # Query posts ordered by date
@@ -110,10 +106,27 @@ def get_posts(
 
     has_prev_page = page > 1
 
-    # Return HTML fragments for pagination
+    return {
+        "posts": posts, "page": page, "per_page": per_page,
+        "has_next_page": has_next_page, "has_prev_page": has_prev_page,
+        "comment_counts": comment_counts,
+    }
+
+
+@router.get("/posts", response_class=HTMLResponse)
+def get_posts(
+    request: Request,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    session: Session = Depends(get_session),
+):
+    """A page of posts as an HTML fragment, for htmx to swap in (not a page of its own)."""
     return templates.TemplateResponse(
-        "fragments/post_list.html",
-        {"request": request, "posts": posts, "page": page, "per_page": per_page, "has_next_page": has_next_page, "has_prev_page": has_prev_page, "comment_counts": comment_counts}
+        request=request,
+        name="fragments/post_list.html",
+        context=post_page(session, page, per_page),
+        # a fragment: the blog's pages are /blog, not this
+        headers={"X-Robots-Tag": "noindex"},
     )
 
 
