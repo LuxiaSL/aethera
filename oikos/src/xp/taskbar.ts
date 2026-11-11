@@ -17,9 +17,10 @@
 import type { Site } from '../data';
 import { h } from './chrome';
 import * as icons from './icons';
-import { closeMenus, openCascade, openMenu, type MenuEntry } from './menu';
+import { viaKeyboard } from './env';
+import { closeMenus, menuOpen, openCascade, openMenu, type MenuEntry } from './menu';
 import type { Shell } from './shell';
-import type { WindowManager } from './wm';
+import type { WindowManager, XPWindow } from './wm';
 
 export interface TaskbarHooks {
   standby(on: boolean): void;
@@ -75,7 +76,8 @@ export class Taskbar {
       e.stopPropagation();
       const btn = (e.target as HTMLElement).closest('.xp-taskbtn') as HTMLElement | null;
       const w = btn ? this.wm.list.find((x) => x.opts.id === btn.dataset.win) : undefined;
-      openMenu(w ? w.systemMenu() : this.barMenu(), e.clientX, e.clientY);
+      // a window's menu goes with its window (closing it from here closes the menu)
+      openMenu(w ? w.systemMenu() : this.barMenu(), e.clientX, e.clientY, { owner: w?.el ?? null, returnTo: btn });
     });
     net.addEventListener('click', () => this.balloon('Connected to the Wired', `${shell.dir.sites.length} screens · 1 VCR · signal: present day, present time`, this.trayAnchor()));
 
@@ -101,13 +103,22 @@ export class Taskbar {
     return { x: r.right - 60, y: r.top };
   }
 
-  toggleMenu(force?: boolean): void {
+  get startOpen(): boolean {
+    return !this.menu.hidden;
+  }
+
+  /**
+   * Open or close the start menu. Opening focuses its first item; closing it
+   * with `refocus` (Esc) gives the keyboard back to the start button.
+   */
+  toggleMenu(force?: boolean, refocus = false): void {
     const open = force ?? this.menu.hidden;
     if (!open) closeMenus(); // and any cascade hanging off it
     this.menu.hidden = !open;
     this.start.classList.toggle('open', open);
     this.start.setAttribute('aria-expanded', String(open));
     if (open) (this.menu.querySelector('a,button') as HTMLElement | null)?.focus();
+    else if (refocus) this.start.focus({ preventScroll: true });
   }
 
   private barMenu(): MenuEntry[] {
@@ -163,17 +174,22 @@ export class Taskbar {
     };
     // a start-menu item that cascades, XP-style: hover (or click) opens it beside
     const cascade = (ul: HTMLElement, icon: string, title: string, cls: string, entries: () => MenuEntry[]) => {
-      const b = h('button', { type: 'button', role: 'menuitem', class: `cascade ${cls}`, 'aria-haspopup': 'menu', 'data-menu-owner': '', html: `${icon}<span class="tt"></span><i class="arrow"></i>` });
+      const b = h('button', { type: 'button', role: 'menuitem', class: `cascade ${cls}`, 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-menu-owner': '', html: `${icon}<span class="tt"></span><i class="arrow"></i>` });
       (b.querySelector('.tt') as HTMLElement).textContent = title;
-      const open = () => {
+      const open = (hover: boolean) => {
         b.classList.add('open');
-        openCascade(entries(), b, () => b.classList.remove('open'));
+        b.setAttribute('aria-expanded', 'true');
+        openCascade(entries(), b, { onClose: () => close(b), takeFocus: !hover, focusFirst: !hover && viaKeyboard() });
       };
-      b.addEventListener('click', open);
-      b.addEventListener('pointerenter', open);
+      b.addEventListener('click', () => open(false));
+      b.addEventListener('pointerenter', () => open(true));
       return li(ul, b);
     };
     const sep = (ul: HTMLElement) => ul.append(h('li', { class: 'sep', role: 'separator' }));
+    const close = (b: HTMLElement) => {
+      b.classList.remove('open');
+      b.setAttribute('aria-expanded', 'false');
+    };
     // hovering a plain item closes any cascade that's out, as XP's did
     m.addEventListener('pointerover', (e) => {
       const t = (e.target as HTMLElement).closest('li > a, li > button');
@@ -189,11 +205,12 @@ export class Taskbar {
     here.slice(0, PINNED).forEach((s) => item(left, icons.tape(s.accent, s.title), s.title, s.kind, () => this.shell.play(s.id), 'pinned'));
     sep(left);
     here.slice(PINNED).forEach((s) => item(left, icons.tape(s.accent, s.title), s.title, null, () => this.shell.play(s.id)));
-    const all = h('li', { class: 'allprog' });
+    const all = h('li', { class: 'allprog', role: 'none' });
     left.append(h('li', { class: 'sep', role: 'separator' }), all);
-    const allBtn = h('button', { type: 'button', role: 'menuitem', class: 'cascade', 'aria-haspopup': 'menu', 'data-menu-owner': '', html: `<span class="tt">All Programs</span>${icons.allPrograms()}` });
-    const openAll = () => {
+    const allBtn = h('button', { type: 'button', role: 'menuitem', class: 'cascade', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-menu-owner': '', html: `<span class="tt">All Programs</span>${icons.allPrograms()}` });
+    const openAll = (hover: boolean) => {
       allBtn.classList.add('open');
+      allBtn.setAttribute('aria-expanded', 'true');
       openCascade(
         [
           ...this.shell.dir.sites.filter((s) => s.group === 'here').map(tapeEntry),
@@ -203,11 +220,11 @@ export class Taskbar {
           { label: '~ (home directory)', icon: icons.folderHome(), run: () => { this.toggleMenu(false); this.shell.home(); } },
         ],
         allBtn,
-        () => allBtn.classList.remove('open'),
+        { onClose: () => close(allBtn), takeFocus: !hover, focusFirst: !hover && viaKeyboard() },
       );
     };
-    allBtn.addEventListener('click', openAll);
-    allBtn.addEventListener('pointerenter', openAll);
+    allBtn.addEventListener('click', () => openAll(false));
+    allBtn.addEventListener('pointerenter', () => openAll(true));
     all.append(allBtn);
 
     // right: the "My …" places bold, then everything else in plain weight
@@ -226,20 +243,76 @@ export class Taskbar {
     cols.append(left, right);
     m.append(cols);
 
-    const foot = h('div', { class: 'foot' });
-    const logoff = h('button', { type: 'button', html: `${icons.logoff()}<span>Log Off</span>` });
+    const foot = h('div', { class: 'foot', role: 'group', 'aria-label': 'Session' });
+    const logoff = h('button', { type: 'button', role: 'menuitem', html: `${icons.logoff()}<span>Log Off</span>` });
     logoff.addEventListener('click', () => {
       this.toggleMenu(false);
       this.logOffDialog();
     });
-    const off = h('button', { type: 'button', html: `${icons.power()}<span>Turn Off Computer</span>` });
+    const off = h('button', { type: 'button', role: 'menuitem', html: `${icons.power()}<span>Turn Off Computer</span>` });
     off.addEventListener('click', () => {
       this.toggleMenu(false);
       this.shutdownDialog();
     });
     foot.append(logoff, off);
     m.append(foot);
+    m.addEventListener('keydown', (e) => this.startKeys(e, [left, right, foot]));
     return m;
+  }
+
+  /**
+   * The start menu from the keyboard: ↑ ↓ (Home, End) within a column, ← →
+   * between the columns, → (or Enter) into a cascade, Esc out to the start
+   * button. Enter and Space on an item are the button's own.
+   */
+  private startKeys(e: KeyboardEvent, cols: HTMLElement[]): void {
+    const itemsOf = (col: HTMLElement) => [...col.querySelectorAll<HTMLElement>(':scope > li > a, :scope > li > button, :scope > button')];
+    const a = document.activeElement as HTMLElement | null;
+    const c = cols.findIndex((col) => !!a && col.contains(a));
+    const stop = () => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    if (e.key === 'Escape') {
+      stop();
+      if (menuOpen()) closeMenus();
+      else this.toggleMenu(false, true);
+      return;
+    }
+    if (e.key === 'Tab') {
+      // Tab goes round the start menu, not out under it
+      stop();
+      const all = cols.flatMap(itemsOf);
+      const i = all.indexOf(a as HTMLElement);
+      all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length]?.focus();
+      return;
+    }
+    if (c < 0 || !a) return;
+    const col = cols[c] as HTMLElement;
+    const items = itemsOf(col);
+    const i = items.indexOf(a);
+    const foot = c === cols.length - 1;
+    const vertical = foot ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
+    if (vertical.includes(e.key) || e.key === 'Home' || e.key === 'End') {
+      stop();
+      const n = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (i + (e.key === vertical[1] ? 1 : -1) + items.length) % items.length;
+      items[n]?.focus();
+    } else if (e.key === 'ArrowRight' && a.classList.contains('cascade')) {
+      stop();
+      a.click();
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !foot) {
+      // across to the other column, about level with where we were
+      stop();
+      const other = itemsOf(cols[c === 0 ? 1 : 0] as HTMLElement);
+      const at = a.getBoundingClientRect().top;
+      const near = other.reduce<HTMLElement | null>((best, el) => (!best || Math.abs(el.getBoundingClientRect().top - at) < Math.abs(best.getBoundingClientRect().top - at) ? el : best), null);
+      near?.focus();
+    } else if (e.key === 'ArrowDown' && foot) {
+      stop();
+    } else if (e.key === 'ArrowUp' && foot) {
+      stop();
+      itemsOf(cols[0] as HTMLElement).at(-1)?.focus();
+    }
   }
 
   /** Esc: close the Turn Off / Log Off dialog if one is up. True when there was one. */

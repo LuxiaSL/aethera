@@ -290,6 +290,10 @@
 #oikos-desktop > .xp-window { pointer-events: none; }
 .xp-window > * { pointer-events: auto; }
 
+/* a window takes the keyboard when clicked (wm.ts); being the active one is its focus ring */
+#oikos .xp-window:focus-visible,
+#oikos .xp-menu:focus-visible { outline: none; }
+
 /* the glass: everything below the tab */
 .xp-window::before {
   content: '';

@@ -12,6 +12,7 @@
  */
 
 import { h } from './chrome';
+import { viaKeyboard } from './env';
 
 export interface MenuItem {
   label: string;
@@ -32,9 +33,24 @@ interface Open {
   child: Open | null;
 }
 
+export interface MenuOpts {
+  /** runs when the menu closes for any reason (the menu bar un-presses its title) */
+  onClose?: () => void;
+  /** focus the first item (default: when it was opened from the keyboard) */
+  focusFirst?: boolean;
+  /** take the keyboard at all; a cascade that opens on hover leaves it where it is */
+  takeFocus?: boolean;
+  /** what the menu belongs to: closing it (a window) closes the menu too */
+  owner?: HTMLElement | null;
+  /** where focus goes back to when the menu closes holding it (default: whatever had it at opening) */
+  returnTo?: HTMLElement | null;
+  /** ← / → at the top level with nowhere to go inside: the menu bar's neighbours, a cascade's way back */
+  onNav?: (dir: -1 | 1) => void;
+}
+
 let host: HTMLElement | null = null;
 let top: Open | null = null;
-let onCloseTop: (() => void) | null = null;
+let topOpts: MenuOpts = {};
 
 /** where menus are attached (the #oikos root, so nothing clips them) */
 export function setMenuHost(el: HTMLElement): void {
@@ -50,24 +66,57 @@ export function setMenuHost(el: HTMLElement): void {
     },
     true,
   );
+  // scrolling anything else (a window's content, the room's zoom) takes the menu away, as a desktop does
+  el.addEventListener(
+    'wheel',
+    (e) => {
+      if (top && !(e.target as HTMLElement).closest('.xp-menu')) closeMenus();
+    },
+    { capture: true, passive: true },
+  );
+  // a menu placed for the old page width is in the wrong place now (not on a
+  // height change alone: a phone's toolbar or keyboard sliding in is one)
+  let lastW = innerWidth;
+  addEventListener('resize', () => {
+    if (innerWidth !== lastW) closeMenus();
+    lastW = innerWidth;
+  });
 }
 
 export function menuOpen(): boolean {
   return top !== null;
 }
 
-/** close every open menu; true if there was one */
+/** a menu is open that belongs to `el` (or to something inside it) */
+export function menuOwnedBy(el: HTMLElement): boolean {
+  const o = topOpts.owner;
+  return !!top && !!o && (o === el || el.contains(o));
+}
+
+function holdsFocus(): boolean {
+  const a = document.activeElement;
+  let m = top;
+  while (m) {
+    if (a && m.el.contains(a)) return true;
+    m = m.child;
+  }
+  return false;
+}
+
+/** close every open menu; true if there was one. Focus held by the menu goes back to its opener. */
 export function closeMenus(): boolean {
   if (!top) return false;
+  const hadFocus = holdsFocus();
   let m: Open | null = top;
   while (m) {
     m.el.remove();
     m = m.child;
   }
   top = null;
-  const cb = onCloseTop;
-  onCloseTop = null;
-  cb?.();
+  const { onClose, returnTo } = topOpts;
+  topOpts = {};
+  onClose?.();
+  if (hadFocus && returnTo?.isConnected && returnTo.getClientRects().length) returnTo.focus({ preventScroll: true });
   return true;
 }
 
@@ -110,6 +159,8 @@ function build(entries: MenuEntry[], level: Open | null): HTMLElement {
       const self = findLevel(el);
       if (e.submenu) openSub();
       else if (self) closeChildren(self);
+      // the highlight and the keyboard stay on the same item
+      if (!e.disabled && holdsFocus()) b.focus({ preventScroll: true });
     });
     b.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -128,22 +179,45 @@ function build(entries: MenuEntry[], level: Open | null): HTMLElement {
   el.addEventListener('keydown', (ev) => {
     const live = buttons.filter((b) => b.getAttribute('aria-disabled') !== 'true');
     const i = live.indexOf(document.activeElement as HTMLButtonElement);
+    const stop = () => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const n = live[(i + (ev.key === 'ArrowDown' ? 1 : -1) + live.length) % live.length];
+      stop();
+      const down = ev.key === 'ArrowDown';
+      // nothing focused yet (opened by a click): the first or the last
+      const n = i < 0 ? live[down ? 0 : live.length - 1] : live[(i + (down ? 1 : -1) + live.length) % live.length];
       n?.focus();
-    } else if (ev.key === 'ArrowRight' && live[i]?.classList.contains('has-sub')) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      live[i]?.click();
-    } else if (ev.key === 'ArrowLeft' && level) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      closeChildren(level);
-      (level.el.querySelector('button.has-sub') as HTMLElement | null)?.focus();
+    } else if (ev.key === 'Home' || ev.key === 'End') {
+      stop();
+      live[ev.key === 'Home' ? 0 : live.length - 1]?.focus();
+    } else if (ev.key === 'ArrowRight') {
+      stop();
+      if (live[i]?.classList.contains('has-sub')) live[i]?.click();
+      else if (!level) topOpts.onNav?.(1);
+    } else if (ev.key === 'ArrowLeft') {
+      stop();
+      if (level) back(level);
+      else topOpts.onNav?.(-1);
+    } else if (ev.key === 'Escape') {
+      // one level at a time, as XP did; the last one hands focus back to the opener
+      stop();
+      if (level) back(level);
+      else closeMenus();
+    } else if (ev.key === 'Tab') {
+      // a menu is not in the tab order: Tab leaves it, closed
+      stop();
+      closeMenus();
     }
   });
+  // back out of a cascade to the item it hangs from
+  const back = (parent: Open) => {
+    const forLabel = parent.child?.el.dataset.for;
+    closeChildren(parent);
+    const owner = [...parent.el.querySelectorAll<HTMLElement>('button.has-sub')].find((b) => b.querySelector('.lb')?.textContent === forLabel);
+    owner?.focus();
+  };
   return el;
 }
 
@@ -184,22 +258,28 @@ function place(el: HTMLElement, x: number, y: number, flipX = x): HTMLElement {
 }
 
 /**
- * Open a menu at a page point. `onClose` runs when it closes for any reason
- * (the menu bar uses it to un-press its title).
+ * Open a menu at a page point. Opened from the keyboard it focuses its first
+ * item; opened by a click it holds the keyboard itself, so the arrows reach
+ * it rather than the room.
  */
-export function openMenu(entries: MenuEntry[], x: number, y: number, onClose?: () => void, focusFirst = false): void {
+export function openMenu(entries: MenuEntry[], x: number, y: number, opts: MenuOpts = {}): void {
   closeMenus();
+  const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
   const el = build(entries, null);
+  el.tabIndex = -1;
   top = { el, child: null };
+  topOpts = { ...opts, returnTo: opts.returnTo ?? opener };
   place(el, x, y);
-  onCloseTop = onClose ?? null;
-  if (focusFirst) (el.querySelector('button:not([aria-disabled])') as HTMLElement | null)?.focus();
+  if (opts.takeFocus === false) return;
+  const first = el.querySelector('button:not([aria-disabled])') as HTMLElement | null;
+  if ((opts.focusFirst ?? viaKeyboard()) && first) first.focus({ preventScroll: true });
+  else el.focus({ preventScroll: true });
 }
 
-/** Open a menu as a cascade to the side of an element (start menu flyouts). */
-export function openCascade(entries: MenuEntry[], beside: HTMLElement, onClose?: () => void): void {
+/** Open a menu as a cascade to the side of an element (start menu flyouts); ← comes back to it. */
+export function openCascade(entries: MenuEntry[], beside: HTMLElement, opts: MenuOpts = {}): void {
   const r = beside.getBoundingClientRect();
-  openMenu(entries, r.right - 2, r.top - 3, onClose);
+  openMenu(entries, r.right - 2, r.top - 3, { returnTo: beside, onNav: (d) => d < 0 && closeMenus(), ...opts });
   if (top) {
     // flip left if there's no room on the right (a phone)
     const hr = host?.getBoundingClientRect();
@@ -222,6 +302,7 @@ export function bindContextMenu(root: HTMLElement, resolve: (target: HTMLElement
       closeMenus();
       return;
     }
-    openMenu(entries, e.clientX, e.clientY);
+    // the menu key or Shift+F10 fires this too, at the focused element
+    openMenu(entries, e.clientX, e.clientY, { owner: t });
   });
 }
