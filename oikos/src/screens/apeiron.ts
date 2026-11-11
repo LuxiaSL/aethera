@@ -74,7 +74,9 @@ export class ApeironScreen extends Screen {
 
   constructor(site: Site, env: ScreenEnv) {
     super(site, env);
-    this.fps = 18;
+    // 15, not 18: what a 60 Hz display actually showed when screens dropped
+    // their remainder (18 fps needed four vsyncs); see syrinx.ts
+    this.fps = 15;
   }
 
   private generate(t: number): Generation {

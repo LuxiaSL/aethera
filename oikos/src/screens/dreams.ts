@@ -30,6 +30,9 @@ export class DreamsScreen extends Screen {
   constructor(site: Site, env: ScreenEnv) {
     super(site, env);
     this.fps = 20;
+    // a remembered frame drifts at about a pixel a second: a few frames show it
+    // as well as twenty (not the stand-in's blobs, nor a cross-fade)
+    this.idleFps = 5;
     this.frame.width = FW;
     this.frame.height = FH;
     const fctx = this.frame.getContext('2d');
@@ -63,8 +66,10 @@ export class DreamsScreen extends Screen {
       f.globalAlpha = this.prev ? mix : 1;
       this.kenBurns(this.cur, t);
       f.globalAlpha = 1;
+      this.settled = mix >= 1 && stage.complete;
     } else {
       this.standIn(t);
+      this.settled = false;
     }
     const g = f.createRadialGradient(FW / 2, FH / 2, FH * 0.25, FW / 2, FH / 2, FW * 0.56);
     g.addColorStop(0, 'rgba(0,0,0,1)');

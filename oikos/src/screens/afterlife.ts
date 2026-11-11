@@ -51,20 +51,21 @@ export class AfterlifeScreen extends Screen {
     this.life = life;
   }
 
-  protected draw(_t: number, dt: number): void {
+  protected draw(_t: number, dt: number): boolean {
     this.sync();
     const life = this.life;
-    if (!life) return;
+    if (!life) return false;
     // one generation at most per draw; the remainder carries (so 30 fps
     // gives 15/s, not 10), but a slow or hidden spell is dropped, not replayed
     const period = 1 / GENS_PER_SEC;
     this.genAcc += dt;
-    if (this.genAcc < period) return;
+    if (this.genAcc < period) return false; // same generation, same picture
     this.genAcc = Math.min(this.genAcc - period, period);
     life.step();
     if (life.generation > 0 && life.generation % 150 === 0) life.takeCensus();
     const st = this.term.status(life, '');
     if (st.tickerWidth >= 10) life.tickTicker(st.tickerWidth);
     this.term.render(life, st, false);
+    return true;
   }
 }

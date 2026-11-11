@@ -34,7 +34,8 @@ const PAINTERS: Record<string, new (site: Site, env: ScreenEnv) => Screen> = {
 };
 
 class TestCard extends Screen {
-  protected draw(t: number): void {
+  protected draw(t: number): boolean | void {
+    if (this.unchanged(Math.floor(t) % 2)) return false;
     const ctx = this.ctx;
     const bars = ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'];
     bars.forEach((c, i) => {

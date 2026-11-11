@@ -910,7 +910,7 @@ export class Room {
       // with a screen focused, the rest are in the corner of your eye: half rate
       // (not the pane's screen, which you're looking at in its window)
       const slow = this.focused && this.focused !== 'vcr' && !focused && id !== this.kept ? 0.5 : 1;
-      if (s.power > 0.2 && wanted && s.screen.tick(t, dt, focused, slow)) {
+      if (s.power > 0.2 && wanted && s.screen.tick(t, dt, focused, slow, id === this.kept)) {
         s.monitor.texture.needsUpdate = true;
         this.perf.uploads++;
       }
