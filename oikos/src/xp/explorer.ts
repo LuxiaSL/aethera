@@ -138,6 +138,14 @@ export class Explorer {
     this.win?.close();
   }
 
+  /** give the keyboard to the tiles: the selected tape's, else the first one showing */
+  focusTiles(): void {
+    if (!this.isOpen || this.win?.minimized) return;
+    const sel = this.selected ? this.tiles.get(this.selected) : undefined;
+    const first = sel && !sel.hidden ? sel : [...this.tiles.values()].find((t) => !t.hidden);
+    first?.focus({ preventScroll: true });
+  }
+
   private fileMenu(): MenuEntry[] {
     const sel = this.selected ? this.shell.site(this.selected) : undefined;
     const items: MenuEntry[] = sel ? siteMenu(this.shell, sel) : [{ label: 'Play', bold: true, disabled: true }];
