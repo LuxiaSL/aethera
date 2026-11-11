@@ -17,7 +17,7 @@ import { Field } from './field';
 import { placementFor, type Placement } from './layout';
 import { Monitor } from './monitor';
 import { Post } from './post';
-import { Vcr, PLINTH_TOP } from './vcr';
+import { Core, DESK_BACK_Z, DESK_TOP } from './core';
 import { Cable, floorRoute, makePowerLines, makeSky } from './wires';
 
 export type Pickable = string; // a site id, or 'vcr'
@@ -70,7 +70,8 @@ export class Room {
   // assigned in build(), which the constructor always runs (or throws)
   private controls!: OrbitControls;
   private post!: Post;
-  private vcr = new Vcr();
+  /** æthera, the machine at the centre (its pick id is still 'vcr' until the shell's words change) */
+  private core = new Core();
   private field!: Field;
   private sky!: THREE.Mesh;
   private stations = new Map<string, Station>();
@@ -170,9 +171,9 @@ export class Room {
     this.scene.add(moon);
     const lamp = new THREE.SpotLight(0xd8dcff, 9, 7, 0.42, 0.65, 1.6);
     lamp.position.set(0.4, 4.6, 1.2);
-    lamp.target.position.set(0, PLINTH_TOP, 0.1);
+    lamp.target.position.set(-0.05, DESK_TOP + 0.3, 0.15);
     this.scene.add(lamp, lamp.target);
-    // and a little from where you stand, so its face (and the tape) can be read
+    // and a little from where you stand, so the machine's face can be read
     const fill = new THREE.PointLight(0x9fb3ff, 2.2, 4.5, 2);
     fill.position.set(-0.4, 1.35, 2.3);
     this.scene.add(fill);
@@ -181,9 +182,9 @@ export class Room {
     this.scene.add(ember);
 
     this.buildFloor();
-    this.scene.add(this.vcr.group);
-    this.pickables.push(this.vcr.hit);
-    this.vcr.hit.userData.pick = 'vcr';
+    this.scene.add(this.core.group);
+    this.pickables.push(this.core.hit);
+    this.core.hit.userData.pick = 'vcr';
     this.scene.add(makePowerLines());
 
     const rand = rng(1998);
@@ -261,6 +262,7 @@ export class Room {
     let port = 0;
 
     for (const { site, p } of pending) {
+      if (site.screen === false) continue; // it lives in the OS only
       const screen = screens.get(site.id);
       if (!screen) continue;
       const monitor = new Monitor({
@@ -307,7 +309,7 @@ export class Room {
 
       // the cable home
       const x = -0.5 + ((port++ * 0.37) % 1.0);
-      vcrRear.set(x, this.vcr.rearY - 0.05, this.vcr.rearZ - 0.01);
+      vcrRear.set(x, this.core.rearY - 0.05, this.core.rearZ - 0.01);
       const from = monitor.world(monitor.portLocal);
       const back = monitor.normal().multiplyScalar(-1).setY(0).normalize();
       let points: THREE.Vector3[];
@@ -318,7 +320,7 @@ export class Room {
         mid.y = Math.min(from.y, to.y) - 0.6;
         points = [from, from.clone().addScaledVector(back, 0.3).setY(from.y - 0.2), mid, to.clone().add(new THREE.Vector3(0, 0.3, -0.3)), to];
       } else {
-        points = floorRoute(from, back, vcrRear, 0.15 - 0.8, PLINTH_TOP, rand);
+        points = floorRoute(from, back, vcrRear, DESK_BACK_Z, DESK_TOP, rand);
       }
       const cable = new Cable(points, p.hang ? 0.014 : 0.02, site.accent);
       this.scene.add(cable.mesh);
@@ -369,9 +371,10 @@ export class Room {
   private posesFor(id: Pickable): Pose | null {
     if (id === 'vcr') {
       const portrait = this.camera.aspect < 1;
+      const glass = this.core.screenWorld();
       return {
-        pos: new THREE.Vector3(0.3, 1.75, portrait ? 3.9 : 2.9),
-        target: new THREE.Vector3(0, PLINTH_TOP + 0.12, 0.2),
+        pos: new THREE.Vector3(glass.x + 0.25, glass.y + 0.35, portrait ? 3.4 : 2.5),
+        target: glass.clone().setY(glass.y - 0.08),
       };
     }
     const s = this.stations.get(id);
@@ -471,8 +474,8 @@ export class Room {
     if (!s || !pose) return Promise.resolve(true);
     this.cancelPlay();
     const done = new Promise<boolean>((r) => (this.settlePlay = r));
-    this.vcr.load(s.site.title);
-    this.vcr.vfd.play(s.placement.channel, s.site.title, this.t);
+    this.core.load(s.site.title);
+    this.core.display.play(s.placement.channel, s.site.title, this.t);
     this.focused = id;
     this.playing = id;
     for (const [sid, st] of this.stations) st.cable.setLit(sid === id ? 1 : 0);
@@ -499,12 +502,12 @@ export class Room {
     const portrait = this.camera.aspect < 1;
     const glance: Pose = {
       pos: new THREE.Vector3(side * 0.45, 1.4, portrait ? 3.1 : 2.25),
-      target: new THREE.Vector3(side * 0.05, PLINTH_TOP + 0.1, 0.25),
+      target: this.core.screenWorld(),
     };
     this.flyTo(glance, 0.8, () => {
       if (this.playing !== id) return;
       s.cable.surge();
-      // let the tape finish going in before we leave it
+      // a beat on the machine's screen (it names what it's opening) before we leave it
       this.after(0.35, arrive);
     });
     return done;
@@ -515,12 +518,12 @@ export class Room {
   }
 
   eject(): void {
-    this.vcr.load(null);
-    this.vcr.vfd.stop();
+    this.core.load(null);
+    this.core.display.stop();
   }
 
   scroll(text: string): void {
-    this.vcr.vfd.scroll(text, this.t);
+    this.core.display.scroll(text, this.t);
   }
 
   /** Into the glass: resolves when the screen fills the view. */
@@ -540,13 +543,12 @@ export class Room {
     let k = 0;
     const order = [...this.stations.values()].sort((a, b) => a.placement.channel - b.placement.channel);
     for (const s of order) s.powerAt = this.t + 0.25 + k++ * (this.reduced ? 0 : 0.14);
-    this.vcr.vfd.scroll('present day  present time', this.t + 0.4);
   }
 
   /** Where a thing is on the page, in CSS px (null when it's behind us). */
   anchor(id: Pickable): { x: number; y: number } | null {
     let p: THREE.Vector3;
-    if (id === 'vcr') p = new THREE.Vector3(0, PLINTH_TOP - 0.05, 0.95);
+    if (id === 'vcr') p = this.core.screenWorld().add(new THREE.Vector3(0, -0.32, 0.45));
     else {
       const s = this.stations.get(id);
       if (!s) return null;
@@ -920,9 +922,7 @@ export class Room {
       if (s.light) s.light.intensity = s.power * (2.2 + s.hover * 1.4 + (focused ? 0.6 : 0));
       s.cable.update(t, dt);
     }
-    this.vcr.vfd.glow = this.hovered === 'vcr' ? 1 : 0.8;
-    this.vcr.vfd.update(t, dt);
-    this.vcr.update(dt);
+    this.core.update(t, dt, this.hovered === 'vcr');
     this.field.update(t);
     const t1 = performance.now();
     this.post.render(t, dt);

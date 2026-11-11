@@ -36,6 +36,8 @@ export interface Site {
   details: [string, string][];
   /** can be watched live on its own screen: true frames href, a string frames that page */
   tune?: boolean | string;
+  /** false: the place lives in the OS (explorer, start menu) but has no screen in the room */
+  screen?: boolean;
 }
 
 export interface FileEntry {

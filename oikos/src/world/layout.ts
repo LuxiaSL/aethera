@@ -27,16 +27,21 @@ export interface Placement {
 }
 
 export const PLACEMENTS: Record<string, Placement> = {
+  // the dreams family is one cluster: the big set in the middle, and the two
+  // that only exist because of it raised on crates at its shoulders (the TV's
+  // bezel spans about ±14° from here, so they stand clear of it), their cables
+  // running into it rather than to the machine
   dreams: { angle: 0, r: 4.9, y: 0.5, style: 'tv', screenW: 2.0, channel: 1 },
-  transmissions: { angle: -27, r: 4.5, y: 0.34, style: 'beige', screenW: 1.22, stand: true, channel: 2 },
-  chronicle: { angle: 27, r: 4.5, y: 0, style: 'black', screenW: 1.3, channel: 3 },
-  'dreams-api': { angle: 27, r: 4.5, y: 0, style: 'grey', screenW: 0.86, on: 'chronicle', channel: 4 },
-  apeiron: { angle: -54, r: 4.2, y: 0, style: 'black', screenW: 1.15, channel: 5 },
-  irc: { angle: -54, r: 4.2, y: 0, style: 'beige', screenW: 0.95, on: 'apeiron', channel: 6 },
-  syrinx: { angle: 54, r: 4.2, y: 0.28, style: 'grey', screenW: 1.08, channel: 7 },
-  afterlife: { angle: 78, r: 3.9, y: 0, style: 'black', screenW: 1.02, channel: 10 },
-  dream_gen: { angle: -20, r: 7.0, y: 4.35, style: 'grey', screenW: 1.02, hang: true, feeds: 'dreams', channel: 8 },
-  parlor: { angle: 20, r: 6.5, y: 3.6, style: 'beige', screenW: 1.1, hang: true, channel: 9 },
+  chronicle: { angle: -19.5, r: 5.35, y: 1.25, style: 'black', screenW: 1.0, feeds: 'dreams', channel: 3 },
+  'dreams-api': { angle: 19.5, r: 5.35, y: 1.25, style: 'grey', screenW: 0.85, feeds: 'dreams', channel: 4 },
+  // the arc, even either side of it
+  transmissions: { angle: -30, r: 4.5, y: 0.34, style: 'beige', screenW: 1.22, stand: true, channel: 2 },
+  afterlife: { angle: 30, r: 4.5, y: 0, style: 'black', screenW: 1.08, channel: 10 },
+  apeiron: { angle: -56, r: 4.2, y: 0, style: 'black', screenW: 1.15, channel: 5 },
+  irc: { angle: -56, r: 4.2, y: 0, style: 'beige', screenW: 0.95, on: 'apeiron', channel: 6 },
+  syrinx: { angle: 56, r: 4.2, y: 0.28, style: 'grey', screenW: 1.08, channel: 7 },
+  // past æthera: hung from the power lines
+  parlor: { angle: -18, r: 6.8, y: 3.9, style: 'beige', screenW: 1.1, hang: true, channel: 9 },
 };
 
 export function placementFor(id: string, index: number): Placement {
