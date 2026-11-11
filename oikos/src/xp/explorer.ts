@@ -85,7 +85,7 @@ export class Explorer {
 
     // the folder is a region; each group of tapes is its own listbox (a listbox
     // may hold only options, not the group headings or the file links)
-    const content = h('div', { class: `xp-content view-${this.view}`, role: 'region', 'aria-label': 'tapes' });
+    const content = h('div', { class: `xp-content view-${this.view}`, role: 'region', 'aria-label': 'places' });
     this.content = content;
     // a click on the folder's blank space clears the selection (the camera stays put)
     content.addEventListener('pointerdown', (e) => {
@@ -100,8 +100,8 @@ export class Explorer {
       for (const s of sites) grid.append(this.tile(s));
       content.append(grid);
     };
-    group('Tapes Stored on This Server', dir.sites.filter((s) => s.group === 'here'));
-    group('Other Places on the Wired', dir.sites.filter((s) => s.group === 'wired'));
+    group('here', dir.sites.filter((s) => s.group === 'here'));
+    group('elsewhere', dir.sites.filter((s) => s.group === 'wired'));
     if (dir.files.length) {
       content.append(h('h3', { class: 'xp-group-head' }, ['Files']));
       const grid = h('div', { class: 'xp-tiles' });
@@ -280,7 +280,7 @@ export class Explorer {
     const hit = this.shell.dir.sites.find((s) => s.title.toLowerCase() === needle) ??
       this.shell.dir.sites.find((s) => `${s.title} ${s.kind} ${s.tagline}`.toLowerCase().includes(needle));
     if (hit) this.shell.play(hit.id);
-    else this.shell.balloon('Cannot find it', `There is no tape called “${v}” in ~.`);
+    else this.shell.balloon('not found', `nothing called “${v}” in ~`);
   }
 
   private renderTasks(): void {
@@ -288,16 +288,13 @@ export class Explorer {
     const sel = this.selected ? this.shell.site(this.selected) : undefined;
     const tapeTasks: TaskItem[] = sel
       ? [
-          { icon: icons.play(), label: 'Play this tape', run: () => this.shell.play(sel.id) },
+          { icon: icons.play(), label: 'Open', run: () => this.shell.play(sel.id) },
           { icon: icons.look(), label: 'Look at its screen', run: () => this.shell.look(sel.id) },
           { icon: icons.globe(), label: `Go to ${sel.title}`, run: () => this.shell.open(sel) },
         ]
-      : [
-          { icon: icons.play(), label: 'Select a tape to play it' },
-          { icon: icons.eject(), label: 'Eject the tape', run: () => this.shell.eject() },
-        ];
+      : [];
     const places: TaskItem[] = [
-      { icon: icons.computer(), label: 'æthera', href: '/' },
+      { icon: icons.textFile('txt'), label: 'transmissions', href: '/blog' },
       { icon: icons.textFile('xml'), label: 'feed.xml', href: '/feed.xml' },
       { icon: icons.textFile('txt'), label: 'llms.txt', href: '/llms.txt' },
     ];
@@ -309,11 +306,11 @@ export class Explorer {
       details.append(dl);
     } else {
       const here = this.shell.dir.sites.filter((s) => s.group === 'here').length;
-      details.append(h('b', {}, ['~']), h('span', {}, [`home directory · ${here} tapes here, ${this.shell.dir.sites.length - here} elsewhere on the Wired`]));
+      details.append(h('b', {}, ['~']), h('span', {}, [`${here} here · ${this.shell.dir.sites.length - here} elsewhere`]));
     }
     this.tasks.replaceChildren(
-      taskGroup(sel ? 'Tape Tasks' : 'System Tasks', tapeTasks, true),
-      taskGroup('Other Places', places),
+      ...(tapeTasks.length ? [taskGroup('tasks', tapeTasks, true)] : []),
+      taskGroup('places', places),
       taskGroup('Details', details),
     );
   }

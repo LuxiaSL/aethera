@@ -256,9 +256,9 @@ function boot(root: HTMLElement): void {
         }
       });
       const bar = h('div', { class: 'oikos-tuned', role: 'toolbar', 'aria-label': 'tuned in' });
-      bar.innerHTML = `${icons.tape(site.accent)}<b></b><span>tuned in · live on its screen</span>`;
+      bar.innerHTML = `${icons.screen(site.accent)}<b></b>`;
       (bar.querySelector('b') as HTMLElement).textContent = site.title;
-      const eject = h('button', { class: 'xp-btn', type: 'button' }, ['⏏ Eject']);
+      const eject = h('button', { class: 'xp-btn', type: 'button' }, ['◂ room']);
       eject.addEventListener('click', () => tuneOut(true));
       const full = h('a', { class: 'xp-btn', href: site.href }, ['Open full ↗']);
       if (isExternal(site.href)) {
@@ -341,7 +341,7 @@ function boot(root: HTMLElement): void {
         /* fine */
       }
       lastRoute = '';
-      taskbar.balloon('Logged off', 'The desk is clear. Click the VCR to begin again.', room?.anchor('vcr') ?? undefined);
+      taskbar.balloon('logged off', '', room?.anchor('vcr') ?? undefined);
     },
     restart() {
       try {
@@ -464,13 +464,11 @@ function boot(root: HTMLElement): void {
     wm.get('about')?.close();
     const body = h('div', { class: 'xp-about-box' });
     const band = h('div', { class: 'band', html: icons.markImg(44, true) });
-    band.append(h('b', {}, ['æthera']), h('span', {}, ['oikos']));
+    band.append(h('b', {}, ['æthera']));
     const text = h('div', { class: 'xp-dialog-body' });
     const lines = h('div');
     lines.append(
-      h('p', {}, ['æthera · the home directory']),
-      h('p', {}, ['Version 1998 (Build 2026.present_day)']),
-      h('p', {}, ['A room of screens wired to one VCR, and every part of the site playing at once.']),
+      h('p', {}, ['a room of screens, each one a place.']),
       h('p', { class: 'lic' }, ['This product is licensed under CC BY 4.0 to:']),
       h('p', {}, ['guest']),
     );
@@ -497,7 +495,7 @@ function boot(root: HTMLElement): void {
           else if (room?.focusedId && !panes.size && !room.busy) room.focus(null);
         },
         hover(id, x, y) {
-          if (id === 'vcr') taskbar.showTip(null, { title: 'VCR', text: 'your home directory · click to open ~' }, x, y);
+          if (id === 'vcr') taskbar.showTip(null, { title: 'æthera', text: '~' }, x, y);
           else taskbar.showTip(id ? (byId.get(id) ?? null) : null, null, x, y);
         },
         context(alive) {
@@ -527,7 +525,6 @@ function boot(root: HTMLElement): void {
     if (id === 'vcr') {
       return [
         { label: 'Open ~', bold: true, run: () => shell.home() },
-        { label: 'Eject', run: () => shell.eject(), disabled: !inVcr },
         'sep',
         { label: 'Properties', disabled: true },
       ];
@@ -777,22 +774,10 @@ function boot(root: HTMLElement): void {
     }
     if (!room) {
       openHome(false); // the place the visit starts at: not a step of its own
-      taskbar.balloon('No room tonight', 'This browser has no WebGL, so the room of screens is dark. The tapes all still play.');
+      taskbar.balloon('no room tonight', 'This browser has no WebGL, so the room is dark. Every place still opens.');
       return;
     }
-    setTimeout(() => {
-      if (wm.list.length) return;
-      const at = room?.anchor('vcr') ?? undefined;
-      taskbar.balloon(
-        'This is the way in',
-        isSheet()
-          ? 'Tap the VCR for the home directory, or any screen to tune in. Drag to look around.'
-          : 'Click the VCR for your home directory, or any screen to tune in. Drag to look around; ← → walk the screens.',
-        at,
-        11000,
-        true,
-      );
-    }, seen ? 900 : 2600);
+    // no welcome balloon: the room is the welcome, and a desktop needs no instructions
   });
 }
 

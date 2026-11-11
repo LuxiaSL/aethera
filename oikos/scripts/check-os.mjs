@@ -292,14 +292,14 @@ await section('menus', async () => {
   await page.keyboard.press('ArrowDown');
   expect('↓ moves in the start menu', (await active()) !== s0 && (await focusIn(page, '.xp-startmenu')));
   await page.keyboard.press('End');
-  expect('End reaches All Programs', (await active()) === 'All Programs');
+  expect('End reaches all places', (await active()) === 'all places');
   await page.keyboard.press('ArrowRight');
-  expect('→ opens All Programs, focused', (await menus(page)) === 1 && (await focusIn(page, '.xp-menu')));
+  expect('→ opens all places, focused', (await menus(page)) === 1 && (await focusIn(page, '.xp-menu')));
   await page.keyboard.press('ArrowLeft');
-  expect('← closes it, back on All Programs', (await menus(page)) === 0 && (await active()) === 'All Programs');
+  expect('← closes it, back on all places', (await menus(page)) === 0 && (await active()) === 'all places');
   await page.keyboard.press('Home');
   await page.keyboard.press('ArrowRight');
-  expect('→ in the left column crosses to the right', (await active()) !== 'All Programs' && (await focusIn(page, '.xp-startmenu .right')));
+  expect('→ in the left column crosses to the right', (await active()) !== 'all places' && (await focusIn(page, '.xp-startmenu .right')));
   await page.keyboard.press('Escape');
   expect('Esc closes the start menu and returns focus to start', (await page.locator('.xp-startmenu').isHidden()) && (await focusIn(page, '.xp-start')));
   await page.context().close();

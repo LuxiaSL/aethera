@@ -101,7 +101,7 @@ export class Taskbar {
       // a window's menu goes with its window (closing it from here closes the menu)
       openMenu(w ? w.systemMenu() : this.barMenu(), e.clientX, e.clientY, { owner: w?.el ?? null, returnTo: btn });
     });
-    net.addEventListener('click', () => this.balloon('Connected to the Wired', `${shell.dir.sites.length} screens · 1 VCR · signal: present day, present time`, this.trayAnchor()));
+    net.addEventListener('click', () => this.balloon('Connected to the Wired', `${shell.dir.sites.length} places`, this.trayAnchor()));
 
     this.tip = h('div', { class: 'xp-tip', role: 'tooltip', hidden: '' });
     this.balloonEl = h('div', { class: 'xp-balloon', role: 'status', hidden: '' });
@@ -261,7 +261,7 @@ export class Taskbar {
     here.slice(PINNED).forEach((s) => item(left, icons.tape(s.accent, s.title), s.title, null, () => this.shell.play(s.id)));
     const all = h('li', { class: 'allprog', role: 'none' });
     left.append(h('li', { class: 'sep', role: 'separator' }), all);
-    const allBtn = h('button', { type: 'button', role: 'menuitem', class: 'cascade', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-menu-owner': '', html: `<span class="tt">All Programs</span>${icons.allPrograms()}` });
+    const allBtn = h('button', { type: 'button', role: 'menuitem', class: 'cascade', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-menu-owner': '', html: `<span class="tt">all places</span>${icons.allPrograms()}` });
     const openAll = (hover: boolean) => {
       allBtn.classList.add('open');
       allBtn.setAttribute('aria-expanded', 'true');
@@ -282,10 +282,10 @@ export class Taskbar {
     all.append(allBtn);
 
     // right: the "My …" places bold, then everything else in plain weight
-    item(right, icons.folderHome(), 'My Tapes', null, () => this.shell.home(), 'strong');
+    item(right, icons.folderHome(), '~', null, () => this.shell.home(), 'strong');
     const posts = this.shell.dir.posts.slice(0, 8);
     if (posts.length) {
-      cascade(right, icons.textFile('txt'), 'My Recent Transmissions', 'strong', () =>
+      cascade(right, icons.textFile('txt'), 'recent transmissions', 'strong', () =>
         posts.map((p): MenuEntry => ({ label: p.title, icon: icons.textFile('txt'), run: () => location.assign(p.href) })),
       );
     }
@@ -303,7 +303,7 @@ export class Taskbar {
       this.toggleMenu(false);
       this.logOffDialog();
     });
-    const off = h('button', { type: 'button', role: 'menuitem', html: `${icons.power()}<span>Turn Off Computer</span>` });
+    const off = h('button', { type: 'button', role: 'menuitem', html: `${icons.power()}<span>Turn Off</span>` });
     off.addEventListener('click', () => {
       this.toggleMenu(false);
       this.shutdownDialog();
@@ -427,7 +427,7 @@ export class Taskbar {
   }
 
   private shutdownDialog(): void {
-    this.bigDialog('Turn off computer', [
+    this.bigDialog('Turn off æthera', [
       { cls: 'standby', icon: icons.standby(), label: 'Stand By', run: () => this.hooks.standby(true) },
       { cls: 'off', icon: icons.power(), label: 'Turn Off', run: () => this.hooks.turnOff() },
       { cls: 'restart', icon: icons.restart(), label: 'Restart', run: () => this.hooks.restart() },

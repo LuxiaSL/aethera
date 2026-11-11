@@ -117,7 +117,7 @@ export class Pane {
     }
     if (site.id === 'irc') tapeTasks.splice(1, 0, { icon: icons.chat('channel'), label: 'Join #aethera in mIRC', run: () => this.shell.chat('#aethera') });
     tapeTasks.push({ icon: icons.copy(), label: 'Copy address', run: () => copyAddress(this.shell, site) });
-    tapeTasks.push({ icon: icons.eject(), label: 'Eject tape', run: () => this.win.close() });
+    tapeTasks.push({ icon: icons.eject(), label: 'Close', run: () => this.win.close() });
 
     const places: TaskItem[] = [{ icon: icons.folderHome(), label: '~ (home directory)', run: () => this.shell.home() }];
     for (const rid of RELATED[site.id] ?? []) {
@@ -133,7 +133,7 @@ export class Pane {
     this.statusLine = h('div', { class: 'status' });
     details.append(this.statusLine);
 
-    tasks.append(taskGroup('Tape Tasks', tapeTasks, true), taskGroup('Other Places', places), taskGroup('Details', details));
+    tasks.append(taskGroup('tasks', tapeTasks, true), taskGroup('places', places), taskGroup('details', details));
 
     this.win = wm.open({
       id: `site:${site.id}`,

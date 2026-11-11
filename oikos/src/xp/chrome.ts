@@ -220,7 +220,7 @@ export function statusbar(): { el: HTMLElement; set(text: string, zone: Zone): v
     el,
     set(text: string, zone: Zone) {
       left.textContent = text;
-      const [icon, label] = zone === 'computer' ? [icons.computer(), 'My Computer'] : [icons.globe(), 'Internet'];
+      const [icon, label] = zone === 'computer' ? [icons.computer(), 'æthera'] : [icons.globe(), 'elsewhere'];
       right.innerHTML = `${icon}<span>${label}</span>`;
     },
   };

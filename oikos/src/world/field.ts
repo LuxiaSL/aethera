@@ -41,7 +41,7 @@ function makeAtlas(): THREE.CanvasTexture {
       ctx.fillStyle = '#0b0b0b';
       ctx.fillRect(x, y + th * 0.7, tw, th * 0.3);
     }
-    text(3, ['PRESENT DAY', 'PRESENT TIME'], '#e8e8e8', '#050505', 22);
+    text(3, ['NO CARRIER'], '#e8e8e8', '#050505', 22);
     {
       const [x, y] = at(4);
       ctx.fillStyle = '#000';
