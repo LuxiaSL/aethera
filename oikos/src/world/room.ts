@@ -141,6 +141,9 @@ export class Room {
     this.renderer.toneMappingExposure = 1.1;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.domElement.id = 'oikos-gl';
+    // the room is a picture to assistive tech; the places themselves are the directory's links
+    this.renderer.domElement.setAttribute('role', 'img');
+    this.renderer.domElement.setAttribute('aria-label', 'a dark room full of screens, each one a place on æthera');
     container.prepend(this.renderer.domElement);
     try {
       this.build(sites, screens);

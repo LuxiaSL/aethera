@@ -8,7 +8,7 @@ import { H, HAND, MONO, Screen, W, rng, type ScreenEnv } from './screen';
 import type { Site } from '../data';
 
 const logo = new Image();
-logo.src = '/static/uploads/aethera_trimmed.png';
+logo.src = '/static/oikos/boot-logo.webp'; // 680 px, 23 KB (the 1133 px 16-bit PNG was 316 KB)
 
 export class TransmissionsScreen extends Screen {
   private specks: { x: number; y: number; r: number; red: boolean; v: number }[];

@@ -105,3 +105,17 @@ def test_every_tunable_page_exists(client: TestClient):
         src = tune if isinstance(tune, str) else site["href"]
         assert src.startswith("/"), f"{site['id']}: only same-origin pages can be tuned in"
         assert client.get(src).status_code == 200, src
+
+
+def test_oikos_is_a_lean_page(client: TestClient):
+    """The room is its own page: none of the blog's chrome (Tailwind, htmx,
+    highlight.js, the background video, caustics' second WebGL loop) rides
+    along, and what it does load is versioned so it can cache for a year."""
+    html = client.get("/oikos").text
+    for heavy in ("tailwind", "htmx", "highlight.js", "background_web.mp4", "caustics.js", "aethera_trimmed.png"):
+        assert heavy not in html, heavy
+    for asset in ("oikos/oikos.js", "oikos/oikos.css", "oikos/boot-logo.webp", "fonts/LoveLetterTypewriter.woff2"):
+        assert re.search(rf"/static/{re.escape(asset)}\?v=[0-9a-f]{{12}}", html), asset
+    # every versioned URL the page names must actually be served
+    for url in set(re.findall(r'/static/[^"\')\s]+\?v=[0-9a-f]{12}', html)):
+        assert client.get(url).status_code == 200, url

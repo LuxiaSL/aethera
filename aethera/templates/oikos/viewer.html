@@ -1,13 +1,29 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+{#
+  The room is its own page, not a child of base.html. base.html carries the
+  blog: Tailwind (2.9 MB unpurged, render-blocking), highlight.js, htmx, the
+  background video and caustics.js (a second WebGL loop). The room used none
+  of it but paid for all of it, about 2.5 MB per cold visit, and on a slow
+  link the boot screen could not paint until Tailwind arrived. So this page
+  ships only what the room uses: its stylesheet, two fonts and the bundle.
 
-{% block title %}oikos | æthera{% endblock %}
+  There is no htmx here, so nothing can boost a link out of the room: every
+  way out is a real navigation, which the WebGL context, the websocket and
+  the render loop need (see syrinx/viewer.html).
+#}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>oikos | æthera</title>
+<link rel="icon" type="image/ico" href="/static/favicon.ico">
 
-{% block meta %}
 <meta name="description" content="oikos — æthera's home directory. A room of screens in the dark, wired to one VCR: every part of the site, playing at once.">
 <link rel="canonical" href="https://aetherawi.red/oikos">
 <meta name="license" content="CC BY 4.0">
 <meta name="robots" content="index, follow, max-image-preview:large">
-<link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml" />
+<link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml">
+<link rel="alternate" type="text/plain" title="æthera, for models" href="/llms.txt">
 <meta property="og:title" content="oikos | æthera">
 <meta property="og:description" content="æthera's home directory: a room of screens wired to one VCR, every part of the site playing at once.">
 <meta property="og:url" content="https://aetherawi.red/oikos">
@@ -19,9 +35,7 @@
 <meta name="twitter:title" content="oikos | æthera">
 <meta name="twitter:description" content="æthera's home directory: a room of screens wired to one VCR.">
 <meta name="theme-color" content="#000000">
-{% endblock %}
 
-{% block schema %}
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -35,30 +49,66 @@
     ]
 }
 </script>
-{% endblock %}
 
-{% block extra_head %}
-<link href="/static/oikos/oikos.css" rel="stylesheet">
+{# both faces are needed before the first label is painted; found late, they cost a round trip after the CSS #}
+{% set font_typed = asset_url('fonts/LoveLetterTypewriter.woff2') %}
+{% set font_mono = asset_url('fonts/LibertinusMono-Regular.ttf') %}
+<link rel="preload" href="{{ font_typed }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ font_mono }}" as="font" type="font/ttf" crossorigin>
 <style>
-    /* oikos owns the whole viewport: silence the site chrome on this page */
-    .video-bg, body > header, body > footer { display: none !important; }
-    main { max-width: none !important; padding: 0 !important; }
-    html, body { overflow: hidden; margin: 0; padding: 0; background: #000; }
+    @font-face {
+        font-family: 'Libertinus Mono';
+        src: url('{{ font_mono }}') format('truetype');
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'Love Letter Typewriter';
+        src: url('{{ font_typed }}') format('woff2');
+        font-display: swap;
+    }
+    /* the page is the room: nothing scrolls, nothing shows past it */
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+    /*
+      The reset the room's CSS was written on top of: Tailwind 2.2's preflight
+      (what base.html used to bring), cut to what the room's markup uses.
+      :where() keeps it at plain element specificity, as the original was, so
+      every rule in oikos.css still wins over it.
+    */
+    :where(#oikos) *, :where(#oikos) ::before, :where(#oikos) ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: currentColor; }
+    :where(#oikos) :is(blockquote, dd, dl, figure, h1, h2, h3, h4, h5, h6, hr, p, pre) { margin: 0; }
+    :where(#oikos) :is(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: inherit; }
+    :where(#oikos) :is(ol, ul) { list-style: none; margin: 0; padding: 0; }
+    :where(#oikos) :is(b, strong) { font-weight: bolder; }
+    :where(#oikos) small { font-size: 80%; }
+    :where(#oikos) a { color: inherit; text-decoration: inherit; }
+    :where(#oikos) :is(button, input, optgroup, select, textarea) { font-family: inherit; font-size: 100%; line-height: inherit; color: inherit; margin: 0; padding: 0; }
+    :where(#oikos) :is(button, select) { text-transform: none; }
+    :where(#oikos) button { -webkit-appearance: button; background-color: transparent; background-image: none; }
+    :where(#oikos) :is(button, [role=button]) { cursor: pointer; }
+    :where(#oikos) textarea { resize: vertical; }
+    :where(#oikos) :is(input, textarea)::placeholder { opacity: 1; color: #9ca3af; }
+    :where(#oikos) table { border-collapse: collapse; text-indent: 0; border-color: inherit; }
+    :where(#oikos) :is(audio, canvas, embed, iframe, img, object, svg, video) { display: block; vertical-align: middle; }
+    :where(#oikos) :is(img, video) { max-width: 100%; height: auto; }
+    :where(#oikos) [hidden] { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+        #oikos *, #oikos *::before, #oikos *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
 </style>
+<link href="{{ asset_url('oikos/oikos.css') }}" rel="stylesheet">
 {# without JS nothing would ever lift the boot screen off the <nav> #}
 <noscript><style>#oikos-boot { display: none !important; }</style></noscript>
-{% endblock %}
+</head>
 
-{% block content %}
-{#
-  hx-boost="false" is load-bearing (see syrinx/viewer.html): the room holds a
-  WebGL context, a websocket and a render loop, and an htmx swap would leave
-  them running under the next page. Every way out is a real navigation.
-#}
-<div id="oikos" hx-boost="false">
+<body>
+<div id="oikos">
     {# the boot screen is markup, not script, so it paints before the bundle parses #}
     <div id="oikos-boot" aria-hidden="true">
-        <img class="boot-logo" src="/static/uploads/aethera_trimmed.png" alt="">
+        <img class="boot-logo" src="{{ asset_url('oikos/boot-logo.webp') }}" alt="">
         <div class="boot-bar"><span></span><span></span><span></span></div>
         <div class="boot-foot"><span>present day, present time</span><span>oikos</span></div>
     </div>
@@ -82,9 +132,8 @@
 
     <script type="application/json" id="oikos-data">{{ oikos | tojson }}</script>
 </div>
-{% endblock %}
 
-{% block scripts %}
 {# a bundle that never arrives mustn't leave the boot screen over the <nav> either #}
-<script src="/static/oikos/oikos.js" onerror="var b=document.getElementById('oikos-boot');if(b)b.remove()"></script>
-{% endblock %}
+<script src="{{ asset_url('oikos/oikos.js') }}" onerror="var b=document.getElementById('oikos-boot');if(b)b.remove()"></script>
+</body>
+</html>

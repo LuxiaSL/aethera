@@ -1,6 +1,4 @@
 from fastapi import FastAPI, Depends, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
@@ -17,6 +15,7 @@ from aethera.models.base import init_db, get_session
 from aethera.api import posts, comments, seo, dreams, chronicle, apeiron, syrinx, afterlife, irc, oikos, chat
 from aethera.irc.database import init_irc_db
 from aethera.utils.security import SecurityHeadersMiddleware
+from aethera.utils.static_assets import CachedStaticFiles, SelectiveGZipMiddleware
 from aethera.utils.templates import templates
 
 
@@ -54,11 +53,11 @@ app = FastAPI(lifespan=lifespan)
 
 # Add middleware
 app.add_middleware(SecurityHeadersMiddleware)  # Security headers should be first
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(SelectiveGZipMiddleware, minimum_size=1000)  # not media/fonts; level 6
 
 # Mount static files
 static_path = Path(__file__).parent / "static"
-app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+app.mount("/static", CachedStaticFiles(directory=str(static_path)), name="static")
 
 # Include API routers
 app.include_router(posts.router)

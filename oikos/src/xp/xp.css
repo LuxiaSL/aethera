@@ -99,8 +99,20 @@
   text-decoration: underline;
 }
 
+/* live: the room is the directory now, but screen readers and agents reading
+   the DOM still get the plain list (display:none would take it out of the
+   accessibility tree, leaving them a taskbar and a clock) */
 #oikos.oikos-live #oikos-directory {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --------------------------------------------------------------------------
