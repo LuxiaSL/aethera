@@ -18,7 +18,7 @@
 <title>æthera</title>
 <link rel="icon" type="image/ico" href="/static/favicon.ico">
 
-{% set canonical_abs = "https://aetherawi.red" ~ (canonical_path or "/oikos") %}
+{% set canonical_abs = "https://aetherawi.red" ~ (canonical_path or "/") %}
 <meta name="description" content="æthera's home directory: a room of screens in the dark, every part of the site playing at once.">
 <link rel="canonical" href="{{ canonical_abs }}">
 <meta name="license" content="CC BY 4.0">
@@ -47,13 +47,27 @@
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
+    "@graph": [
+    {
+        "@type": "WebSite",
+        "@id": "https://aetherawi.red/#site",
+        "name": "æthera",
+        "url": "https://aetherawi.red/",
+        "author": {"@type": "Person", "name": "Luxia"},
+        "license": "https://creativecommons.org/licenses/by/4.0/",
+        "inLanguage": "en"
+    },
+    {
     "@type": "CollectionPage",
     "name": "æthera",
     "description": "The home directory of æthera: every part of the site in one room.",
     "url": "{{ canonical_abs }}",
+    "isPartOf": {"@id": "https://aetherawi.red/#site"},
     "hasPart": [
-        {% for s in sites if s.href %}{"@type": "WebPage", "name": {{ s.title | tojson }}, "url": {{ (s.href if s.href.startswith("http") else "https://aetherawi.red" ~ s.href) | tojson }}, "description": {{ s.tagline | tojson }}}{% if not loop.last %},{% endif %}
+        {% for s in sites if s.href %}{"@type": {{ ("Blog" if s.kind == "blog" else "WebPage") | tojson }}, "name": {{ s.title | tojson }}, "url": {{ (s.href if s.href.startswith("http") else "https://aetherawi.red" ~ s.href) | tojson }}, "description": {{ s.tagline | tojson }}}{% if not loop.last %},{% endif %}
         {% endfor %}
+    ]
+}
     ]
 }
 </script>

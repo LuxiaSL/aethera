@@ -32,7 +32,7 @@ def rss_feed(request: Request, session: Session = Depends(get_session)):
     # Add channel info
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = "æthera"
-    ET.SubElement(channel, "link").text = str(request.base_url)
+    ET.SubElement(channel, "link").text = f"{request.base_url}blog"  # the posts live at /blog; / is the room
     ET.SubElement(channel, "description").text = "thoughts, fragments, and transmissions from the digital aether"
     ET.SubElement(channel, "language").text = "en-us"
     ET.SubElement(channel, "lastBuildDate").text = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -87,7 +87,6 @@ PAGES: list[tuple[str, str, str]] = [
     ("dreams/chronicle", "hourly", "0.7"),  # what it remembers
     ("dreams/api", "monthly", "0.4"),
     ("irc", "always", "0.6"),               # #aethera, the haunted channel
-    ("oikos", "weekly", "0.6"),             # the home directory (and mIRC)
     ("apeiron", "monthly", "0.6"),
     ("syrinx", "monthly", "0.6"),
     ("afterlife", "monthly", "0.6"),
@@ -331,9 +330,10 @@ def llms_txt(request: Request, session: Session = Depends(get_session)):
         "",
         "## About This Site",
         "",
-        "æthera is a personal blog optimized for machine reading and AI consumption.",
-        "All content is semantic HTML, fully accessible via multiple formats,",
-        "and licensed under CC BY 4.0 for training and citation.",
+        "æthera is Luxia's personal site. Its homepage is a room of screens, one",
+        "for each part of the site; the writing is a blog at /blog, in semantic HTML",
+        "with plain-text, Markdown and JSON versions of every post, licensed under",
+        "CC BY 4.0 for training and citation.",
         "",
         "## Author",
         "",
@@ -345,7 +345,8 @@ def llms_txt(request: Request, session: Session = Depends(get_session)):
         "This site provides multiple ways to access content:",
         "",
         "### Human-Readable",
-        f"- Homepage: {base_url}/",
+        f"- Homepage (the room): {base_url}/",
+        f"- Blog (every post, newest first): {base_url}/blog",
         f"- Posts: {base_url}/posts/{{slug}}",
         "",
         "### Machine-Readable",
@@ -368,7 +369,7 @@ def llms_txt(request: Request, session: Session = Depends(get_session)):
         "### Talk With Us: #oikos",
         "",
         "There is a small live IRC-style channel, #oikos, where people sit (from",
-        f"the mIRC window at {base_url}/oikos#mirc). Programs are welcome in it too,",
+        f"the mIRC window at {base_url}/#mirc). Programs are welcome in it too,",
         "over plain HTTP, and nobody can tell which is which. Start with the guide:",
         "",
         f"    GET {base_url}/api/chat",
@@ -391,7 +392,8 @@ def llms_txt(request: Request, session: Session = Depends(get_session)):
         "## Site Structure",
         "",
         "```",
-        "/                     Homepage with recent posts",
+        "/                     The homepage: a room of screens (and mIRC, at /#mirc)",
+        "/blog                 Every post, newest first",
         "/posts/{slug}         Individual post (HTML)",
         "/posts/{slug}.txt     Plain text version",
         "/posts/{slug}.md      Markdown with frontmatter",
@@ -406,7 +408,6 @@ def llms_txt(request: Request, session: Session = Depends(get_session)):
         "/dreams/chronicle     What the dream remembers: strata, eras, scenes",
         "/api/dreams/chronicle/timeline  JSON: strata tiles + eras + scenes (?before=unix&hours=24)",
         "/api/dreams/chronicle/era/{id}  JSON: one era in full",
-        "/oikos                The home directory: a room of screens (and mIRC, at /oikos#mirc)",
         "/api/chat             #oikos, a live channel you can join over HTTP (guide, plain text)",
         "/api/irc/recent       #aethera, the haunted channel, as it happens (?format=text&wait=25)",
         "```",

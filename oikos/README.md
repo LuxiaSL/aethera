@@ -2,16 +2,18 @@
 
 > *οἶκος — a household, a home.* æthera's home directory, as a room in the Wired.
 
-A room of CRT screens in the dark, one per site, every cable running into a
-VCR on a plinth in the middle. Over it all, a Windows XP desktop for the parts
-you click. Served at **`/oikos`** (and **`/~`**, which redirects there).
+A room of CRT screens in the dark, one per place, every cable running into
+æthera's own machine on a desk in the middle. Over it all, a desktop for the
+parts you click: æthera, an OS with XP's habits and a phosphor skin. It is the
+site's homepage, at **`/`** (`/oikos` and `/~` redirect there).
 
-There are two ways in, on purpose. Click the **VCR** (or the start button) to
-open `~`, the home directory, where every site is a tape. Or click a **screen**
-in the room. Either way a tape goes into the VCR, the display says PLAY and the
-channel, and that screen's cable surges. Then the site's pane opens, showing
-the very canvas its screen is painted on. **Open** it and the camera dives
-through the glass to the site.
+There are two ways in, on purpose. Click the **machine** in the middle (or the
+start button) to open `~`, the home directory, where every place is a tile. Or
+click a **screen** in the room. Either way the machine changes channel and that
+screen's cable surges. Then the place's pane opens, showing the very canvas its
+screen is painted on. **Go to** it and the camera dives through the glass to
+the page; **Tune In** and the live page plays on its own screen instead, with a
+small browser strip along the top of the glass.
 
 ## What's on the screens
 
@@ -99,15 +101,15 @@ npm run watch        # rebuild on save, beside: uv run python -m aethera.main
 ```
 
 There is no standalone dev page, because the room is made of the site's own
-endpoints. Develop against the real server and open `/oikos`.
+endpoints. Develop against the real server and open `/`.
 
-- `/oikos?contact` shows every screen side by side with no 3D, for working on painters.
-- `/oikos#dreams` deep-links a tape. The hash follows whichever pane is open.
+- `/?contact` shows every screen side by side with no 3D, for working on painters.
+- `/#dreams` deep-links a place. The hash follows whichever pane is open.
 - `npm run shot` photographs the room, the home directory, a pane, the start
   menu and a phone layout in headless Chromium. Software WebGL is slow; pass
   `--speed 5` (the `?speed=` debug param runs the room's clock faster).
 - `npm run drive` walks through every interaction a visitor has: hover, orbit,
-  the VCR, a tape going in, tuning in, eject, the start menu, arrow keys, a
+  the machine, a place opening, tuning in, closing, the start menu, arrow keys, a
   typed channel, and the dive. It uses `?drive`, which stops the room's own
   loop and steps it at a true 30 fps from the harness, so the animations can
   be watched frame by frame on a machine with no GPU. It writes a still for
@@ -123,8 +125,8 @@ tuned-in page) and otherwise steps the camera back; as in XP, it never closes
 an ordinary window.
 
 The XP layer is meant to behave like XP, not just look like it: every window
-has a working menu bar (items that mean nothing in this house are greyed, as
-XP greyed them), right-click menus on tapes, screens, the VCR, the room (the
+has a working menu bar (only what can be done is listed: greyed-out filler
+read as a mock-up), right-click menus on tiles, screens, the machine, the room (the
 desktop), the folder and the taskbar, and the system menu behind each
 title-bar icon. `src/xp/menu.ts` is the one popup menu they all share;
 `src/xp/menus.ts` is what's in them.

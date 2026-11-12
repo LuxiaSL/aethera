@@ -41,7 +41,7 @@ if (args.bundle) {
   await page.route(/\/static\/oikos\/oikos\.js/, (r) => r.fulfill({ body: js, contentType: 'text/javascript' }));
 }
 const HZ = Number(args.hz ?? 30);
-await page.goto(`${BASE}/oikos?drive`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+await page.goto(`${BASE}/?drive`, { waitUntil: 'domcontentloaded', timeout: 120000 });
 await page.waitForFunction(() => window.__oikos?.step, null, { timeout: 180000, polling: 250 });
 await page.waitForTimeout(3000); // feeds land
 

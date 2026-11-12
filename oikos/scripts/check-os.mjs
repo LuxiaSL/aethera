@@ -65,7 +65,7 @@ async function newPage(browser, ctxOpts = {}) {
 }
 
 /** load the page and wait for the desk (no WebGL: ~ opens by itself) */
-async function boot(page, path = '/oikos') {
+async function boot(page, path = '/') {
   await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !document.getElementById('oikos-boot'), null, { timeout: 60000 });
 }
@@ -412,7 +412,7 @@ await section('router', async () => {
   expect('Back brings mIRC forward', (await hash(page)) === '#mirc' && (await isActive(page, 'mirc')));
   await page.goBack({ waitUntil: 'commit' }).catch(() => {});
   await settle(page, 300);
-  expect('Back again stays on the page', (await hash(page)) === '' && (await page.evaluate(() => location.pathname)) === '/oikos' && (await page.locator(W('home')).count()) === 1);
+  expect('Back again stays on the page', (await hash(page)) === '' && (await page.evaluate(() => location.pathname)) === '/' && (await page.locator(W('home')).count()) === 1);
   await page.goForward({ waitUntil: 'commit' }).catch(() => {});
   await settle(page, 300);
   expect('Forward walks the desk too', (await hash(page)) === '#mirc' && (await isActive(page, 'mirc')));
@@ -423,11 +423,11 @@ await section('router', async () => {
   expect('a hash typed after load opens its place', (await page.locator(W('site:syrinx')).count()) === 1);
   await page.goBack({ waitUntil: 'commit' }).catch(() => {});
   await settle(page, 300);
-  expect('Back never closes a window, nor leaves the page', (await hash(page)) === '' && (await page.locator(W('site:syrinx')).count()) === 1 && (await page.evaluate(() => location.pathname)) === '/oikos');
+  expect('Back never closes a window, nor leaves the page', (await hash(page)) === '' && (await page.locator(W('site:syrinx')).count()) === 1 && (await page.evaluate(() => location.pathname)) === '/');
   await page.context().close();
 
   const fresh = await newPage(plain);
-  await boot(fresh, '/oikos#mirc');
+  await boot(fresh, '/#mirc');
   await fresh.waitForSelector(W('mirc'));
   await fresh.locator(`${W('mirc')} .xp-close`).click();
   expect('loaded at #mirc, closing mIRC clears the hash', (await hash(fresh)) === '');
@@ -439,7 +439,7 @@ await section('router', async () => {
   await fresh.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
   await fresh.keyboard.press('Alt+ArrowLeft');
   await settle(fresh, 400);
-  expect('Alt+← at the start of the visit does not leave the page', (await fresh.evaluate(() => location.pathname)) === '/oikos');
+  expect('Alt+← at the start of the visit does not leave the page', (await fresh.evaluate(() => location.pathname)) === '/');
   await fresh.context().close();
 });
 
@@ -486,7 +486,7 @@ await section('touch', async () => {
   await page.waitForSelector(W('site:dreams'), { timeout: 4000 }).catch(() => {});
   await settle(page, 600);
   expect('tap-tap on a tape opens its pane', (await page.locator(W('site:dreams')).count()) === 1);
-  expect('…and the follow-up click does not leave the page', (await page.evaluate(() => location.pathname)) === '/oikos');
+  expect('…and the follow-up click does not leave the page', (await page.evaluate(() => location.pathname)) === '/');
   await page.locator(`${W('site:dreams')} .xp-max`).tap();
   await settle(page);
   const r = await rect(page, W('site:dreams'));
@@ -547,7 +547,7 @@ await section('aria', async () => {
 
 // ---- with the room (software GL, stepped) ---------------------------------------
 
-async function bootGl(page, path = '/oikos?drive') {
+async function bootGl(page, path = '/?drive') {
   await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__oikos && !document.getElementById('oikos-boot'), null, { timeout: 120000 });
   await step(page, 24);

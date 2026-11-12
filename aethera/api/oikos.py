@@ -12,11 +12,10 @@ renders it as a plain <nav> for crawlers and for anyone without WebGL, and the
 same list is embedded as JSON for the scene. One list, two readers.
 """
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse, Response
 from sqlmodel import Session, select
 
-from aethera.models.base import get_session
 from aethera.models.models import Post
 from aethera.utils.templates import templates
 
@@ -109,8 +108,7 @@ SITES: list[dict] = [
         "accent": "#8fe3ec",
         "tagline": "a small living instrument",
         "about": "A spring-graph organism whose every edge is a string tuned by its "
-                 "own length, so anything it grows is consonant. It does not "
-                 "perform: its own life plays it.",
+                 "own length, so anything it grows is consonant.",
         "details": [["kind", "creature"], ["born", "2026-07-09"],
                     ["by", "Luxia & Claude Fable 5"]],
         "tune": True,
@@ -201,13 +199,12 @@ def _recent_posts(session: Session, limit: int = 12) -> list[dict]:
     ]
 
 
-def render_room(request: Request, session: Session, *, canonical: str = "/oikos") -> Response:
+def render_room(request: Request, session: Session, *, canonical: str = "/") -> Response:
     """
     The room, wherever it's served from (/oikos, or / once it's the homepage).
 
-    `canonical` is the one URL search engines and link cards should credit;
-    while the room is only behind a flag at /, that stays /oikos so the two
-    addresses never compete.
+    `canonical` is the one URL search engines and link cards should credit:
+    the room is the homepage, so that is /.
     """
     # htmx (hx-boost on the blog's pages) swaps only <body>: the room would boot
     # with none of its <head>. Any htmx request for it becomes a real page load.
@@ -226,12 +223,16 @@ def render_room(request: Request, session: Session, *, canonical: str = "/oikos"
     )
 
 
-@router.get("/oikos", response_class=HTMLResponse)
-def oikos_viewer(request: Request, session: Session = Depends(get_session)):
-    return render_room(request, session)
+@router.get("/oikos", include_in_schema=False)
+def oikos_viewer(request: Request):
+    """The room moved to /. Keeps ?look, ?contact and the like; the browser
+    carries #mirc and #<place> across a redirect by itself. A 302 for now (a
+    301 sticks in browsers), until the move has settled."""
+    query = request.url.query
+    return RedirectResponse("/" + (f"?{query}" if query else ""), status_code=302)
 
 
 @router.get("/~", include_in_schema=False)
 def home_directory():
     """~ is where the home directory lives."""
-    return RedirectResponse("/oikos", status_code=307)
+    return RedirectResponse("/", status_code=307)

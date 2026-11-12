@@ -38,7 +38,7 @@ async function person(tag) {
   page.on('console', (m) => {
     if (m.type() === 'error' && !/favicon|Failed to load resource|hljs/.test(m.text())) errors.push(`${tag} console: ${m.text()}`);
   });
-  await page.goto(`${base}/oikos#mirc`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/#mirc`, { waitUntil: 'domcontentloaded' });
   await page.locator('.mirc-window').waitFor({ timeout: 60000 });
   return page;
 }

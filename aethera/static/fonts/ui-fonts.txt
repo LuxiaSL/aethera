@@ -1,4 +1,4 @@
-The æthera desktop's type (the room at /oikos)
+The æthera desktop's type (the room at /)
 
 VT323-Regular-latin.woff2
   VT323, by Peter Hull. Copyright 2011, The VT323 Project Authors.

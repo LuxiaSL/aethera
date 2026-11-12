@@ -35,7 +35,7 @@ const title = (page) => page.locator('.mirc-window .xp-title').textContent();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 watch(page, 'desk');
 // the room first, so it has been listening a while before mIRC opens (the playback)
-await page.goto(`${base}/oikos`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(25000);
 await page.locator('.xp-start').click();
 await page.waitForTimeout(400);
@@ -81,7 +81,7 @@ await page.close();
 
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 watch(phone, 'phone');
-await phone.goto(`${base}/oikos#mirc`, { waitUntil: 'domcontentloaded' });
+await phone.goto(`${base}/#mirc`, { waitUntil: 'domcontentloaded' });
 await phone.waitForTimeout(20000);
 await phone.screenshot({ path: `${out}/phone.png` });
 

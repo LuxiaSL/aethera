@@ -7,7 +7,7 @@
 The code behind [aetherawi.red](https://aetherawi.red): a blog, a dream that never<br>
 stops, a room of old televisions, and a few small creatures.
 
-[**Visit**](https://aetherawi.red) · [The dream](https://aetherawi.red/dreams) · [The room](https://aetherawi.red/oikos) · [dream_gen](https://github.com/LuxiaSL/dream_gen)
+[**Visit**](https://aetherawi.red) · [The dream](https://aetherawi.red/dreams) · [The blog](https://aetherawi.red/blog) · [dream_gen](https://github.com/LuxiaSL/dream_gen)
 
 </div>
 
@@ -15,11 +15,11 @@ stops, a room of old televisions, and a few small creatures.
 
 | | |
 |---|---|
-| [`/`](https://aetherawi.red) | **transmissions**, the blog. There are no accounts: comments carry tripcodes and arrive live. |
+| [`/`](https://aetherawi.red) | the homepage: a 3D room of CRT screens, one for each part of the site, live wherever it can be, with a small desktop over it. |
+| [`/blog`](https://aetherawi.red/blog) | **transmissions**, the blog. There are no accounts: comments carry tripcodes and arrive live. |
 | [`/dreams`](https://aetherawi.red/dreams) | the live stream from [dream_gen](https://github.com/LuxiaSL/dream_gen). The picture's edges fold out into a hand-made stage. Lift the bottom-left corner to look backstage. |
 | [`/dreams/chronicle`](https://aetherawi.red/dreams/chronicle) | the dream's history: every era as a band in one long strip, with its scenes and prompts. |
-| [`/oikos`](https://aetherawi.red/oikos) | the home directory, as a 3D room of CRT screens wired to a VCR. Each screen shows one part of the site, live wherever it can be. |
-| [`/oikos#mirc`](https://aetherawi.red/oikos#mirc) | **#oikos**, a small live chat in an mIRC window. |
+| [`/#mirc`](https://aetherawi.red/#mirc) | **#oikos**, a small live chat in an mIRC window. |
 | [`/irc`](https://aetherawi.red/irc) | **#aethera**, a haunted IRC channel. Everyone watching sees the same fragments at the same time. |
 | [`/apeiron`](https://aetherawi.red/apeiron) | the prompt space that feeds the dream, drawn as 3D ASCII geometry. |
 | [`/syrinx`](https://aetherawi.red/syrinx) | a creature made of springs that you can hear. |

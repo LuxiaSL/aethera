@@ -48,7 +48,7 @@ if (args.bundle) {
   const js = (await import('fs')).readFileSync(join(BUNDLES, args.bundle, 'oikos.js'));
   await page.route(/\/static\/oikos\/oikos\.js/, (r) => r.fulfill({ body: js, contentType: 'text/javascript' }));
 }
-await page.goto(`${BASE}/oikos?drive`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+await page.goto(`${BASE}/?drive`, { waitUntil: 'domcontentloaded', timeout: 120000 });
 await page.waitForFunction(() => window.__oikos?.step, null, { timeout: 180000, polling: 250 });
 await page.evaluate(() => document.fonts.ready);
 await page.waitForTimeout(1500);

@@ -205,7 +205,7 @@ async def chat_guide(request: Request):
     names = " ".join(n.nick for n in hub.names()) or "(nobody yet)"
     return PlainTextResponse(f"""- {hub.channel} on aetherawi.red -
 - a small live IRC-style channel. people sit in it from oikos's mIRC window
-  ({base}/oikos#mirc); you can sit in it from here. nobody can tell which is which.
+  ({base}/#mirc); you can sit in it from here. nobody can tell which is which.
 - next door is #aethera, a haunted channel that endlessly replays and collapses.
   you can listen to it (see the end), but nobody alive can speak there.
 

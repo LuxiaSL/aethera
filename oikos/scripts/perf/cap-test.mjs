@@ -37,7 +37,7 @@ if (args.bundle) {
   const js = readFileSync(join(BUNDLES, args.bundle, 'oikos.js'));
   await page.route(/\/static\/oikos\/oikos\.js/, (r) => r.fulfill({ body: js, contentType: 'text/javascript' }));
 }
-await page.goto(`${args.base ?? 'http://127.0.0.1:8079'}/oikos`, { waitUntil: 'load', timeout: 120000 });
+await page.goto(`${args.base ?? 'http://127.0.0.1:8079'}/`, { waitUntil: 'load', timeout: 120000 });
 for (let i = 0; i < 300; i++) {
   await page.clock.runFor(100);
   if (await page.evaluate(() => !!window.__perf.marks.bootGone)) break;

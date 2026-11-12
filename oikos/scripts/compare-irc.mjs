@@ -44,9 +44,9 @@ const desk = { width: 1440, height: 900 };
 await shoot('page', '/irc', desk);
 await shoot('embed', '/irc?embed=1', { width: 900, height: 675 });
 await shoot('page-phone', '/irc', { width: 390, height: 844 });
-await shoot('room-look', '/oikos?look=irc', desk);
-await shoot('room-pane', '/oikos#irc', desk);
-await shoot('room-tuned', '/oikos#irc', desk, async (page) => {
+await shoot('room-look', '/?look=irc', desk);
+await shoot('room-pane', '/#irc', desk);
+await shoot('room-tuned', '/#irc', desk, async (page) => {
   await page.getByRole('button', { name: 'Tune In' }).click();
   await page.waitForTimeout(10000);
 });

@@ -33,7 +33,8 @@ def test_post_fragments_are_not_pages(client: TestClient):
     assert "<html" not in r.text
 
 
-def test_home_is_still_the_blog_for_now(client: TestClient, session):
+def test_home_can_still_show_the_blog(client: TestClient, session):
+    """/ is the room now; ?home=blog is the way back while the move settles."""
     _post(session, "first")
     session.commit()
-    assert 'href="/posts/first"' in client.get("/").text
+    assert 'href="/posts/first"' in client.get("/?home=blog").text

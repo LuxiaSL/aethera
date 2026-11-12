@@ -17,7 +17,7 @@ def _embedded(html: str) -> dict:
 
 
 def test_oikos_renders_the_directory(client: TestClient):
-    r = client.get("/oikos")
+    r = client.get("/")
     assert r.status_code == 200
     # the plain <nav> is what crawlers (and no-WebGL visitors) get: every site is in it
     for site in SITES:
@@ -33,7 +33,7 @@ def test_oikos_embeds_published_posts_only(client: TestClient, session):
     session.add(Post(title="Seen", slug="seen", author="a", content="x", content_html="<p>x</p>", published=True))
     session.add(Post(title="Draft", slug="draft", author="a", content="x", content_html="<p>x</p>", published=False))
     session.commit()
-    posts = _embedded(client.get("/oikos").text)["posts"]
+    posts = _embedded(client.get("/").text)["posts"]
     assert [p["title"] for p in posts] == ["Seen"]
     assert posts[0]["href"] == "/posts/seen"
 
@@ -41,7 +41,18 @@ def test_oikos_embeds_published_posts_only(client: TestClient, session):
 def test_tilde_is_home(client: TestClient):
     r = client.get("/~", follow_redirects=False)
     assert r.status_code == 307
-    assert r.headers["location"] == "/oikos"
+    assert r.headers["location"] == "/"
+
+
+def test_oikos_moved_home(client: TestClient):
+    """/oikos is the room's old address: it sends you to /, keeping the query
+    (the browser keeps #mirc and #<place> by itself)."""
+    r = client.get("/oikos", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "/"
+    r = client.get("/oikos?look=irc&contact", follow_redirects=False)
+    assert r.headers["location"] == "/?look=irc&contact"
+    assert 'id="oikos-data"' in client.get("/oikos").text
 
 
 def test_every_tape_plays(client: TestClient):
@@ -77,7 +88,7 @@ def test_bundle_is_committed():
 def test_pages_frame_only_for_themselves(client: TestClient):
     """oikos lays the real pages on its screens, so æthera may frame æthera;
     nobody else may (clickjacking stays shut)."""
-    for path in ("/syrinx", "/oikos"):
+    for path in ("/syrinx", "/"):
         r = client.get(path)
         assert r.headers["content-security-policy"] == "frame-ancestors 'self'", path
         assert r.headers["x-frame-options"] == "SAMEORIGIN", path
@@ -92,7 +103,7 @@ def test_post_titles_cannot_break_out_of_the_data_script(client: TestClient, ses
     evil = "</script><script>alert(1)</script>'\"&"
     session.add(Post(title=evil, slug="evil", author="a", content="x", content_html="<p>x</p>", published=True))
     session.commit()
-    html = client.get("/oikos").text
+    html = client.get("/").text
     assert "</script><script>alert(1)" not in html
     assert _embedded(html)["posts"][0]["title"] == evil
 
@@ -111,7 +122,7 @@ def test_oikos_is_a_lean_page(client: TestClient):
     """The room is its own page: none of the blog's chrome (Tailwind, htmx,
     highlight.js, the background video, caustics' second WebGL loop) rides
     along, and what it does load is versioned so it can cache for a year."""
-    html = client.get("/oikos").text
+    html = client.get("/").text
     for heavy in ("tailwind", "htmx", "highlight.js", "background_web.mp4", "caustics.js", "aethera_trimmed.png"):
         assert heavy not in html, heavy
     for asset in ("oikos/oikos.js", "oikos/oikos.css", "oikos/boot-logo.webp", "fonts/LoveLetterTypewriter.woff2"):
@@ -124,9 +135,9 @@ def test_oikos_is_a_lean_page(client: TestClient):
 def test_htmx_never_swaps_the_room_in(client: TestClient):
     """hx-boost swaps only <body>, so a boosted link would boot the room without
     its <head> (no stylesheet, no fonts). htmx asking for it gets a real load."""
-    r = client.get("/oikos", headers={"HX-Request": "true"})
+    r = client.get("/", headers={"HX-Request": "true"})
     assert r.status_code == 200
-    assert r.headers["HX-Redirect"].endswith("/oikos")
+    assert r.headers["HX-Redirect"].endswith("/")
     assert r.text == ""
 
 
@@ -144,3 +155,16 @@ def test_each_place_has_one_kind():
     for site in SITES:
         listed = dict(site["details"]).get("kind")
         assert listed in (None, site["kind"]), f"{site['id']}: {site['kind']!r} vs {listed!r}"
+
+
+def test_room_structured_data_parses(client: TestClient):
+    """The room's JSON-LD is hand-templated: it must stay valid JSON, name the
+    site at /, and list the blog as a Blog at /blog."""
+    html = client.get("/").text
+    m = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+    assert m
+    data = json.loads(m.group(1))
+    site, page = data["@graph"]
+    assert site["@type"] == "WebSite" and site["url"] == "https://aetherawi.red/"
+    assert page["url"] == "https://aetherawi.red/"
+    assert {"@type": "Blog", "url": "https://aetherawi.red/blog"}.items() <= next(p for p in page["hasPart"] if p["@type"] == "Blog").items()

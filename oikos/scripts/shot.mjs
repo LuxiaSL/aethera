@@ -56,7 +56,7 @@ const watch = (page) => {
 const page = await browser.newPage({ viewport: { width: w, height: h } });
 watch(page);
 const q = args.speed ? `?speed=${args.speed}` : '';
-await page.goto(`${base}/oikos${q}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${base}/${q}`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(Number(args.settle ?? 14000));
 await page.screenshot({ path: `${out}/room.png` });
 const fps = await page.evaluate(
@@ -90,7 +90,7 @@ await page.screenshot({ path: `${out}/start.png` });
 await page.close();
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 watch(phone);
-await phone.goto(`${base}/oikos${q}#syrinx`, { waitUntil: 'domcontentloaded' });
+await phone.goto(`${base}/${q}#syrinx`, { waitUntil: 'domcontentloaded' });
 await phone.waitForTimeout(Number(args.settle ?? 9000));
 await phone.screenshot({ path: `${out}/phone.png` });
 

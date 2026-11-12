@@ -93,7 +93,7 @@ const anchor = (id) => page.evaluate((i) => window.__oikos.anchor(i), id);
 
 // ---- the tour -----------------------------------------------------------------
 
-await page.goto(`${base}/oikos?drive`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${base}/?drive`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => window.__oikos && !document.getElementById('oikos-boot'), null, { timeout: 60000 });
 console.log(`${which}: booted`);
 
@@ -236,7 +236,7 @@ async function desktopTour() {
     } catch (err) {
       if (!/Execution context was destroyed|navigation/.test(String(err))) throw err;
     }
-    await page.waitForURL((u) => !u.pathname.startsWith('/oikos'), { timeout: 20000 }).catch(() => {});
+    await page.waitForURL((u) => u.pathname !== '/', { timeout: 20000 }).catch(() => {});
     await page.waitForLoadState('domcontentloaded');
     const landed = page.url();
     console.log(`  · dove through the glass to ${landed.replace(bound, '')}`);

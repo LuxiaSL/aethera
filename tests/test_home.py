@@ -23,10 +23,11 @@ def _nav(html: str) -> str:
     return m.group(0)
 
 
-def test_home_defaults_to_the_blog(client: TestClient):
+def test_home_is_the_room(client: TestClient):
     r = client.get("/")
     assert r.status_code == 200
-    assert ROOM_MARK not in r.text
+    assert ROOM_MARK in r.text
+    assert _canonical(r.text) == "https://aetherawi.red/"
     assert "Cookie" in r.headers.get("vary", "")
 
 
@@ -36,8 +37,7 @@ def test_flag_serves_the_room_and_remembers_it(client: TestClient, name: str):
     assert r.status_code == 200
     assert ROOM_MARK in r.text
     assert "aethera_home=room" in r.headers.get("set-cookie", "")
-    # flagged, the room still credits /oikos: the two addresses never compete
-    assert _canonical(r.text) == "https://aetherawi.red/oikos"
+    assert _canonical(r.text) == "https://aetherawi.red/"
     # the cookie alone brings it back
     assert ROOM_MARK in client.get("/").text
 
@@ -47,13 +47,16 @@ def test_home_blog_forgets_the_room(client: TestClient):
     r = client.get("/?home=blog")
     assert ROOM_MARK not in r.text
     assert "aethera_home=" in r.headers.get("set-cookie", "")
-    assert ROOM_MARK not in client.get("/").text
-
-
-def test_default_can_flip_to_the_room(client: TestClient, monkeypatch):
-    monkeypatch.setattr(main, "HOME_DEFAULT", "room")
+    # only that once: next time / is the default again, the room
     assert ROOM_MARK in client.get("/").text
-    assert ROOM_MARK not in client.get("/?home=blog").text
+
+
+def test_default_can_flip_back_to_the_blog(client: TestClient, monkeypatch):
+    """AETHERA_HOME=blog is the way back; a remembered room still wins for its visitor."""
+    monkeypatch.setattr(main, "HOME_DEFAULT", "blog")
+    assert ROOM_MARK not in client.get("/").text
+    assert ROOM_MARK in client.get("/?home=room").text
+    assert ROOM_MARK in client.get("/").text
 
 
 def test_htmx_never_swaps_the_room_in_at_home(client: TestClient):
@@ -84,7 +87,7 @@ def test_posts_are_in_the_directory(client: TestClient, session):
 
 
 def test_the_room_has_its_own_card(client: TestClient):
-    html = client.get("/oikos").text
+    html = client.get("/").text
     m = re.search(r'<meta property="og:image" content="([^"]+)"', html)
     assert m and "/static/images/home-card.jpg?v=" in m.group(1)
     assert client.get(m.group(1).replace("https://aetherawi.red", "")).status_code == 200

@@ -114,10 +114,11 @@ def blog(request: Request, session: Session = Depends(get_session)):
     return _blog(request, session, canonical=f"{request.base_url}blog")
 
 
-#: what / shows when nothing asks otherwise: "blog" until the flip, then "room".
-#: The code default is the source of truth (a `docker restart` doesn't re-read
-#: the env file); AETHERA_HOME is an override for local runs and emergencies.
-HOME_DEFAULT: str = os.environ.get("AETHERA_HOME", "blog").strip().lower()
+#: what / shows when nothing asks otherwise: the room (it was the blog until
+#: November 2026; the blog is at /blog). The code default is the source of
+#: truth (a `docker restart` doesn't re-read the env file); AETHERA_HOME=blog
+#: is the emergency switch back, for local runs and rollbacks.
+HOME_DEFAULT: str = os.environ.get("AETHERA_HOME", "room").strip().lower()
 HOME_COOKIE = "aethera_home"
 #: ?home= values that mean the room; "blog" means the blog and clears the cookie
 ROOM_NAMES = frozenset({"room", "oikos"})
@@ -143,15 +144,16 @@ def _home_choice(request: Request) -> tuple[str, str | None]:
 @app.get("/")
 def home(request: Request, session: Session = Depends(get_session)):
     """
-    The homepage: the blog today, the room (oikos) after the flip.
+    The homepage: the room (oikos). The blog is at /blog.
 
-    Until then, `/?home=room` shows the room here and remembers it for 30 days
-    in a cookie; `/?home=blog` forgets it. While flagged, the room keeps
-    /oikos as its canonical, so the two addresses never compete.
+    `/?home=blog` shows the blog here once and forgets a remembered room;
+    `/?home=room` remembers the room for 30 days in a cookie (which matters
+    only while HOME_DEFAULT is set back to the blog). Kept until the move has
+    settled, as the way back.
     """
     page, cookie = _home_choice(request)
     if page == "room":
-        response = oikos.render_room(request, session, canonical="/oikos")
+        response = oikos.render_room(request, session, canonical="/")
     else:
         response = _blog(request, session, canonical=None)
     if cookie == "set":
