@@ -137,3 +137,10 @@ def test_links_home_are_never_boosted():
     for path in root.rglob("*.html"):
         for m in re.finditer(r'<a\b[^>]*href="/"[^>]*>', path.read_text()):
             assert 'hx-boost="false"' in m.group(0), f"{path.relative_to(root)}: {m.group(0)}"
+
+
+def test_each_place_has_one_kind():
+    """A tile and its details panel must not call the same place two things."""
+    for site in SITES:
+        listed = dict(site["details"]).get("kind")
+        assert listed in (None, site["kind"]), f"{site['id']}: {site['kind']!r} vs {listed!r}"

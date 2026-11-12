@@ -107,7 +107,7 @@ export class DreamGenScreen extends Screen {
     ctx.fillText('dream_gen', 18, 28);
     ctx.font = `10px ${MONO}`;
     ctx.fillStyle = FAINT;
-    ctx.fillText('a truly infinite diffusion stream', 110, 28);
+    ctx.fillText('an endless diffusion stream', 110, 28);
     ctx.textAlign = 'right';
     ctx.fillText(`kf ${String(kfNo).padStart(5, '0')}`, W - 18, 28);
     ctx.textAlign = 'left';

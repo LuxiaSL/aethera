@@ -55,8 +55,8 @@ SITES: list[dict] = [
         "accent": "#ff7a5c",
         "tagline": "a dream that never stops",
         "about": "A live, continuous AI image stream, drifting through its own latent "
-                 "space in real time. The dreamer sleeps until somebody watches: "
-                 "tuning in wakes a GPU.",
+                 "space in real time. The dreamer sleeps until somebody watches; "
+                 "watching wakes a GPU.",
         "details": [["kind", "live stream"], ["frame", "1024 × 512 · h264"], ["engine", "dream_gen"]],
         "tune": True,
     },
@@ -65,7 +65,7 @@ SITES: list[dict] = [
         "title": "chronicle",
         "href": "/dreams/chronicle",
         "group": "here",
-        "kind": "memory",
+        "kind": "core sample",
         "accent": "#e8e2d4",
         "tagline": "what the dream remembers",
         "about": "Every fifteen seconds of the dream settles as one line of its own "
@@ -79,7 +79,7 @@ SITES: list[dict] = [
         "title": "dreams api",
         "href": "/dreams/api",
         "group": "here",
-        "kind": "documentation",
+        "kind": "api docs",
         "accent": "#9fc6ff",
         "tagline": "the dream, by wire",
         "about": "WebSocket, SSE and REST endpoints for taking the dream somewhere "
@@ -92,12 +92,11 @@ SITES: list[dict] = [
         "title": "apeiron",
         "href": "/apeiron",
         "group": "here",
-        "kind": "instrument",
+        "kind": "prompt space",
         "accent": "#00ff41",
         "tagline": "every generation is a permanent coordinate",
-        "about": "An addressable combinatorial prompt space with real-time 3D ASCII "
-                 "hyperobject rendering. Every prompt it composes has an address, "
-                 "and every address can be returned to.",
+        "about": "Every prompt it composes has an address, and every address "
+                 "can be returned to. Rendered live as a 3D ASCII hyperobject.",
         "details": [["kind", "prompt space"], ["render", "3D ASCII"]],
         "tune": True,
     },
@@ -111,9 +110,8 @@ SITES: list[dict] = [
         "tagline": "a small living instrument",
         "about": "A spring-graph organism whose every edge is a string tuned by its "
                  "own length, so anything it grows is consonant. It does not "
-                 "perform: its own life plays it. It is a place, not a session, "
-                 "and it is older every time you return.",
-        "details": [["kind", "creature · instrument"], ["born", "2026-07-09"],
+                 "perform: its own life plays it.",
+        "details": [["kind", "creature"], ["born", "2026-07-09"],
                     ["by", "Luxia & Claude Fable 5"]],
         "tune": True,
     },
@@ -128,9 +126,8 @@ SITES: list[dict] = [
         "about": "Conway's Life on an infinite grid that steers toward its own drama: "
                  "it names its epochs, stages collisions, greets the famous citizens "
                  "it recognises, and scores itself as it goes. Press g and it "
-                 "remembers everything. It is a place, not a session: the universe "
-                 "is kept in your browser and resumes where you left it.",
-        "details": [["kind", "cellular automaton · music"], ["born", "2026-02-07"],
+                 "remembers everything.",
+        "details": [["kind", "screensaver"], ["born", "2026-02-07"],
                     ["by", "Luxia & Claude"], ["source", "github.com/LuxiaSL/afterlife"]],
         "tune": True,
     },
@@ -153,7 +150,7 @@ SITES: list[dict] = [
         "title": "parlor",
         "href": "https://parlor.aetherawi.red",
         "group": "wired",
-        "kind": "game",
+        "kind": "board game",
         "accent": "#e0b33a",
         "tagline": "Kleros: seats for people and models alike",
         "about": "A property-trading board game where humans and language models "
@@ -170,10 +167,10 @@ SITES: list[dict] = [
         "kind": "engine",
         "accent": "#d59bff",
         "tagline": "the dreamer",
-        "about": "A truly infinite diffusion stream: continuous AI art that explores "
+        "about": "An endless diffusion stream: continuous AI art that explores "
                  "latent space without ever collapsing. Mutation, a memory cache and "
                  "template swaps keep it moving. It is what dreams is watching.",
-        "details": [["kind", "engine · source"], ["feeds", "dreams"]],
+        "details": [["kind", "engine"], ["feeds", "dreams"]],
         # a repo, not a place to watch: it lives in the OS (explorer, start
         # menu), not as a screen in the room
         "screen": False,
