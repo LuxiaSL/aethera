@@ -20,6 +20,7 @@ import './xp/xp.css';
 
 import { Feeds, isExternal, readDirectory, type Site } from './data';
 import { makeScreen, type Screen } from './screens';
+import { dayOfYear, pad } from './world/core';
 import { PLACEMENTS } from './world/layout';
 import { Room, type Pickable } from './world/room';
 import { h } from './xp/chrome';
@@ -28,7 +29,8 @@ import { Mirc } from './xp/mirc';
 import * as icons from './xp/icons';
 import { isSheet } from './xp/env';
 import { bindContextMenu, closeMenus, menuOpen, setMenuHost, type MenuEntry } from './xp/menu';
-import { goLabel, siteMenu } from './xp/menus';
+import { siteMenu } from './xp/menus';
+import { NavStrip } from './xp/navstrip';
 import { Pane } from './xp/pane';
 import type { Shell } from './xp/shell';
 import { Taskbar } from './xp/taskbar';
@@ -255,17 +257,12 @@ function boot(root: HTMLElement): void {
           /* a page on another origin: the Eject button is still there */
         }
       });
-      const bar = h('div', { class: 'oikos-tuned', role: 'toolbar', 'aria-label': `${site.title}, tuned in` });
-      bar.innerHTML = `${icons.screen(site.accent)}<b></b>`;
-      (bar.querySelector('b') as HTMLElement).textContent = site.title;
-      const eject = h('button', { class: 'xp-btn', type: 'button' }, ['Tune Out']);
-      eject.addEventListener('click', () => tuneOut(true));
-      const full = h('a', { class: 'xp-btn', href: site.href }, [goLabel(site)]);
-      if (isExternal(site.href)) {
-        full.setAttribute('target', '_blank');
-        full.setAttribute('rel', 'noopener');
-      }
-      bar.append(eject, full);
+      // tuned in, the screen is a small browser (see xp/navstrip.ts)
+      const strip = new NavStrip(frame, site.title, {
+        tuneOut: () => tuneOut(true),
+        leave: (href) => location.assign(href),
+      });
+      const bar = strip.el;
       tuned = { id, bar, hidden, active, tube };
       // the page lays out at a 4:3 size near the glass's own (1024 wide on a
       // desktop, phone-sized on a phone, so the site uses its own small-screen
@@ -276,10 +273,13 @@ function boot(root: HTMLElement): void {
         tube.style.width = `${w}px`;
         tube.style.height = `${h}px`;
         tube.style.transform = `translate(${r.left}px, ${r.top}px) scale(${r.width / w}, ${r.height / h})`;
+        strip.place(r);
       };
       void room.tuneIn(id, place).then(() => {
         if (tuned?.bar !== bar) return;
         root.append(tube, bar);
+        const r = room?.glassRect(id);
+        if (r) strip.place(r); // again, now it can measure itself
         frame.focus();
       });
     },
@@ -757,6 +757,25 @@ function boot(root: HTMLElement): void {
     /* fine */
   }
   const minBoot = reduced || seen ? 250 : 1900;
+  // the self test: a slot per place, filling as the machine actually comes up
+  // (the bundle is running now; then the fonts; then the room's shaders; then
+  // ready), in a shuffled order, the way screens warm up at their own pace
+  const now = new Date();
+  const day = bootEl?.querySelector('.boot-day');
+  if (day) day.textContent = `day ${dayOfYear(now)} · ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const slots = [...(bootEl?.querySelectorAll<HTMLElement>('.boot-slots i') ?? [])].sort(() => Math.random() - 0.5);
+  let lit = 0;
+  const fill = (upTo: number, stagger = 90): void => {
+    const target = Math.min(slots.length, Math.ceil(upTo * slots.length));
+    for (let k = 0; lit < target; lit++, k++) {
+      const el = slots[lit];
+      if (!el) break;
+      setTimeout(() => el.classList.add('on'), k * stagger);
+      setTimeout(() => el.classList.add('settle'), k * stagger + 260);
+    }
+  };
+  // the tube opens first (0.6 s of CSS): the first slots light after it
+  setTimeout(() => fill(0.3), seen || reduced ? 0 : 700);
   let skip: () => void = () => {};
   const skipped = new Promise<void>((r) => (skip = r));
   bootEl?.addEventListener('click', () => skip());
@@ -767,7 +786,8 @@ function boot(root: HTMLElement): void {
     ]).then(() => undefined, () => undefined),
     new Promise<void>((r) => setTimeout(r, 1500)),
   ]);
-  const warmed = room?.warm() ?? Promise.resolve();
+  void fonts.then(() => fill(0.6));
+  const warmed = (room?.warm() ?? Promise.resolve()).then(() => fill(0.9));
   void Promise.race([Promise.all([fonts, warmed, new Promise<void>((r) => setTimeout(r, minBoot))]), skipped]).then(() => {
     booted = true;
     // opened in a background tab: visibilitychange starts these when it's shown
@@ -776,8 +796,10 @@ function boot(root: HTMLElement): void {
       room?.start();
     }
     room?.powerOn();
-    bootEl?.classList.add('gone');
-    setTimeout(() => bootEl?.remove(), 800);
+    fill(1, 30);
+    bootEl?.classList.add('ready');
+    setTimeout(() => bootEl?.classList.add('gone'), seen || reduced ? 0 : 280);
+    setTimeout(() => bootEl?.remove(), 1100);
 
     const look = new URLSearchParams(location.search).get('look');
     if (look && room && (look === 'vcr' || byId.has(look))) setTimeout(() => room?.focus(look), 300);

@@ -137,11 +137,19 @@
 
 <body>
 <div id="oikos">
-    {# the boot screen is markup, not script, so it paints before the bundle parses #}
+    {# the boot screen is markup, not script, so it paints before the bundle parses:
+       the tube opens and memory counts in CSS alone; the slots (one per place,
+       unnamed) fill as the bundle, the fonts and the room's shaders arrive #}
     <div id="oikos-boot" aria-hidden="true">
+        <div class="boot-tube"></div>
+        <div class="boot-post">
+            <span>æthera</span>
+            <span class="boot-mem">mem <b>ok</b></span>
+            <span class="boot-slots">{% for s in sites %}<i style="--c: {{ s.accent }}"></i>{% endfor %}</span>
+            <span class="boot-prompt">~ <i></i></span>
+        </div>
         <img class="boot-logo" src="{{ asset_url('oikos/boot-logo.webp') }}" alt="">
-        <div class="boot-bar"><span></span><span></span><span></span></div>
-        <div class="boot-foot"><span></span><span>æthera</span></div>
+        <div class="boot-foot"><span class="boot-day"></span><span>æthera</span></div>
     </div>
 
     {# the plain directory: what crawlers read, and what you get without WebGL #}

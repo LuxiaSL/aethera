@@ -311,13 +311,13 @@ function keyTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function dayOfYear(d: Date): number {
+export function dayOfYear(d: Date): number {
   const start = Date.UTC(d.getFullYear(), 0, 0);
   const today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
   return Math.round((today - start) / 86_400_000);
 }
 
-function pad(n: number): string {
+export function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
