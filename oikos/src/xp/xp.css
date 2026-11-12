@@ -844,25 +844,10 @@
   box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.8);
 }
 
-.xp-preview .xp-play {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 2;
-  transform: translate(-50%, -50%);
-  padding: 6px 12px 6px 10px;
-  border: 1px solid var(--ae-line);
-  background: rgba(10, 4, 4, 0.82);
-  color: var(--ae-amber);
-  font-family: var(--ae-face);
-  font-size: 20px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-
-.xp-preview:hover .xp-play,
-.xp-preview:focus-visible .xp-play { opacity: 1; }
+/* the screen is the way in: it brightens under the pointer, no caption needed */
+.xp-preview:hover,
+.xp-preview:focus-visible { box-shadow: 0 0 0 1px var(--ae-line), 0 0 18px rgba(255, 110, 40, 0.28); }
+.xp-preview:hover canvas { filter: brightness(1.12); }
 
 .xp-about {
   margin: 12px 0;

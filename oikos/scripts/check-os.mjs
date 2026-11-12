@@ -607,7 +607,7 @@ if (gl) {
     await page.locator('.xp-taskbtn[data-win="site:apeiron"]').click({ force: true });
     const shown = () => page.evaluate(() => [...document.querySelectorAll('.xp-window:not(.minimized)')].map((w) => w.dataset.win).sort().join(','));
     const before = await shown();
-    await page.locator(`${W('site:apeiron')} .xp-btn`, { hasText: 'Watch it here' }).click({ force: true });
+    await page.locator(`${W('site:apeiron')} .xp-btn`, { hasText: 'Tune In' }).click({ force: true });
     await step(page, 6);
     expect('tuning in folds the windows away', (await shown()) === '');
     // a way out that is not Eject: Start ▸ mIRC

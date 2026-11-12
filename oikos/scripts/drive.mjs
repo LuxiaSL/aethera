@@ -110,8 +110,8 @@ async function phoneTour() {
   await page.touchscreen.tap(p.x, p.y + 30);
   await run(90, 2);
   await key('tap-screen');
-  // Watch it here, on a phone
-  const watch = page.getByRole('button', { name: '▣ Watch it here' });
+  // Tune In, on a phone
+  const watch = page.getByRole('button', { name: 'Tune In' });
   if (await watch.count()) {
     await watch.tap();
     await run(45, 1);
@@ -178,7 +178,7 @@ async function desktopTour() {
   await key('playing');
 
   // tune in: the live page on the glass
-  const watch = page.getByRole('button', { name: '▣ Watch it here' });
+  const watch = page.getByRole('button', { name: 'Tune In' });
   if (await watch.count()) {
     await watch.click();
     await run(45, 1);

@@ -11,7 +11,7 @@
 import type { Site } from '../data';
 import { addressBar, h, menubar, statusbar, taskGroup, toolbar, type TaskItem } from './chrome';
 import * as icons from './icons';
-import { copyAddress, editMenu, favoritesMenu, helpMenu, siteMenu, toolsMenu, viewMenu } from './menus';
+import { copyAddress, editMenu, favoritesMenu, goLabel, helpMenu, siteMenu, viewMenu } from './menus';
 import { RELATED, addressOf, zoneOf, type Shell } from './shell';
 import type { WindowManager, XPWindow } from './wm';
 
@@ -40,7 +40,7 @@ export class Pane {
     const status = statusbar();
     body.append(
       menubar({
-        File: () => [...siteMenu(this.shell, site, true), 'sep', { label: 'Properties', disabled: true }, 'sep', { label: 'Close', run: () => this.win.close() }],
+        File: () => [...siteMenu(this.shell, site, true), 'sep', { label: 'Close', run: () => this.win.close() }],
         Edit: () => editMenu(this.shell, site),
         View: () =>
           viewMenu(this.shell, {
@@ -51,7 +51,6 @@ export class Pane {
             refresh: () => this.refresh(),
           }),
         Favorites: () => favoritesMenu(this.shell),
-        Tools: () => toolsMenu(),
         Help: () => helpMenu(this.shell),
       }),
       tb.el,
@@ -75,10 +74,9 @@ export class Pane {
     hero.append(text);
     content.append(hero);
 
-    const preview = h('button', { class: 'xp-preview', type: 'button', 'aria-label': `Open ${site.title}` });
+    const preview = h('button', { class: 'xp-preview', type: 'button', 'aria-label': goLabel(site) });
     const screen = this.shell.screens.get(site.id);
     if (screen) preview.append(screen.canvas);
-    preview.append(h('span', { class: 'xp-play' }, [`▶  open ${site.title}`]));
     preview.addEventListener('click', (e) => this.shell.open(site, e));
     content.append(preview);
 
@@ -87,37 +85,31 @@ export class Pane {
     if (note) content.append(h('div', { class: 'xp-note' }, [note]));
 
     const actions = h('div', { class: 'xp-actions' });
-    const openBtn = h('button', { class: 'xp-btn default', type: 'button' }, [`Open ${site.title}`]);
+    const openBtn = h('button', { class: 'xp-btn default', type: 'button' }, [goLabel(site)]);
     openBtn.addEventListener('click', (e) => this.shell.open(site, e));
-    const homeBtn = h('button', { class: 'xp-btn', type: 'button' }, ['~ Home directory']);
-    homeBtn.addEventListener('click', () => this.shell.home());
     actions.append(openBtn);
     if (site.tune && this.shell.canTune) {
-      const watch = h('button', { class: 'xp-btn', type: 'button' }, ['▣ Watch it here']);
-      watch.title = 'the live page, on its own screen in the room';
-      watch.addEventListener('click', () => this.shell.tuneIn(site.id));
-      actions.append(watch);
+      const tune = h('button', { class: 'xp-btn', type: 'button' }, ['Tune In']);
+      tune.addEventListener('click', () => this.shell.tuneIn(site.id));
+      actions.append(tune);
     }
     if (site.id === 'irc') {
       const join = h('button', { class: 'xp-btn', type: 'button' }, ['Join #aethera']);
-      join.title = 'sit in the channel, in mIRC';
       join.addEventListener('click', () => this.shell.chat('#aethera'));
       actions.append(join);
     }
-    actions.append(homeBtn);
     content.append(actions);
 
     // ---- tasks ----
     const tapeTasks: TaskItem[] = [
-      { icon: icons.play(), label: `Open ${site.title}`, run: () => this.shell.open(site) },
-      { icon: icons.look(), label: 'Look at its screen', run: () => this.shell.look(site.id) },
+      { icon: icons.globe(), label: goLabel(site), run: () => this.shell.open(site) },
+      { icon: icons.look(), label: 'Show in Room', run: () => this.shell.look(site.id) },
     ];
     if (site.tune && this.shell.canTune) {
-      tapeTasks.splice(1, 0, { icon: icons.tv(), label: 'Watch it on its screen', run: () => this.shell.tuneIn(site.id) });
+      tapeTasks.splice(1, 0, { icon: icons.tv(), label: 'Tune In', run: () => this.shell.tuneIn(site.id) });
     }
-    if (site.id === 'irc') tapeTasks.splice(1, 0, { icon: icons.chat('channel'), label: 'Join #aethera in mIRC', run: () => this.shell.chat('#aethera') });
-    tapeTasks.push({ icon: icons.copy(), label: 'Copy address', run: () => copyAddress(this.shell, site) });
-    tapeTasks.push({ icon: icons.eject(), label: 'Close', run: () => this.win.close() });
+    if (site.id === 'irc') tapeTasks.splice(1, 0, { icon: icons.chat('channel'), label: 'Join #aethera', run: () => this.shell.chat('#aethera') });
+    tapeTasks.push({ icon: icons.copy(), label: 'Copy Address', run: () => copyAddress(this.shell, site) });
 
     const places: TaskItem[] = [{ icon: icons.folderHome(), label: '~', run: () => this.shell.home() }];
     for (const rid of RELATED[site.id] ?? []) {
@@ -157,10 +149,9 @@ export class Pane {
 
   private note(): string | null {
     const s = this.site;
-    if (s.id === 'dreams') return 'Opening dreams wakes the dreamer: a GPU starts up while anyone is watching and goes back to sleep after. The frame here is the last one the chronicle kept.';
-    if (s.id === 'syrinx') return 'Syrinx makes sound once you wake it. The creature here is read from this browser; nobody else sees yours.';
-    if (s.id === 'afterlife') return 'afterlife makes music once you click in. The universe on this screen is the one saved in this browser, if you have visited; nobody else sees yours.';
-    if (s.group === 'wired') return `${s.title} is not on this server; it opens in a new window.`;
+    if (s.id === 'dreams') return 'Going in wakes the dreamer; it sleeps again when everyone leaves. The frame here is the last one the chronicle kept.';
+    if (s.id === 'syrinx') return 'It sings once woken. Yours lives in this browser alone.';
+    if (s.id === 'afterlife') return 'It plays once woken. Yours lives in this browser alone.';
     return null;
   }
 
@@ -173,7 +164,7 @@ export class Pane {
       case 'dreams-api': {
         const d = feeds.dreams.value;
         on = d.known && d.awake;
-        text = !d.known ? 'status unknown' : d.awake ? `awake · frame ${d.frame.toLocaleString('en-US')}${d.viewers ? ` · ${d.viewers} watching` : ''}` : 'asleep';
+        text = !d.known ? 'no answer' : d.awake ? `awake · frame ${d.frame.toLocaleString('en-US')}${d.viewers ? ` · ${d.viewers} watching` : ''}` : 'asleep';
         break;
       }
       case 'chronicle': {

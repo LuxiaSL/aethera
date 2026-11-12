@@ -70,7 +70,7 @@ function wall(at: number): number {
 function ghostMask(nick: string): string {
   const n = bare(nick) || 'anon';
   const r = hash01(n);
-  const isps = ['dialup.wired.net', 'cable.aether.org', 'dsl.lain.jp', 'adsl.nowhere.nu', 'res.navi.co'];
+  const isps = ['dialup.wired.net', 'cable.aether.org', 'dsl.tokyo.jp', 'adsl.nowhere.nu', 'res.home.co'];
   const isp = isps[Math.floor(r * isps.length)] ?? isps[0];
   const a = Math.floor(r * 251) + 2;
   const b = Math.floor(hash01(`${n}.`) * 251) + 2;
@@ -222,20 +222,20 @@ export class Mirc {
         ],
         Tools: () => [
           { label: 'Address Book...', disabled: true },
-          { label: 'Options...', shortcut: 'Alt+O', disabled: true },
+          { label: 'Options...', disabled: true },
         ],
         Commands: () => [
           { label: `Join ${LIVING}`, run: () => this.joinLiving() },
           { label: `Part ${LIVING}`, run: () => this.partLiving(), disabled: !this.link },
           'sep',
-          { label: 'Clear buffer', run: () => this.wins[this.view].log.replaceChildren() },
+          { label: 'Clear Buffer', run: () => this.wins[this.view].log.replaceChildren() },
         ],
         Window: () =>
           (['status', HAUNTED, LIVING] as const)
             .filter((id) => !this.wins[id].tab.hidden)
             .map((id): MenuEntry => ({ label: id === 'status' ? 'Status' : id, checked: this.view === id, run: () => this.show(id) })),
         Help: () => [
-          { label: 'Commands', shortcut: 'F1', run: () => this.help() },
+          { label: 'Commands', run: () => this.help() },
           'sep',
           { label: 'About æthera', run: () => this.shell.about() },
         ],
@@ -554,7 +554,7 @@ export class Mirc {
           h('p', {}, [`Join ${LIVING}, where the living talk.`]),
           h('label', {}, ['Nickname:', nick]),
           h('label', {}, ['Password (optional):', pass]),
-          h('p', { class: 'hint' }, ['A password gives you a tripcode, the same one your blog comments carry. It is never stored.']),
+          h('p', { class: 'hint' }, ['Same tripcode as your blog comments. Never stored.']),
           err,
         ]),
       ]),
@@ -828,7 +828,7 @@ export class Mirc {
   private help(): void {
     const put = (t: string) => this.push(this.view, 'info', t);
     put('* Commands:');
-    put(`*   /join ${LIVING}           join the living (a nick, and a password for a tripcode if you like)`);
+    put(`*   /join ${LIVING}           join the living`);
     put('*   /nick <name>           change your nick');
     put('*   /me <does something>   an action');
     put('*   /whois <nick>          who someone is (their tripcode, if they have one)');

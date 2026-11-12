@@ -144,7 +144,7 @@ export class DreamsScreen extends Screen {
       label = chron.thumb ? 'asleep  ·  last remembered' : 'asleep  ·  wakes when watched';
     } else {
       dot = '#3a3a3a';
-      label = chron.thumb ? 'last remembered' : 'no signal  ·  a stand-in';
+      label = chron.thumb ? 'last remembered' : 'no signal';
     }
     const w = ctx.measureText(label).width + 34;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';

@@ -146,17 +146,9 @@ export class Taskbar {
 
   private barMenu(): MenuEntry[] {
     return [
-      { label: 'Toolbars', disabled: true, submenu: () => [] },
-      'sep',
-      { label: 'Cascade Windows', disabled: true },
-      { label: 'Tile Windows Horizontally', disabled: true },
-      { label: 'Tile Windows Vertically', disabled: true },
       { label: 'Show the Desktop', run: () => this.showDesktop(), disabled: !this.wm.list.some((w) => !w.minimized && !w.opts.dialog) && !this.shown },
       'sep',
-      { label: 'Task Manager', disabled: true },
-      'sep',
       { label: 'Lock the Taskbar', checked: true, disabled: true },
-      { label: 'Properties', disabled: true },
     ];
   }
 
@@ -193,7 +185,7 @@ export class Taskbar {
   }
 
   private buildMenu(): HTMLElement {
-    const m = h('div', { class: 'xp-startmenu', role: 'menu', 'aria-label': 'Start', hidden: '' });
+    const m = h('div', { class: 'xp-startmenu', role: 'menu', 'aria-label': 'æthera', hidden: '' });
     // who's logged in: a picture and a name, nothing to choose
     const head = h('header', { 'aria-hidden': 'true' });
     head.append(h('span', { class: 'avatar', html: icons.markImg(40) }), h('span', {}, ['guest']));
@@ -202,8 +194,8 @@ export class Taskbar {
     // a menu's children must be items, groups or separators: the columns are
     // groups, and the list markup under them is only layout (role=none)
     const cols = h('div', { class: 'cols', role: 'none' });
-    const left = h('ul', { class: 'left', role: 'group', 'aria-label': 'Programs' });
-    const right = h('ul', { class: 'right', role: 'group', 'aria-label': 'Places' });
+    const left = h('ul', { class: 'left', role: 'group', 'aria-label': 'places' });
+    const right = h('ul', { class: 'right', role: 'group', 'aria-label': 'other places' });
     const li = (ul: HTMLElement, el: HTMLElement) => {
       const l = h('li', { role: 'none' });
       l.append(el);
@@ -427,7 +419,7 @@ export class Taskbar {
   }
 
   private shutdownDialog(): void {
-    this.bigDialog('Turn off æthera', [
+    this.bigDialog('Turn Off æthera', [
       { cls: 'standby', icon: icons.standby(), label: 'Stand By', run: () => this.hooks.standby(true) },
       { cls: 'off', icon: icons.power(), label: 'Turn Off', run: () => this.hooks.turnOff() },
       { cls: 'restart', icon: icons.restart(), label: 'Restart', run: () => this.hooks.restart() },

@@ -47,7 +47,7 @@ await shoot('page-phone', '/irc', { width: 390, height: 844 });
 await shoot('room-look', '/oikos?look=irc', desk);
 await shoot('room-pane', '/oikos#irc', desk);
 await shoot('room-tuned', '/oikos#irc', desk, async (page) => {
-  await page.getByRole('button', { name: '▣ Watch it here' }).click();
+  await page.getByRole('button', { name: 'Tune In' }).click();
   await page.waitForTimeout(10000);
 });
 

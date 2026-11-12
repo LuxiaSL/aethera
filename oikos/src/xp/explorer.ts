@@ -11,7 +11,7 @@ import type { Site } from '../data';
 import { addressBar, h, menubar, statusbar, taskGroup, toolbar, type TaskItem } from './chrome';
 import * as icons from './icons';
 import type { MenuEntry } from './menu';
-import { editMenu, favoritesMenu, helpMenu, siteMenu, toolsMenu, viewMenu } from './menus';
+import { editMenu, favoritesMenu, goLabel, helpMenu, siteMenu, viewMenu } from './menus';
 import { zoneOf, type Shell } from './shell';
 import type { WindowManager, XPWindow } from './wm';
 
@@ -51,7 +51,7 @@ export class Explorer {
       search: () => address.input?.focus(),
       folders: () => this.tasks?.toggleAttribute('hidden'),
     });
-    const address = addressBar(icons.folderHome(), '~/æthera', true, (v) => this.go(v));
+    const address = addressBar(icons.folderHome(), '~', true, (v) => this.go(v));
     address.input?.addEventListener('input', () => this.filter(address.input?.value ?? ''));
     this.status = statusbar();
     const sel = () => (this.selected ? this.shell.site(this.selected) ?? null : null);
@@ -66,12 +66,11 @@ export class Explorer {
             status: this.status?.el ?? h('div'),
             views: this.viewItems(),
             refresh: () => {
-              if (address.input) address.input.value = '~/æthera';
+              if (address.input) address.input.value = '~';
               this.filter('');
             },
           }),
         Favorites: () => favoritesMenu(this.shell),
-        Tools: () => toolsMenu(),
         Help: () => helpMenu(this.shell),
       }),
       tb.el,
@@ -103,7 +102,7 @@ export class Explorer {
     group('here', dir.sites.filter((s) => s.group === 'here'));
     group('elsewhere', dir.sites.filter((s) => s.group === 'wired'));
     if (dir.files.length) {
-      content.append(h('h3', { class: 'xp-group-head' }, ['Files']));
+      content.append(h('h3', { class: 'xp-group-head' }, ['files']));
       const grid = h('div', { class: 'xp-tiles' });
       for (const f of dir.files) {
         const ext = f.title.split('.').pop() ?? 'txt';
@@ -121,7 +120,7 @@ export class Explorer {
 
     this.win = this.wm.open({
       id: 'home',
-      title: '~ æthera',
+      title: '~',
       icon: icons.folderHome(),
       body,
       width: Math.round(Math.min(680, Math.max(420, innerWidth * 0.46))),
@@ -156,15 +155,9 @@ export class Explorer {
 
   private fileMenu(): MenuEntry[] {
     const sel = this.selected ? this.shell.site(this.selected) : undefined;
-    const items: MenuEntry[] = sel ? siteMenu(this.shell, sel) : [{ label: 'Play', bold: true, disabled: true }];
+    const items: MenuEntry[] = sel ? siteMenu(this.shell, sel) : [{ label: 'Open', bold: true, disabled: true }];
     return [
       ...items,
-      'sep',
-      { label: 'New', disabled: true, submenu: () => [] },
-      'sep',
-      { label: 'Create Shortcut', disabled: true },
-      { label: 'Delete', disabled: true },
-      { label: 'Rename', disabled: true },
       'sep',
       { label: 'Close', run: () => this.close() },
     ];
@@ -288,16 +281,11 @@ export class Explorer {
     const sel = this.selected ? this.shell.site(this.selected) : undefined;
     const tapeTasks: TaskItem[] = sel
       ? [
-          { icon: icons.play(), label: 'Open', run: () => this.shell.play(sel.id) },
-          { icon: icons.look(), label: 'Look at its screen', run: () => this.shell.look(sel.id) },
-          { icon: icons.globe(), label: `Go to ${sel.title}`, run: () => this.shell.open(sel) },
+          { icon: icons.screen(sel.accent), label: 'Open', run: () => this.shell.play(sel.id) },
+          { icon: icons.look(), label: 'Show in Room', run: () => this.shell.look(sel.id) },
+          { icon: icons.globe(), label: goLabel(sel), run: () => this.shell.open(sel) },
         ]
       : [];
-    const places: TaskItem[] = [
-      { icon: icons.textFile('txt'), label: 'transmissions', href: '/blog' },
-      { icon: icons.textFile('xml'), label: 'feed.xml', href: '/feed.xml' },
-      { icon: icons.textFile('txt'), label: 'llms.txt', href: '/llms.txt' },
-    ];
     const details = h('div', { class: 'xp-details' });
     if (sel) {
       details.append(h('b', {}, [sel.title]));
@@ -310,14 +298,13 @@ export class Explorer {
     }
     this.tasks.replaceChildren(
       ...(tapeTasks.length ? [taskGroup('tasks', tapeTasks, true)] : []),
-      taskGroup('places', places),
       taskGroup('details', details),
     );
   }
 
   private renderStatus(): void {
     const sel = this.selected ? this.shell.site(this.selected) : undefined;
-    const count = this.shell.dir.sites.length + this.shell.dir.files.length;
-    this.status?.set(sel ? `${sel.title} — ${sel.tagline}` : `${count} objects`, sel ? zoneOf(sel) : 'computer');
+    const { sites, files } = this.shell.dir;
+    this.status?.set(sel ? `${sel.title} — ${sel.tagline}` : `${sites.length} places · ${files.length} files`, sel ? zoneOf(sel) : 'computer');
   }
 }

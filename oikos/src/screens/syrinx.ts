@@ -161,7 +161,7 @@ export class SyrinxScreen extends Screen {
     ctx.fillText(body.age, 18, H - 20);
     ctx.textAlign = 'right';
     ctx.fillStyle = '#4b5870';
-    ctx.fillText(body.born ? `${body.nodes.length} nodes · ${body.edges.length} strings` : 'click to wake it', W - 18, H - 20);
+    ctx.fillText(body.born ? `${body.nodes.length} nodes · ${body.edges.length} strings` : '', W - 18, H - 20);
     ctx.textAlign = 'left';
   }
 }

@@ -28,7 +28,7 @@ import { Mirc } from './xp/mirc';
 import * as icons from './xp/icons';
 import { isSheet } from './xp/env';
 import { bindContextMenu, closeMenus, menuOpen, setMenuHost, type MenuEntry } from './xp/menu';
-import { siteMenu } from './xp/menus';
+import { goLabel, siteMenu } from './xp/menus';
 import { Pane } from './xp/pane';
 import type { Shell } from './xp/shell';
 import { Taskbar } from './xp/taskbar';
@@ -204,12 +204,10 @@ function boot(root: HTMLElement): void {
       if (isExternal(site.href)) {
         // synchronously, inside the click, or the popup blocker has it
         window.open(site.href, '_blank', 'noopener');
-        taskbar.balloon(`${site.title} opened`, 'It opened in a new window. The room is still here.');
         return;
       }
       const href = site.href;
       leaving = true;
-      taskbar.balloon(`Opening ${site.title}`, 'tuning in…', undefined, 2000);
       let gone = false;
       const go = () => {
         if (gone) return;
@@ -257,12 +255,12 @@ function boot(root: HTMLElement): void {
           /* a page on another origin: the Eject button is still there */
         }
       });
-      const bar = h('div', { class: 'oikos-tuned', role: 'toolbar', 'aria-label': 'tuned in' });
+      const bar = h('div', { class: 'oikos-tuned', role: 'toolbar', 'aria-label': `${site.title}, tuned in` });
       bar.innerHTML = `${icons.screen(site.accent)}<b></b>`;
       (bar.querySelector('b') as HTMLElement).textContent = site.title;
-      const eject = h('button', { class: 'xp-btn', type: 'button' }, ['◂ room']);
+      const eject = h('button', { class: 'xp-btn', type: 'button' }, ['Tune Out']);
       eject.addEventListener('click', () => tuneOut(true));
-      const full = h('a', { class: 'xp-btn', href: site.href }, ['Open full ↗']);
+      const full = h('a', { class: 'xp-btn', href: site.href }, [goLabel(site)]);
       if (isExternal(site.href)) {
         full.setAttribute('target', '_blank');
         full.setAttribute('rel', 'noopener');
@@ -368,7 +366,6 @@ function boot(root: HTMLElement): void {
         /* fine */
       }
       lastRoute = '';
-      taskbar.balloon('logged off', '', room?.anchor('vcr') ?? undefined);
     },
     restart() {
       try {
@@ -476,7 +473,7 @@ function boot(root: HTMLElement): void {
     explorer.open();
     // the keyboard goes to the tapes, so Enter plays one straight away
     explorer.focusTiles();
-    room?.scroll('~ home');
+    room?.scroll('cd ~');
     if (push) pushRoute('~');
   }
 
@@ -526,7 +523,7 @@ function boot(root: HTMLElement): void {
           else taskbar.showTip(id ? (byId.get(id) ?? null) : null, null, x, y);
         },
         context(alive) {
-          if (!alive) taskbar.balloon('The room went dark', 'The graphics card was reset. The tapes all still play; the room comes back when it does.');
+          if (!alive) taskbar.balloon('the room went dark', 'every place still opens.');
           else taskbar.hideBalloon();
         },
       });
@@ -552,24 +549,15 @@ function boot(root: HTMLElement): void {
     if (id === 'vcr') {
       return [
         { label: 'Open ~', bold: true, run: () => shell.home() },
-        'sep',
-        { label: 'Properties', disabled: true },
       ];
     }
     const site = id ? byId.get(id) : undefined;
     if (site) return siteMenu(shell, site);
     // the empty room is the desktop
     return [
-      { label: 'Arrange Icons By', disabled: true, submenu: () => [] },
+      { label: 'Open ~', bold: true, run: () => shell.home() },
+      'sep',
       { label: 'Refresh', run: () => room?.focus(null) },
-      'sep',
-      { label: 'Paste', disabled: true },
-      { label: 'Paste Shortcut', disabled: true },
-      'sep',
-      { label: 'New', disabled: true, submenu: () => [] },
-      'sep',
-      { label: '~ Home directory', run: () => shell.home() },
-      { label: 'Properties', disabled: true },
     ];
   });
 
@@ -801,7 +789,7 @@ function boot(root: HTMLElement): void {
     }
     if (!room) {
       openHome(false); // the place the visit starts at: not a step of its own
-      taskbar.balloon('no room tonight', 'This browser has no WebGL, so the room is dark. Every place still opens.');
+      taskbar.balloon('no room tonight', 'no WebGL in this browser. every place still opens.');
       return;
     }
     // no welcome balloon: the room is the welcome, and a desktop needs no instructions

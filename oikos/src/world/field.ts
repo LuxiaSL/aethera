@@ -50,7 +50,7 @@ function makeAtlas(): THREE.CanvasTexture {
       ctx.font = '18px ui-monospace, monospace';
       ctx.fillText('C:\\>_', x + 16, y + 34);
     }
-    text(5, ['▶ PLAY'], '#ffffff', '#0a1a7a', 30);
+    text(5, ['VIDEO 1'], '#ffffff', '#0a1a7a', 30);
     text(6, ['æ'], '#f4f1ea', '#000000', 110);
     text(7, ['CLOSE THE WORLD', 'OPEN THE nExT'], '#ff4a4a', '#070000', 18);
   }

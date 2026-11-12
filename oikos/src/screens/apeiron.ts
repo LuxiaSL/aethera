@@ -147,10 +147,6 @@ export class ApeironScreen extends Screen {
     ctx.fillStyle = primary;
     ctx.font = `11px ${MONO}`;
     ctx.fillText(`⌖ ${gen.coordinate}`, 14, H - 12);
-    ctx.fillStyle = dim;
-    ctx.textAlign = 'right';
-    ctx.fillText('␣ generate   F keep   A auto', W - 14, H - 12);
-    ctx.textAlign = 'left';
   }
 
   /** Rotate through the fourth axis, project twice, keep the nearest per cell. */

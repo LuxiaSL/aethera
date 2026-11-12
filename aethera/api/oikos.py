@@ -220,7 +220,7 @@ def render_room(request: Request, session: Session, *, canonical: str = "/oikos"
         request=request,
         name="oikos/viewer.html",
         context={
-            "title": "oikos | æthera",
+            "title": "æthera",
             "canonical_path": canonical,
             "sites": SITES,
             "files": FILES,
