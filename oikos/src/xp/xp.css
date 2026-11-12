@@ -1404,6 +1404,34 @@
   100% { clip-path: inset(0 0 0 0); background: #000; opacity: 1; }
 }
 
+/* switched off: one standby LED in the dark; any key or touch boots it again */
+#oikos .oikos-standby-led {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  z-index: 201;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #c8401e;
+  box-shadow: 0 0 6px 1px rgba(200, 64, 30, 0.55);
+  cursor: pointer;
+  animation: oikos-standby 3.2s ease-in-out infinite;
+}
+#oikos .oikos-standby-led::before {
+  /* a finger-sized target around a pin-sized light */
+  content: '';
+  position: absolute;
+  inset: -18px;
+}
+#oikos .oikos-standby-led:focus-visible { outline: 1px solid var(--ae-amber); outline-offset: 6px; }
+@keyframes oikos-standby {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
 /* a narrow window folds its task pane away, as Explorer's could */
 @container (max-width: 600px) {
   .xp-tasks { display: none; }

@@ -1,10 +1,11 @@
 """
 oikos — the home directory.
 
-A room of screens in the dark, wired to one VCR in the middle. Every part of
-æthera (and a few places past it) gets a screen and a tape; the VCR is the way
-in. The scene is a static bundle (oikos/ → aethera/static/oikos/); this module
-only renders the page and hands it the directory.
+A room of screens in the dark, wired to æthera's own machine in the middle.
+Every part of the site (and a few places past it) gets a screen. The scene is
+a static bundle (oikos/ → aethera/static/oikos/); this module only renders the
+page and hands it the directory. It is served at /oikos, and at / once the
+room is the homepage (see `render_room` and main.py).
 
 The directory is written here, once, rather than in the bundle: the template
 renders it as a plain <nav> for crawlers and for anyone without WebGL, and the
@@ -35,7 +36,7 @@ SITES: list[dict] = [
     {
         "id": "transmissions",
         "title": "transmissions",
-        "href": "/",
+        "href": "/blog",
         "group": "here",
         "kind": "blog",
         "accent": "#f4f1ea",
@@ -203,8 +204,14 @@ def _recent_posts(session: Session, limit: int = 12) -> list[dict]:
     ]
 
 
-@router.get("/oikos", response_class=HTMLResponse)
-def oikos_viewer(request: Request, session: Session = Depends(get_session)):
+def render_room(request: Request, session: Session, *, canonical: str = "/oikos") -> Response:
+    """
+    The room, wherever it's served from (/oikos, or / once it's the homepage).
+
+    `canonical` is the one URL search engines and link cards should credit;
+    while the room is only behind a flag at /, that stays /oikos so the two
+    addresses never compete.
+    """
     # htmx (hx-boost on the blog's pages) swaps only <body>: the room would boot
     # with none of its <head>. Any htmx request for it becomes a real page load.
     if request.headers.get("HX-Request"):
@@ -214,11 +221,17 @@ def oikos_viewer(request: Request, session: Session = Depends(get_session)):
         name="oikos/viewer.html",
         context={
             "title": "oikos | æthera",
+            "canonical_path": canonical,
             "sites": SITES,
             "files": FILES,
             "oikos": {"sites": SITES, "files": FILES, "posts": _recent_posts(session)},
         },
     )
+
+
+@router.get("/oikos", response_class=HTMLResponse)
+def oikos_viewer(request: Request, session: Session = Depends(get_session)):
+    return render_room(request, session)
 
 
 @router.get("/~", include_in_schema=False)

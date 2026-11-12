@@ -18,22 +18,30 @@
 <title>oikos | æthera</title>
 <link rel="icon" type="image/ico" href="/static/favicon.ico">
 
-<meta name="description" content="oikos — æthera's home directory. A room of screens in the dark, wired to one VCR: every part of the site, playing at once.">
-<link rel="canonical" href="https://aetherawi.red/oikos">
+{% set canonical_abs = "https://aetherawi.red" ~ (canonical_path or "/oikos") %}
+<meta name="description" content="æthera's home directory: a room of screens in the dark, every part of the site playing at once.">
+<link rel="canonical" href="{{ canonical_abs }}">
 <meta name="license" content="CC BY 4.0">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="alternate" type="application/rss+xml" title="æthera RSS Feed" href="/feed.xml">
 <link rel="alternate" type="text/plain" title="æthera, for models" href="/llms.txt">
 <meta property="og:title" content="oikos | æthera">
-<meta property="og:description" content="æthera's home directory: a room of screens wired to one VCR, every part of the site playing at once.">
-<meta property="og:url" content="https://aetherawi.red/oikos">
+<meta property="og:description" content="æthera's home directory: a room of screens in the dark, every part of the site playing at once.">
+<meta property="og:url" content="{{ canonical_abs }}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="æthera">
-<meta property="og:image" content="{{ request.base_url }}static/uploads/og-card.png">
+{% set card = "https://aetherawi.red" ~ asset_url('images/home-card.jpg') %}
+{% set card_alt = "A dark room full of old CRT monitors and televisions, cables across the floor, a beige computer glowing on a desk in the middle." %}
+<meta property="og:image" content="{{ card }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ card_alt }}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@slLuxia">
 <meta name="twitter:title" content="oikos | æthera">
-<meta name="twitter:description" content="æthera's home directory: a room of screens wired to one VCR.">
+<meta name="twitter:description" content="æthera's home directory: a room of screens in the dark.">
+<meta name="twitter:image" content="{{ card }}">
+<meta name="twitter:image:alt" content="{{ card_alt }}">
 <meta name="theme-color" content="#000000">
 
 <script type="application/ld+json">
@@ -42,7 +50,7 @@
     "@type": "CollectionPage",
     "name": "oikos",
     "description": "The home directory of æthera: every part of the site in one room.",
-    "url": "https://aetherawi.red/oikos",
+    "url": "{{ canonical_abs }}",
     "hasPart": [
         {% for s in sites if s.href %}{"@type": "WebPage", "name": {{ s.title | tojson }}, "url": {{ (s.href if s.href.startswith("http") else "https://aetherawi.red" ~ s.href) | tojson }}, "description": {{ s.tagline | tojson }}}{% if not loop.last %},{% endif %}
         {% endfor %}
@@ -147,6 +155,10 @@
                 — {{ s.tagline }}
             </li>
             {% endfor %}
+        </ul>
+        <ul class="posts">
+            {% for p in oikos.posts %}<li><a href="{{ p.href }}">{{ p.title }}</a> <time datetime="{{ p.date }}">{{ p.date }}</time></li>
+            {% endfor %}<li><a href="/blog">all transmissions</a></li>
         </ul>
         <ul class="files">
             {% for f in files %}<li><a href="{{ f.href }}">{{ f.title }}</a> — {{ f.about }}</li>{% endfor %}

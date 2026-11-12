@@ -171,6 +171,8 @@ function boot(root: HTMLElement): void {
   }
 
   let room: Room | null = null;
+  /** Turn Off: the page stays, dark, until a key or touch boots it again */
+  let poweredOff = false;
   /** every tape's pane that's open, by tape: as many as you like, as on any desktop */
   const panes = new Map<string, Pane>();
   /** the tape in the VCR (its pane is open, or it's on its way in) */
@@ -325,8 +327,33 @@ function boot(root: HTMLElement): void {
   const taskbar = new Taskbar(root, shell, wm, {
     standby: (on) => setStandby(on),
     turnOff() {
+      // the house really goes dark: no navigation (this page may be / itself),
+      // nothing rendering, polling or holding a socket; one standby LED left on
+      poweredOff = true;
       root.classList.add('off');
-      setTimeout(() => location.assign('/'), reduced ? 50 : 750);
+      setTimeout(() => {
+        tuneOut(true);
+        for (const w of [...wm.list]) w.close();
+        room?.stop();
+        feeds.stop();
+        const led = document.createElement('button');
+        led.type = 'button';
+        led.className = 'oikos-standby-led';
+        led.setAttribute('aria-label', 'Turn on æthera');
+        root.append(led);
+        led.focus({ preventScroll: true });
+        // any touch or key powers it back on: a fresh boot of the same page
+        const on = () => {
+          try {
+            sessionStorage.removeItem('oikos-booted');
+          } catch {
+            /* fine */
+          }
+          location.assign(here());
+        };
+        addEventListener('pointerdown', on, { once: true });
+        addEventListener('keydown', on, { once: true });
+      }, reduced ? 50 : 750);
     },
     logOff() {
       // clear the desk: every window closed, the tape out, the camera home
@@ -717,7 +744,7 @@ function boot(root: HTMLElement): void {
       // a tuned-in page runs its own sockets (/dreams holds /ws/dreams, which
       // keeps the dreamer's GPU awake): a hidden tab lets go of it too
       if (tuned) tuneOut(true);
-    } else if (booted) {
+    } else if (booted && !poweredOff) {
       room?.start();
       feeds.start();
     }

@@ -880,6 +880,11 @@ export class Room {
       };
       return;
     }
+    // ?perf: the live loop's counters, read-only, so a harness can count what
+    // was actually rendered (rAF only says what the display offered)
+    if (new URLSearchParams(location.search).has('perf')) {
+      (window as unknown as { __oikosPerf: unknown }).__oikosPerf = () => ({ ...this.perf, running: this.running });
+    }
     this.lastStep = 0;
     this.ticks = 0;
     this.frameTimes = [];

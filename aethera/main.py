@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 import logging
+import os
 from pathlib import Path
 from sqlmodel import Session
 from contextlib import asynccontextmanager
@@ -113,10 +114,55 @@ def blog(request: Request, session: Session = Depends(get_session)):
     return _blog(request, session, canonical=f"{request.base_url}blog")
 
 
+#: what / shows when nothing asks otherwise: "blog" until the flip, then "room".
+#: The code default is the source of truth (a `docker restart` doesn't re-read
+#: the env file); AETHERA_HOME is an override for local runs and emergencies.
+HOME_DEFAULT: str = os.environ.get("AETHERA_HOME", "blog").strip().lower()
+HOME_COOKIE = "aethera_home"
+#: ?home= values that mean the room; "blog" means the blog and clears the cookie
+ROOM_NAMES = frozenset({"room", "oikos"})
+
+
+def _home_choice(request: Request) -> tuple[str, str | None]:
+    """
+    Which page / serves for this request, and what to do with the cookie.
+
+    Returns (page, cookie): page is "room" or "blog"; cookie is "set" to
+    remember the room, "clear" to forget it, or None to leave it alone.
+    """
+    asked = (request.query_params.get("home") or "").strip().lower()
+    if asked in ROOM_NAMES:
+        return "room", "set"
+    if asked == "blog":
+        return "blog", "clear"
+    if request.cookies.get(HOME_COOKIE) == "room":
+        return "room", None
+    return ("room" if HOME_DEFAULT in ROOM_NAMES else "blog"), None
+
+
 @app.get("/")
 def home(request: Request, session: Session = Depends(get_session)):
-    """The homepage. For now, still the blog; it becomes the room (oikos)."""
-    return _blog(request, session, canonical=None)
+    """
+    The homepage: the blog today, the room (oikos) after the flip.
+
+    Until then, `/?home=room` shows the room here and remembers it for 30 days
+    in a cookie; `/?home=blog` forgets it. While flagged, the room keeps
+    /oikos as its canonical, so the two addresses never compete.
+    """
+    page, cookie = _home_choice(request)
+    if page == "room":
+        response = oikos.render_room(request, session, canonical="/oikos")
+    else:
+        response = _blog(request, session, canonical=None)
+    if cookie == "set":
+        response.set_cookie(
+            HOME_COOKIE, "room", max_age=30 * 24 * 3600,
+            httponly=True, secure=request.url.scheme == "https", samesite="lax",
+        )
+    elif cookie == "clear":
+        response.delete_cookie(HOME_COOKIE)
+    response.headers["Vary"] = "Cookie"
+    return response
 
 
 @app.get("/healthz")
