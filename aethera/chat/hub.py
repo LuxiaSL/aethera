@@ -62,7 +62,7 @@ NICK_RE = re.compile(r"^[A-Za-z\[\]\\`_^{|}][A-Za-z0-9\[\]\\`_^{|}\-]{0,15}$")
 #: services' names, and the house's own: only an op's tripcode may wear these
 RESERVED = frozenset({
     "chanserv", "nickserv", "operserv", "memoserv", "hostserv", "global",
-    "server", "services", "ircop", "oper", "luxia", "celeste",
+    "server", "services", "ircop", "oper", "luxia",
 })
 
 #: what would let one line pretend to be another, or two

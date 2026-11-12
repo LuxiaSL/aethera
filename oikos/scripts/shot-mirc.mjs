@@ -48,7 +48,7 @@ const input = page.locator('.mirc-input');
 await input.click();
 await input.fill('hello? is anyone real here');
 await input.press('Enter');
-await input.fill('/nick celeste');
+await input.fill('/nick luxia');
 await input.press('Enter');
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${out}/spoke.png` });

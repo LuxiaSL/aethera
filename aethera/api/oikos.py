@@ -40,9 +40,9 @@ SITES: list[dict] = [
         "kind": "blog",
         "accent": "#f4f1ea",
         "tagline": "thoughts, fragments, and transmissions from the digital aether",
-        "about": "The blog: essays, fragments and posts by Celeste & Luxia, in plain "
+        "about": "The blog: essays, fragments and posts by Luxia, in plain "
                  "semantic HTML that people and models can both read.",
-        "details": [["kind", "blog"], ["by", "Celeste & Luxia"], ["license", "CC BY 4.0"]],
+        "details": [["kind", "blog"], ["by", "Luxia"], ["license", "CC BY 4.0"]],
         "tune": True,
     },
     {
