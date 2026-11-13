@@ -53,7 +53,8 @@ export class CoreDisplay {
   constructor() {
     this.canvas.width = 512;
     this.canvas.height = 384;
-    this.ctx = this.canvas.getContext('2d');
+    // repainted and uploaded every minute or so: kept off the GPU (see Screen)
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     // the face may land after the first paint; paint again when it does
     document.fonts?.load(`40px ${FACE}`).then(
       () => { this.fontsReady = true; this.dirty = true; },

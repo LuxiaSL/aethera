@@ -70,6 +70,8 @@ export abstract class Screen {
   protected idleFps = 0;
   /** set by draw(): whether the idle rate may apply to the next frames */
   protected settled = false;
+  /** whether this frame is being looked at: focused in the room, or open in a pane */
+  protected attended = false;
   private acc = 1; // draw on the first tick
   private since = 0; // seconds since the last draw, handed to draw()
   private lastKey: readonly unknown[] | null = null;
@@ -85,7 +87,12 @@ export abstract class Screen {
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
-    const ctx = this.canvas.getContext('2d', { alpha: false });
+    // willReadFrequently keeps the canvas in plain memory, off the GPU. A screen
+    // is ~100 tiny fillText/fillRect calls a frame and then an upload to WebGL:
+    // on an accelerated canvas (Firefox's remote canvas, notably) each call is a
+    // message to another process and each upload a synchronous readback, which
+    // a profile on an AMD iGPU showed as half of every frame spent waiting.
+    const ctx = this.canvas.getContext('2d', { alpha: false, willReadFrequently: true });
     if (!ctx) throw new Error('oikos: no 2d context');
     this.ctx = ctx;
   }
@@ -110,6 +117,7 @@ export abstract class Screen {
     this.acc = this.acc - period > period ? 0 : this.acc - period;
     const step = this.since;
     this.since = 0;
+    this.attended = focused || watched;
     this.keyed = false;
     const drawn = this.draw(t, step);
     // a frame that wasn't keyed moved: whatever is keyed next must repaint

@@ -243,7 +243,8 @@ export class Terminal {
     }
 
     const off = this.off as HTMLCanvasElement | OffscreenCanvas;
-    const octx = off.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+    // putImageData every frame: a canvas in plain memory takes it without a GPU upload
+    const octx = off.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
     if (!octx || !this.img) return;
     octx.putImageData(this.img, 0, 0);
     const ctx = this.ctx;

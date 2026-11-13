@@ -35,7 +35,8 @@ export class DreamsScreen extends Screen {
     this.idleFps = 5;
     this.frame.width = FW;
     this.frame.height = FH;
-    const fctx = this.frame.getContext('2d');
+    // in plain memory like the screen it's drawn into (see Screen): no GPU round trip per drawImage
+    const fctx = this.frame.getContext('2d', { willReadFrequently: true });
     if (!fctx) throw new Error('oikos: no 2d context');
     this.fctx = fctx;
   }

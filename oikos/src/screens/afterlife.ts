@@ -22,6 +22,12 @@ import { H, Screen, W, type ScreenEnv } from './screen';
 
 /** Focused screens draw at 30 fps; the universe doesn't need to keep up. */
 const GENS_PER_SEC = 15;
+/**
+ * In the corner of your eye it runs slower: each generation is a full step of
+ * the engine (the largest single cost in a profile of the room), and a small
+ * screen across the room reads the same at 8 a second.
+ */
+const GENS_UNWATCHED = 8;
 /** a small world: 5× the view, not life.py's floor */
 const SMALL_WORLD = { minH: 0, minW: 0 };
 
@@ -29,7 +35,7 @@ export class AfterlifeScreen extends Screen {
   private term: Terminal;
   private life: InfiniteLife | null = null;
   private seenSave: UniverseInfo | null | undefined = undefined;
-  private genAcc = 1 / GENS_PER_SEC; // step on the first draw
+  private genAcc = 1; // step on the first draw
 
   constructor(site: Site, env: ScreenEnv) {
     super(site, env);
@@ -57,7 +63,7 @@ export class AfterlifeScreen extends Screen {
     if (!life) return false;
     // one generation at most per draw; the remainder carries (so 30 fps
     // gives 15/s, not 10), but a slow or hidden spell is dropped, not replayed
-    const period = 1 / GENS_PER_SEC;
+    const period = 1 / (this.attended ? GENS_PER_SEC : GENS_UNWATCHED);
     this.genAcc += dt;
     if (this.genAcc < period) return false; // same generation, same picture
     this.genAcc = Math.min(this.genAcc - period, period);
