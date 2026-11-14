@@ -41,6 +41,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from .frame_cache import FrameCache
 from .presence import ViewerPresenceTracker
+from .stats import get_stats
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,10 @@ class _ViewerChannel:
         self.needs_keyframe = needs_keyframe
         self.overflows: deque = deque()
         self.closed = False
+        # for the viewer-session stats (stats.py)
+        self.bytes_sent = 0
+        self.frames_sent = 0
+        self.overflow_total = 0
         self.task = asyncio.create_task(self._run())
 
     def offer_frame(self, meta_text: str, frame_bytes: bytes, is_keyframe: bool) -> None:
@@ -105,6 +110,7 @@ class _ViewerChannel:
             except asyncio.QueueEmpty:
                 break
         self.needs_keyframe = True
+        self.overflow_total += 1
         now = time.monotonic()
         self.overflows.append(now)
         while self.overflows and now - self.overflows[0] > VIEWER_OVERFLOW_WINDOW:
@@ -119,8 +125,11 @@ class _ViewerChannel:
             while True:
                 kind, text, data = await self.queue.get()
                 await asyncio.wait_for(self.ws.send_text(text), timeout=VIEWER_SEND_TIMEOUT)
+                self.bytes_sent += len(text)
                 if kind == "frame":
                     await asyncio.wait_for(self.ws.send_bytes(data), timeout=VIEWER_SEND_TIMEOUT)
+                    self.bytes_sent += len(data)
+                    self.frames_sent += 1
         except asyncio.CancelledError:
             pass
         except Exception as e:  # timeout, closed socket, network error
@@ -251,6 +260,10 @@ class DreamWebSocketHub:
                 pass
             return False
 
+        client = getattr(websocket, "client", None)
+        headers = getattr(websocket, "headers", None) or {}
+        get_stats().session_started(websocket, getattr(client, "host", None), headers.get("user-agent"), live)
+
         # Track presence (may trigger GPU start)
         await self.presence.on_viewer_connect(websocket)
 
@@ -268,19 +281,22 @@ class DreamWebSocketHub:
             channel.offer_frame(json.dumps(meta_msg), bytes([MSG_FRAME]) + self._last_keyframe_nal, True)
         return True
 
-    async def disconnect_viewer(self, websocket: WebSocket) -> None:
-        """Handle viewer disconnection (idempotent)."""
+    async def disconnect_viewer(self, websocket: WebSocket, close_code: Optional[int] = None,
+                                close_reason: Optional[str] = None, ended_by: str = "client") -> None:
+        """Handle viewer disconnection (idempotent). The code/reason/ended_by go to the stats."""
         async with self._lock:
             channel = self._channels.pop(websocket, None)
             self._viewers.discard(websocket)
 
         if channel is not None:
             channel.stop()
+            get_stats().session_ended(websocket, channel.bytes_sent, channel.frames_sent,
+                                      channel.overflow_total, close_code, close_reason, ended_by)
             await self.presence.on_viewer_disconnect(websocket)
 
     async def _drop_viewer(self, websocket: WebSocket, code: int, reason: str) -> None:
         """Remove a viewer and close its socket, so its page reconnects."""
-        await self.disconnect_viewer(websocket)
+        await self.disconnect_viewer(websocket, code, reason, "server")
         try:
             await websocket.close(code=code, reason=reason)
         except Exception:

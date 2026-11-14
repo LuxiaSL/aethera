@@ -18,6 +18,7 @@ from aethera.irc.database import init_irc_db
 from aethera.utils.security import SecurityHeadersMiddleware
 from aethera.utils.static_assets import CachedStaticFiles, SelectiveGZipMiddleware
 from aethera.utils.templates import templates
+from aethera.dreams.stats import PageViewMiddleware
 
 
 @asynccontextmanager
@@ -39,8 +40,27 @@ async def lifespan(app: FastAPI):
             "Chronicle init failed (continuing without)", exc_info=True
         )
 
+    # Viewer stats for /dreams (dreams/stats.py): a sample a minute, kept on
+    # the data volume so they survive deploys. Must never block startup.
+    try:
+        from aethera.dreams.stats import get_stats
+        from aethera.api.dreams import get_hub
+
+        def _probe():
+            hub = get_hub()
+            return (hub.viewer_count, hub.stream_live, hub.gpu_connected,
+                    hub.frame_cache.total_frames_received)
+        get_stats().start(_probe)
+    except Exception:
+        logging.getLogger(__name__).warning("Dreams stats init failed (continuing without)", exc_info=True)
+
     yield
     # Clean up resources on shutdown
+    try:
+        from aethera.dreams.stats import get_stats
+        await get_stats().stop()
+    except Exception:
+        pass
     try:
         from aethera.dreams.chronicle import get_chronicle_store
         get_chronicle_store().stop_retention_task()
@@ -55,6 +75,7 @@ app = FastAPI(lifespan=lifespan)
 # Add middleware
 app.add_middleware(SecurityHeadersMiddleware)  # Security headers should be first
 app.add_middleware(SelectiveGZipMiddleware, minimum_size=1000)  # not media/fonts; level 6
+app.add_middleware(PageViewMiddleware)  # counts views of /, /dreams, /dreams/chronicle (dreams/stats.py)
 
 # Mount static files
 static_path = Path(__file__).parent / "static"

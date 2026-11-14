@@ -665,6 +665,7 @@ async def dreams_websocket(websocket: WebSocket):
     - Binary frame data (0x01 + WebP bytes)
     """
     hub = get_hub()
+    close_code, close_reason, ended_by = None, None, "client"
 
     try:
         if not await hub.connect_viewer(websocket):
@@ -675,14 +676,17 @@ async def dreams_websocket(websocket: WebSocket):
                 # Handle text messages (JSON)
                 data = await websocket.receive_text()
                 await hub.handle_viewer_message(websocket, data)
-            except WebSocketDisconnect:
+            except WebSocketDisconnect as e:
+                # e.g. 1000 "hidden" (tab out of sight), 1001 (page left)
+                close_code, close_reason = e.code, getattr(e, "reason", None)
                 break
-    
+
     except Exception as e:
         logger.error(f"Viewer WebSocket error: {e}")
-    
+        ended_by = "error"
+
     finally:
-        await hub.disconnect_viewer(websocket)
+        await hub.disconnect_viewer(websocket, close_code, close_reason, ended_by)
 
 
 def verify_gpu_token(auth_header: str | None) -> bool:
