@@ -145,6 +145,42 @@ def unpack_f16(blob: Optional[bytes]) -> Optional[list[float]]:
     return [round(v, 4) for v in struct.unpack(f"<{len(blob) // 2}e", blob)]
 
 
+# The write-ahead log is only reset when a checkpoint finds no reader in the
+# way, and it never shrinks on its own: under a continuous dream it reached
+# 369 MB beside a 510 MB database (2026-11-14). Each connection caps what a
+# reset leaves on disk; the retention sweep also truncates it (wal_truncate).
+WAL_SIZE_LIMIT_BYTES = 64 * 1024 * 1024
+
+
+def limit_wal(engine) -> None:
+    """Cap the WAL file a checkpoint leaves behind, on every connection."""
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _on_connect(dbapi_conn, _record):  # pragma: no cover - exercised via engine
+        try:
+            cur = dbapi_conn.cursor()
+            cur.execute(f"PRAGMA journal_size_limit={WAL_SIZE_LIMIT_BYTES}")
+            cur.close()
+        except Exception:
+            logger.debug("journal_size_limit not set", exc_info=True)
+
+
+def wal_truncate(engine) -> dict:
+    """
+    Checkpoint the whole WAL into the database and truncate it to zero bytes.
+    Waits (busy timeout) for readers to move off old snapshots; returns
+    sqlite's (busy, log_frames, checkpointed_frames). Never raises.
+    """
+    try:
+        with engine.connect() as conn:
+            busy, log, done = conn.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)").one()
+        return {"busy": int(busy), "log_frames": int(log), "checkpointed": int(done)}
+    except Exception as e:
+        logger.warning(f"Chronicle WAL checkpoint failed: {e}")
+        return {"busy": -1, "log_frames": -1, "checkpointed": -1}
+
+
 def get_chronicle_engine():
     """Get or create the chronicle database engine singleton."""
     global _ENGINE
@@ -158,6 +194,7 @@ def get_chronicle_engine():
             CHRONICLE_DATABASE_URL,
             connect_args={"check_same_thread": False, "timeout": 30},
         )
+        limit_wal(_ENGINE)
         logger.info(f"Chronicle database engine created: {CHRONICLE_DATABASE_URL}")
     return _ENGINE
 

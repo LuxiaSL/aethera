@@ -221,6 +221,11 @@ class ChronicleStore:
                 raise
             except Exception:
                 logger.warning("Chronicle compaction failed", exc_info=True)
+            # fold the write-ahead log back in and truncate it (it never shrinks
+            # by itself; see models.WAL_SIZE_LIMIT_BYTES)
+            ck = await asyncio.to_thread(models.wal_truncate, get_chronicle_engine())
+            if ck["busy"]:
+                logger.info(f"Chronicle WAL checkpoint incomplete (readers busy): {ck}")
             await asyncio.sleep(RETENTION_SWEEP_INTERVAL_S)
 
     def _compact_sync(self) -> dict[str, Any]:

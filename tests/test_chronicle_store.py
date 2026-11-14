@@ -261,3 +261,35 @@ def test_failed_vacuum_is_retried_next_pass(chronicle_db, monkeypatch):
         store._compact_sync()
     result = store._compact_sync()
     assert result["converted"] == 0 and result["vacuumed"], "the pending VACUUM runs on the next pass"
+
+
+def test_wal_truncate_folds_the_log_back_and_empties_it(chronicle_db, tmp_path):
+    """The WAL never shrinks on its own (it reached 369 MB live); the sweep's
+    TRUNCATE checkpoint must empty it without losing a row."""
+    from sqlalchemy import text as sql_text
+    wal = tmp_path / "chronicle.sqlite-wal"
+    with chronicle_db.begin() as conn:
+        conn.execute(sql_text("CREATE TABLE IF NOT EXISTS t (x BLOB)"))
+        conn.execute(sql_text("PRAGMA wal_autocheckpoint=0"))  # keep everything in the log
+    for _ in range(20):
+        with chronicle_db.begin() as conn:
+            conn.execute(sql_text("INSERT INTO t VALUES (randomblob(50000))"))
+    assert wal.stat().st_size > 500_000
+    result = models.wal_truncate(chronicle_db)
+    assert result["busy"] == 0 and result["checkpointed"] == result["log_frames"]
+    assert wal.stat().st_size == 0
+    with chronicle_db.connect() as conn:
+        assert conn.execute(sql_text("SELECT count(*) FROM t")).scalar() == 20
+
+
+def test_every_connection_caps_the_wal(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'c.sqlite'}")
+    models.limit_wal(engine)
+    with engine.connect() as conn:
+        limit = conn.exec_driver_sql("PRAGMA journal_size_limit").scalar()
+    assert limit == models.WAL_SIZE_LIMIT_BYTES
+
+
+def test_wal_truncate_never_raises(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'missing' / 'x.sqlite'}")
+    assert models.wal_truncate(engine)["busy"] == -1
