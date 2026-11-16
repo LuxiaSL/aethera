@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 from aethera.models.base import get_session
+from aethera.utils.cards import card_path
 from aethera.models.models import Post
 
 router = APIRouter(tags=["seo"])
@@ -175,6 +176,7 @@ def oembed(request: Request, url: str, format: str = "json", session: Session = 
                 "type": "rich",
                 "title": post.title,
                 "author_name": post.author,
+                "thumbnail_url": f"{base_url}/{card_path(post)}",
                 "html": f'<blockquote><a href="{base_url}/posts/{post.slug}">{post.title}</a> — {post.excerpt or ""}</blockquote>',
                 "width": 600,
                 "height": 200,

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from sqlmodel import Session, select
 from typing import List, Optional
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -12,8 +13,11 @@ from pydantic import BaseModel
 from aethera.models.base import get_session
 from aethera.models.models import Post, Comment, SlugRedirect
 from aethera.utils.markdown import render_markdown
+from aethera.utils.cards import card_for
 from aethera.utils.templates import templates
 from aethera.api.comments import compute_backlinks_with_cross_post
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["posts"])
 
@@ -238,6 +242,29 @@ def get_post(request: Request, slug: str, session: Session = Depends(get_session
             "title": post.title
         }
     )
+
+
+@router.get("/posts/{slug}/card.jpg", include_in_schema=False)
+def get_post_card(slug: str, session: Session = Depends(get_session)):
+    """
+    The post's link card: what it unfurls into when shared (see utils/cards.py).
+
+    Drawn on first request and kept in memory. The page links it with a
+    ?v= of everything drawn on it, so a day's caching is safe: a retitled
+    post links a new URL.
+    """
+    post = session.exec(select(Post).where(Post.slug == slug, Post.published == True)).first()
+    if not post:
+        target_slug = resolve_redirect(slug, session)
+        if target_slug:
+            return RedirectResponse(url=f"/posts/{target_slug}/card.jpg", status_code=301)
+        raise HTTPException(status_code=404, detail="Post not found")
+    try:
+        data = card_for(post)
+    except Exception:  # a broken card must not break sharing: fall back to the site's
+        logger.exception("card for %s failed; sending the site card", slug)
+        return RedirectResponse(url="/static/uploads/og-card.png", status_code=302)
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/posts/{slug}/body", response_class=HTMLResponse)

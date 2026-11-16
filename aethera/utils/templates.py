@@ -16,6 +16,8 @@ def utc_now():
 templates.env.globals["now"] = utc_now
 
 # "/static/<path>?v=<content hash>": served immutable, so it must change when the file does
+from aethera.utils.cards import card_path
 from aethera.utils.static_assets import asset_url  # noqa: E402
 
 templates.env.globals["asset_url"] = asset_url
+templates.env.globals["card_path"] = card_path
