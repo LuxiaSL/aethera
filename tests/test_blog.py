@@ -38,3 +38,13 @@ def test_home_can_still_show_the_blog(client: TestClient, session):
     _post(session, "first")
     session.commit()
     assert 'href="/posts/first"' in client.get("/?home=blog").text
+
+
+def test_the_blog_header_leads_to_the_blog(client: TestClient, session):
+    """Someone who arrived on a post and clicks the header should land on the
+    blog, not in the room (/), a place they may never have seen."""
+    _post(session, "first")
+    session.commit()
+    for path in ("/blog", "/posts/first"):
+        html = client.get(path).text
+        assert 'href="/blog" class="site-logo"' in html, path
